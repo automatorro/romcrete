@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Paleta Romcrete: gri de beton cu accent portocaliu de șantier. */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-concrete-50: #f8f8f7;
+  --color-concrete-100: #f1f1ef;
+  --color-concrete-200: #e3e3e0;
+  --color-concrete-300: #cdcdc8;
+  --color-concrete-500: #7b7b74;
+  --color-concrete-700: #45453f;
+  --color-concrete-900: #22221f;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-concrete-50);
+  color: var(--color-concrete-900);
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-concrete-200 bg-white shadow-sm;
+  }
+
+  .label {
+    @apply mb-1 block text-sm font-medium text-concrete-700;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-concrete-300 bg-white px-3 py-2 text-sm text-concrete-900
+      placeholder:text-concrete-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  /* Variantele se folosesc împreună cu .btn: class="btn btn-primary". */
+  .btn-primary {
+    @apply bg-brand-600 text-white hover:bg-brand-700;
+  }
+
+  .btn-secondary {
+    @apply border border-concrete-300 bg-white text-concrete-700 hover:bg-concrete-100;
+  }
+
+  .btn-ghost {
+    @apply text-concrete-700 hover:bg-concrete-100;
+  }
+
+  .btn-danger {
+    @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+
+  .table-head {
+    @apply px-4 py-3 text-left text-xs font-semibold tracking-wide text-concrete-500 uppercase;
+  }
+
+  .table-cell {
+    @apply px-4 py-3 text-sm text-concrete-900;
+  }
+}
+
+/* Pagina de printare / export PDF: fără interfață, doar documentul. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
 }

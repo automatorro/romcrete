@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Romcrete
 
-## Getting Started
+Aplicație web de **ofertare și devize** pentru firme de betoane și construcții:
+catalog de produse și servicii, oferte numerotate automat, calcul de TVA și
+discounturi, export PDF pentru client.
 
-First, run the development server:
+Stack: **Next.js 16** (App Router, Server Actions) · **TypeScript** ·
+**Tailwind CSS v4** · **Supabase** (Postgres + Auth, cu Row Level Security).
+
+## Ce face, concret
+
+- **Cont și firmă** — înregistrare pe email/parolă, apoi configurarea datelor firmei
+  (CUI, adresă, IBAN, cotă TVA implicită, condiții comerciale).
+- **Clienți** — listă cu căutare după nume, CUI sau oraș; datele se preiau automat pe ofertă.
+- **Catalog** — produse și servicii cu unitate de măsură, preț și cotă TVA proprie.
+  La prima configurare se populează un catalog implicit cu clase de beton, șape, mortar,
+  transport și pompă de beton.
+- **Oferte** — număr generat atomic în baza de date (`OF-2026-0001`, serie per firmă și an),
+  linii din catalog sau linii libere, discount pe linie și pe ofertă, stări
+  (ciornă / trimisă / acceptată / respinsă / expirată), duplicare.
+- **PDF** — pagină de tipărire format A4 cu antetul firmei, datele clientului, tabelul
+  de linii, totalurile și zona de semnături. Se salvează ca PDF din dialogul de tipărire
+  al browserului.
+
+## Punere în funcțiune
+
+### 1. Proiect Supabase
+
+Creează un proiect pe [supabase.com](https://supabase.com), apoi rulează în **SQL Editor**,
+în ordine:
+
+1. `supabase/migrations/0001_init.sql` — tabelele, view-ul de totaluri, funcțiile și politicile RLS
+2. `supabase/migrations/0002_seed_catalog.sql` — funcția care populează catalogul implicit
+
+Alternativ, cu [Supabase CLI](https://supabase.com/docs/guides/cli):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+supabase link --project-ref <project-ref>
+supabase db push
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+În **Authentication → URL Configuration**, setează `Site URL` la adresa aplicației și
+adaugă în template-ul de confirmare linkul:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Pentru dezvoltare poți dezactiva confirmarea pe email din **Authentication → Providers → Email**.
 
-## Learn More
+### 2. Variabile de mediu
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cp .env.example .env.local
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Completează `NEXT_PUBLIC_SUPABASE_URL` și `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+din **Project Settings → API**.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Rulare
 
-## Deploy on Vercel
+```bash
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Aplicația pornește pe <http://localhost:3000>. Creezi cont, completezi datele firmei,
+adaugi un client și emiți prima ofertă.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Structura proiectului
+
+```
+src/
+├─ app/
+│  ├─ (auth)/            autentificare: login, înregistrare, acțiuni de sesiune
+│  ├─ (app)/             zona privată: oferte, clienți, catalog, setări
+│  ├─ auth/confirm/      ținta linkului de confirmare pe email
+│  ├─ onboarding/        configurarea firmei la primul login
+│  ├─ print/oferta/[id]/ documentul A4 gata de tipărit / salvat ca PDF
+│  └─ page.tsx           pagina publică de intrare
+├─ components/           bucăți de interfață reutilizate
+├─ lib/
+│  ├─ auth.ts            stratul de acces: cine e utilizatorul, din ce firmă face parte
+│  ├─ supabase/          clienții Supabase pentru server și browser
+│  ├─ totals.ts          calculul valorilor, TVA-ului și formatarea în format românesc
+│  ├─ types.ts           tipurile rândurilor din baza de date
+│  └─ validation.ts      schemele zod folosite de Server Actions
+└─ proxy.ts              reîmprospătarea sesiunii și protecția rutelor
+```
+
+## Model de date
+
+| Tabel | Rol |
+| --- | --- |
+| `organizations` | firma: date de facturare, cotă TVA implicită, condiții comerciale |
+| `memberships` | legătura utilizator ↔ firmă, cu rol (`owner`, `admin`, `agent`) |
+| `clients` | clienții firmei |
+| `catalog_items` | produse și servicii cu preț, UM și cotă TVA |
+| `quotes` | oferta: număr, client, stare, date, discount pe total |
+| `quote_items` | liniile ofertei, cu prețul înghețat la momentul adăugării |
+| `quote_counters` | contorul de numerotare, per firmă și an |
+| `quote_totals` | view cu totalurile calculate, folosit în listă |
+
+Toate tabelele au **RLS activ**: accesul se face exclusiv prin apartenența la organizație,
+verificată de funcția `public.is_member(uuid)`. Excepția e organizația proaspăt creată —
+până la adăugarea primului membru ea rămâne vizibilă prin `created_by`, altfel onboarding-ul
+s-ar bloca imediat după inserare.
+
+## Verificarea schemei
+
+Schema are un set de verificări care rulează pe o bază PostgreSQL locală, peste un stub minimal
+al schemei `auth` din Supabase:
+
+```bash
+npm run db:test
+```
+
+Baza `romcrete_test` este recreată de la zero la fiecare rulare. Se verifică numerotarea
+ofertelor, totalurile cu discount, protecția clienților care au oferte emise și izolarea
+completă a datelor între două firme diferite.
+
+## Calculul valorilor
+
+Regulile sunt într-un singur loc, `src/lib/totals.ts`, și sunt folosite identic în interfață
+și în documentul tipărit:
+
+- valoare linie = `cantitate × preț unitar × (1 − discount linie)`
+- discountul pe ofertă se aplică proporțional și asupra TVA-ului, ca baza de impozitare
+  și TVA-ul să rămână consistente
+- rotunjire la 2 zecimale la fiecare pas, formatare în `ro-RO`
+
+## Deploy
+
+Proiectul merge direct pe [Vercel](https://vercel.com): importă repository-ul, adaugă cele
+două variabile de mediu și actualizează `Site URL` în Supabase cu domeniul de producție.
+
+## Comenzi
+
+```bash
+npm run dev     # dezvoltare
+npm run build   # build de producție
+npm run start   # rulează build-ul
+npm run lint    # ESLint
+npm run db:test # verificările pe schema de bază de date
+```
