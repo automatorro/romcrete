@@ -9,8 +9,8 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-concrete-900">Setări firmă</h1>
-        <p className="mt-1 text-sm text-concrete-500">
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Setări firmă</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Datele apar în antetul fiecărei oferte tipărite. Rolul tău: {role}.
         </p>
       </header>

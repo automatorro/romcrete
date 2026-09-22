@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Logo } from "@/components/logo";
 import { PrintButton } from "@/components/print-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +28,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
   const client = quote.clients;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8 text-concrete-900">
+    <div className="mx-auto max-w-3xl px-6 py-8 text-neutral-900">
       <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link href={`/oferte/${quote.id}`} className="text-sm text-brand-700 hover:underline">
           ← Înapoi la ofertă
@@ -35,10 +36,11 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
         <PrintButton label="Tipărește / Salvează ca PDF" />
       </div>
 
-      <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-concrete-900 pb-6">
+      <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-neutral-900 pb-6">
         <div>
+          <Logo className="mb-2 h-9 w-auto" />
           <p className="text-xl font-bold tracking-tight">{organization.name}</p>
-          <div className="mt-1 space-y-0.5 text-xs text-concrete-700">
+          <div className="mt-1 space-y-0.5 text-xs text-neutral-700">
             {organization.cui ? <p>CUI: {organization.cui}</p> : null}
             {organization.reg_com ? <p>Reg. Com.: {organization.reg_com}</p> : null}
             {organization.address ? (
@@ -62,18 +64,18 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
         <div className="text-right">
           <p className="text-lg font-bold tracking-tight">OFERTĂ</p>
           <p className="text-sm font-medium">{quote.number}</p>
-          <p className="mt-1 text-xs text-concrete-700">Emisă: {formatDate(quote.issue_date)}</p>
+          <p className="mt-1 text-xs text-neutral-700">Emisă: {formatDate(quote.issue_date)}</p>
           {quote.valid_until ? (
-            <p className="text-xs text-concrete-700">Valabilă până: {formatDate(quote.valid_until)}</p>
+            <p className="text-xs text-neutral-700">Valabilă până: {formatDate(quote.valid_until)}</p>
           ) : null}
         </div>
       </header>
 
       <section className="mt-6 grid gap-6 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-concrete-500 uppercase">Client</p>
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Client</p>
           <p className="mt-1 font-medium">{client?.name ?? "—"}</p>
-          <div className="mt-1 space-y-0.5 text-xs text-concrete-700">
+          <div className="mt-1 space-y-0.5 text-xs text-neutral-700">
             {client?.cui ? <p>CUI: {client.cui}</p> : null}
             {client?.address ? (
               <p>{[client.address, client.city, client.county].filter(Boolean).join(", ")}</p>
@@ -86,10 +88,10 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
 
         {quote.title || quote.site_address ? (
           <div>
-            <p className="text-xs font-semibold tracking-wide text-concrete-500 uppercase">Lucrare</p>
+            <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Lucrare</p>
             {quote.title ? <p className="mt-1 font-medium">{quote.title}</p> : null}
             {quote.site_address ? (
-              <p className="mt-1 text-xs text-concrete-700">Șantier: {quote.site_address}</p>
+              <p className="mt-1 text-xs text-neutral-700">Șantier: {quote.site_address}</p>
             ) : null}
           </div>
         ) : null}
@@ -97,7 +99,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
 
       <table className="mt-8 w-full border-collapse text-sm">
         <thead>
-          <tr className="border-y border-concrete-300 bg-concrete-100">
+          <tr className="border-y border-neutral-300 bg-neutral-100">
             <th className="px-2 py-2 text-left font-semibold">#</th>
             <th className="px-2 py-2 text-left font-semibold">Denumire</th>
             <th className="px-2 py-2 text-left font-semibold">UM</th>
@@ -108,15 +110,15 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
         </thead>
         <tbody>
           {items.map((item, index) => (
-            <tr key={item.id} className="border-b border-concrete-200 align-top">
-              <td className="px-2 py-2 text-concrete-500">{index + 1}</td>
+            <tr key={item.id} className="border-b border-neutral-200 align-top">
+              <td className="px-2 py-2 text-neutral-500">{index + 1}</td>
               <td className="px-2 py-2">
                 <p className="font-medium">{item.name}</p>
                 {item.description ? (
-                  <p className="text-xs text-concrete-500">{item.description}</p>
+                  <p className="text-xs text-neutral-500">{item.description}</p>
                 ) : null}
                 {Number(item.discount_pct) > 0 ? (
-                  <p className="text-xs text-concrete-500">Discount {item.discount_pct}%</p>
+                  <p className="text-xs text-neutral-500">Discount {item.discount_pct}%</p>
                 ) : null}
               </td>
               <td className="px-2 py-2">{item.unit}</td>
@@ -133,7 +135,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
           ))}
           {items.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-2 py-6 text-center text-concrete-500">
+              <td colSpan={6} className="px-2 py-6 text-center text-neutral-500">
                 Oferta nu conține produse.
               </td>
             </tr>
@@ -144,24 +146,24 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
       <div className="mt-6 flex justify-end">
         <dl className="w-full max-w-xs space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-concrete-700">Total fără TVA</dt>
+            <dt className="text-neutral-700">Total fără TVA</dt>
             <dd className="tabular-nums">{formatMoney(totals.linesNet, quote.currency)}</dd>
           </div>
           {totals.quoteDiscount > 0 ? (
             <div className="flex justify-between">
-              <dt className="text-concrete-700">Discount {quote.discount_pct}%</dt>
+              <dt className="text-neutral-700">Discount {quote.discount_pct}%</dt>
               <dd className="tabular-nums">− {formatMoney(totals.quoteDiscount, quote.currency)}</dd>
             </div>
           ) : null}
           <div className="flex justify-between">
-            <dt className="text-concrete-700">Bază de impozitare</dt>
+            <dt className="text-neutral-700">Bază de impozitare</dt>
             <dd className="tabular-nums">{formatMoney(totals.net, quote.currency)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-concrete-700">TVA</dt>
+            <dt className="text-neutral-700">TVA</dt>
             <dd className="tabular-nums">{formatMoney(totals.vat, quote.currency)}</dd>
           </div>
-          <div className="flex justify-between border-t-2 border-concrete-900 pt-1 text-base font-bold">
+          <div className="flex justify-between border-t-2 border-neutral-900 pt-1 text-base font-bold">
             <dt>Total de plată</dt>
             <dd className="tabular-nums">{formatMoney(totals.gross, quote.currency)}</dd>
           </div>
@@ -170,7 +172,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
 
       {quote.notes ? (
         <section className="mt-8">
-          <p className="text-xs font-semibold tracking-wide text-concrete-500 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
             Observații
           </p>
           <p className="mt-1 text-sm whitespace-pre-line">{quote.notes}</p>
@@ -179,7 +181,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
 
       {quote.terms ? (
         <section className="mt-6">
-          <p className="text-xs font-semibold tracking-wide text-concrete-500 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
             Condiții comerciale
           </p>
           <p className="mt-1 text-sm whitespace-pre-line">{quote.terms}</p>
@@ -188,14 +190,14 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
 
       <footer className="mt-12 grid gap-8 text-sm sm:grid-cols-2">
         <div>
-          <p className="text-concrete-700">Ofertant</p>
-          <div className="mt-10 border-t border-concrete-300 pt-1 text-xs text-concrete-500">
+          <p className="text-neutral-700">Ofertant</p>
+          <div className="mt-10 border-t border-neutral-300 pt-1 text-xs text-neutral-500">
             semnătură și ștampilă
           </div>
         </div>
         <div>
-          <p className="text-concrete-700">Am luat la cunoștință</p>
-          <div className="mt-10 border-t border-concrete-300 pt-1 text-xs text-concrete-500">
+          <p className="text-neutral-700">Am luat la cunoștință</p>
+          <div className="mt-10 border-t border-neutral-300 pt-1 text-xs text-neutral-500">
             semnătură client
           </div>
         </div>

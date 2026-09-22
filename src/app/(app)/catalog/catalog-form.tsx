@@ -120,12 +120,12 @@ export function CatalogForm({
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-concrete-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700">
           <input
             type="checkbox"
             name="is_active"
             defaultChecked={item?.is_active ?? true}
-            className="h-4 w-4 rounded border-concrete-300 text-brand-600 focus:ring-brand-500"
+            className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
           />
           Activ (apare la adăugarea pe ofertă)
         </label>

@@ -70,7 +70,7 @@ export function OrganizationForm({ organization }: { organization: Organization 
             placeholder="Plata în 15 zile de la livrare. Prețurile nu includ transportul."
             className="input"
           />
-          <p className="mt-1 text-xs text-concrete-500">
+          <p className="mt-1 text-xs text-neutral-500">
             Se completează automat pe fiecare ofertă nouă.
           </p>
         </div>

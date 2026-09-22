@@ -11,8 +11,8 @@ export default async function LoginPage(props: PageProps<"/login">) {
   return (
     <div className="card space-y-5 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-concrete-900">Intră în cont</h1>
-        <p className="mt-1 text-sm text-concrete-500">
+        <h1 className="text-xl font-semibold text-neutral-900">Intră în cont</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Continuă cu ofertele firmei tale.
         </p>
       </div>
@@ -24,7 +24,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
         redirectTo={typeof redirectTo === "string" ? redirectTo : undefined}
       />
 
-      <p className="text-center text-sm text-concrete-500">
+      <p className="text-center text-sm text-neutral-500">
         Nu ai cont?{" "}
         <Link href="/inregistrare" className="font-medium text-brand-700 hover:underline">
           Creează unul

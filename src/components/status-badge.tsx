@@ -1,7 +1,7 @@
 import { QUOTE_STATUS_LABELS, type QuoteStatus } from "@/lib/types";
 
 const STYLES: Record<QuoteStatus, string> = {
-  draft: "bg-concrete-100 text-concrete-700 border-concrete-200",
+  draft: "bg-neutral-100 text-neutral-700 border-neutral-200",
   sent: "bg-blue-50 text-blue-700 border-blue-200",
   accepted: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejected: "bg-red-50 text-red-700 border-red-200",

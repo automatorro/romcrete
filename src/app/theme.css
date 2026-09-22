@@ -1,49 +1,53 @@
 /* ============================================================================
-   Culorile Romcrete — singurul loc unde se schimbă identitatea vizuală.
+   Identitatea vizuală Romcrete — singurul loc unde se schimbă culorile.
    Restul aplicației folosește doar numele de mai jos, niciodată un cod de culoare.
 
-   ⚠ Valorile de accent sunt PROVIZORII, până la culorile de brand de pe
-   shop.romcrete.ro. Se înlocuiesc aici, în --color-brand-*, și se propagă
-   singure în toată aplicația: butoane, badge-uri, linkuri, chip-uri, antetul
-   ofertei tipărite.
+   Accentul de brand este #0033ab (albastrul de pe shop.romcrete.ro), restul
+   paletei fiind alb și negru. Treptele intermediare sunt derivate din accent
+   prin amestec cu alb, respectiv cu negru, și verificate pentru lizibilitate:
+   alb pe brand-600 dă un contrast de 10,2:1, mult peste pragul AA de 4,5:1.
    ============================================================================ */
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  /* Accentul de brand: butoane principale, stări active, linkuri. */
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c; /* culoarea principală */
-  --color-brand-700: #c2410c; /* hover, text pe fundal deschis */
+  /* Albastrul de brand. 600 este culoarea oficială; restul sunt derivate. */
+  --color-brand-50: #f2f5fb;  /* fundal de badge, chip activ discret */
+  --color-brand-100: #e6ebf7;
+  --color-brand-200: #ccd6ee; /* borduri de accent */
+  --color-brand-300: #a6b8e2;
+  --color-brand-400: #6685cd;
+  --color-brand-500: #2e58ba;
+  --color-brand-600: #0033ab; /* ★ culoarea de brand */
+  --color-brand-700: #002989; /* hover, text de accent */
+  --color-brand-800: #001f67;
 
-  /* Neutrele: fundal, borduri, text. */
-  --color-concrete-50: #f8f8f7;
-  --color-concrete-100: #f1f1ef;
-  --color-concrete-200: #e3e3e0;
-  --color-concrete-300: #cdcdc8;
-  --color-concrete-500: #7b7b74;
-  --color-concrete-700: #45453f;
-  --color-concrete-900: #22221f;
+  /* Neutrele: alb spre negru, fără nuanță de culoare. */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e8e8e8;
+  --color-neutral-300: #d1d1d1;
+  --color-neutral-400: #999999;
+  --color-neutral-500: #737373; /* text secundar — 4,8:1 pe alb, trece AA */
+  --color-neutral-600: #595959;
+  --color-neutral-700: #404040;
+  --color-neutral-900: #1a1a1a; /* textul principal */
 
-  /* Stări: folosite de badge-uri, mesaje și indicatorii din raport. */
-  --color-ok: #2f7a4d;
-  --color-warn: #a86a10;
+  /* Stări: badge-uri, mesaje, indicatori din raport. */
+  --color-ok: #14683c;
+  --color-warn: #8a5a00;
   --color-bad: #b3261e;
 }
 
-/* Suprafețele, ca variabile separate, ca modul întunecat să le poată reașeza
-   fără să atingă paleta de mai sus. */
+/* Suprafețele stau separat de paletă, ca un eventual mod întunecat să le poată
+   reașeza fără să atingă culorile de brand. */
 :root {
-  --surface-page: var(--color-concrete-50);
+  --surface-page: var(--color-neutral-50);
   --surface-card: #ffffff;
-  --surface-soft: var(--color-concrete-100);
-  --border-line: var(--color-concrete-200);
-  --text-ink: var(--color-concrete-900);
-  --text-muted: var(--color-concrete-500);
+  --surface-soft: var(--color-neutral-100);
+  --border-line: var(--color-neutral-200);
+  --text-ink: var(--color-neutral-900);
+  --text-muted: var(--color-neutral-500);
   --accent: var(--color-brand-600);
   --accent-ink: #ffffff;
   --accent-soft: var(--color-brand-50);

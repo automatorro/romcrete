@@ -14,7 +14,7 @@ export function NavLink({ href, children }: { href: string; children: React.Reac
       className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? "bg-brand-50 text-brand-700"
-          : "text-concrete-700 hover:bg-concrete-100"
+          : "text-neutral-700 hover:bg-neutral-100"
       }`}
     >
       {children}

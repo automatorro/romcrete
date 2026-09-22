@@ -56,7 +56,7 @@ export function CredentialsForm({
           className="input"
           placeholder="••••••••"
         />
-        {passwordHint ? <p className="mt-1 text-xs text-concrete-500">{passwordHint}</p> : null}
+        {passwordHint ? <p className="mt-1 text-xs text-neutral-500">{passwordHint}</p> : null}
       </div>
 
       <FormMessage state={state} />

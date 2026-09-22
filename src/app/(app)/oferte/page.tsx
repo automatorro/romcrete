@@ -48,8 +48,8 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-concrete-900">Oferte</h1>
-          <p className="mt-1 text-sm text-concrete-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Oferte</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             Numerotate automat, pe an și pe firmă.
           </p>
         </div>
@@ -83,7 +83,7 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px]">
-            <thead className="border-b border-concrete-200 bg-concrete-50">
+            <thead className="border-b border-neutral-200 bg-neutral-50">
               <tr>
                 <th className="table-head">Număr</th>
                 <th className="table-head">Client</th>
@@ -93,9 +93,9 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
                 <th className="table-head text-right">Total cu TVA</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-concrete-200">
+            <tbody className="divide-y divide-neutral-200">
               {quotes.map((quote) => (
-                <tr key={quote.id} className="hover:bg-concrete-50">
+                <tr key={quote.id} className="hover:bg-neutral-50">
                   <td className="table-cell">
                     <Link
                       href={`/oferte/${quote.id}`}
@@ -104,12 +104,12 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
                       {quote.number}
                     </Link>
                     {quote.title ? (
-                      <p className="text-xs text-concrete-500">{quote.title}</p>
+                      <p className="text-xs text-neutral-500">{quote.title}</p>
                     ) : null}
                   </td>
                   <td className="table-cell">{quote.clients?.name ?? "—"}</td>
-                  <td className="table-cell text-concrete-500">{formatDate(quote.issue_date)}</td>
-                  <td className="table-cell text-concrete-500">{formatDate(quote.valid_until)}</td>
+                  <td className="table-cell text-neutral-500">{formatDate(quote.issue_date)}</td>
+                  <td className="table-cell text-neutral-500">{formatDate(quote.valid_until)}</td>
                   <td className="table-cell">
                     <StatusBadge status={quote.status} />
                   </td>
@@ -133,7 +133,7 @@ function FilterLink({ label, href, active }: { label: string; href: string; acti
       className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
         active
           ? "border-brand-200 bg-brand-50 text-brand-700"
-          : "border-concrete-200 bg-white text-concrete-700 hover:bg-concrete-100"
+          : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
       }`}
     >
       {label}

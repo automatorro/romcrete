@@ -26,8 +26,8 @@ export default async function CatalogPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-concrete-900">Catalog</h1>
-        <p className="mt-1 text-sm text-concrete-500">
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Catalog</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Produsele și serviciile pe care le poți adăuga pe ofertă cu un click.
         </p>
       </header>
@@ -36,7 +36,7 @@ export default async function CatalogPage() {
         <summary className="cursor-pointer text-sm font-medium text-brand-700">
           + Adaugă produs sau serviciu
         </summary>
-        <div className="mt-4 border-t border-concrete-200 pt-4">
+        <div className="mt-4 border-t border-neutral-200 pt-4">
           <CatalogForm
             action={createCatalogItem}
             defaultVatRate={organization.vat_rate}
@@ -54,7 +54,7 @@ export default async function CatalogPage() {
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">
-            <thead className="border-b border-concrete-200 bg-concrete-50">
+            <thead className="border-b border-neutral-200 bg-neutral-50">
               <tr>
                 <th className="table-head">Denumire</th>
                 <th className="table-head">Categorie</th>
@@ -64,24 +64,24 @@ export default async function CatalogPage() {
                 <th className="table-head" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-concrete-200">
+            <tbody className="divide-y divide-neutral-200">
               {items.map((item) => (
-                <tr key={item.id} className={item.is_active ? "hover:bg-concrete-50" : "bg-concrete-50/60 opacity-60"}>
+                <tr key={item.id} className={item.is_active ? "hover:bg-neutral-50" : "bg-neutral-50/60 opacity-60"}>
                   <td className="table-cell">
                     <span className="font-medium">{item.name}</span>
                     {item.sku ? (
-                      <span className="ml-2 text-xs text-concrete-500">{item.sku}</span>
+                      <span className="ml-2 text-xs text-neutral-500">{item.sku}</span>
                     ) : null}
                     {item.is_active ? null : (
-                      <span className="ml-2 text-xs text-concrete-500">(inactiv)</span>
+                      <span className="ml-2 text-xs text-neutral-500">(inactiv)</span>
                     )}
                   </td>
-                  <td className="table-cell text-concrete-500">{item.category ?? "—"}</td>
-                  <td className="table-cell text-concrete-500">{item.unit}</td>
+                  <td className="table-cell text-neutral-500">{item.category ?? "—"}</td>
+                  <td className="table-cell text-neutral-500">{item.unit}</td>
                   <td className="table-cell text-right tabular-nums">
                     {formatMoney(item.unit_price)}
                   </td>
-                  <td className="table-cell text-right tabular-nums text-concrete-500">
+                  <td className="table-cell text-right tabular-nums text-neutral-500">
                     {item.vat_rate}%
                   </td>
                   <td className="table-cell text-right">

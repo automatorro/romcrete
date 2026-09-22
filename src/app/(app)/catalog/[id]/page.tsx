@@ -26,7 +26,7 @@ export default async function CatalogItemPage(props: PageProps<"/catalog/[id]">)
         <Link href="/catalog" className="text-sm text-brand-700 hover:underline">
           ← Tot catalogul
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-concrete-900">{item.name}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">{item.name}</h1>
       </div>
 
       <div className="card p-6">
@@ -38,7 +38,7 @@ export default async function CatalogItemPage(props: PageProps<"/catalog/[id]">)
       </div>
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="text-sm text-concrete-500">
+        <p className="text-sm text-neutral-500">
           Ștergerea nu afectează ofertele emise — liniile lor păstrează denumirea și prețul de atunci.
         </p>
         <form action={deleteCatalogItem}>

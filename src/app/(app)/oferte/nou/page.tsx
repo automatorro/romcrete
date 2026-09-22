@@ -26,8 +26,8 @@ export default async function NewQuotePage() {
         <Link href="/oferte" className="text-sm text-brand-700 hover:underline">
           ← Toate ofertele
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-concrete-900">Ofertă nouă</h1>
-        <p className="mt-1 text-sm text-concrete-500">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">Ofertă nouă</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Numărul ofertei se generează automat la salvare. Produsele le adaugi la pasul următor.
         </p>
       </div>

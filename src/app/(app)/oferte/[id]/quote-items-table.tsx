@@ -21,7 +21,7 @@ export function QuoteItemsTable({
 
   if (items.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-sm text-concrete-500">
+      <p className="px-4 py-8 text-center text-sm text-neutral-500">
         Oferta nu are încă linii. Adaugă produse din catalog sau o linie liberă.
       </p>
     );
@@ -30,7 +30,7 @@ export function QuoteItemsTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px]">
-        <thead className="border-b border-concrete-200 bg-concrete-50">
+        <thead className="border-b border-neutral-200 bg-neutral-50">
           <tr>
             <th className="table-head w-[28%]">Denumire</th>
             <th className="table-head">UM</th>
@@ -42,7 +42,7 @@ export function QuoteItemsTable({
             <th className="table-head" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-concrete-200">
+        <tbody className="divide-y divide-neutral-200">
           {items.map((item) => (
             <tr key={item.id} className="align-top">
               <td className="px-4 py-3">

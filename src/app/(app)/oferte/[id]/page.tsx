@@ -55,11 +55,11 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           <Link href="/oferte" className="text-sm text-brand-700 hover:underline">
             ← Toate ofertele
           </Link>
-          <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight text-concrete-900">
+          <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight text-neutral-900">
             {quote.number}
             <StatusBadge status={quote.status} />
           </h1>
-          {quote.title ? <p className="mt-1 text-sm text-concrete-500">{quote.title}</p> : null}
+          {quote.title ? <p className="mt-1 text-sm text-neutral-500">{quote.title}</p> : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -83,7 +83,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
       <div className="card flex flex-wrap items-center gap-3 p-4">
         <form action={setQuoteStatus} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="quote_id" value={quote.id} />
-          <label className="text-sm font-medium text-concrete-700" htmlFor="status">
+          <label className="text-sm font-medium text-neutral-700" htmlFor="status">
             Stare
           </label>
           <select id="status" name="status" defaultValue={quote.status} className="input w-40">
@@ -100,16 +100,16 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
       </div>
 
       <section className="card">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-concrete-200 px-4 py-3">
-          <h2 className="text-base font-semibold text-concrete-900">Linii ofertă</h2>
-          <p className="text-sm text-concrete-500">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
+          <h2 className="text-base font-semibold text-neutral-900">Linii ofertă</h2>
+          <p className="text-sm text-neutral-500">
             {items.length} {items.length === 1 ? "linie" : "linii"}
           </p>
         </header>
 
         <QuoteItemsTable quoteId={quote.id} items={items} currency={quote.currency} />
 
-        <div className="space-y-4 border-t border-concrete-200 p-4">
+        <div className="space-y-4 border-t border-neutral-200 p-4">
           {catalog.length > 0 ? (
             <form
               action={addCatalogItemToQuote.bind(null, quote.id)}
@@ -145,7 +145,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
               <SubmitButton pendingLabel="Se adaugă…">Adaugă</SubmitButton>
             </form>
           ) : (
-            <p className="text-sm text-concrete-500">
+            <p className="text-sm text-neutral-500">
               Catalogul este gol.{" "}
               <Link href="/catalog" className="font-medium text-brand-700 hover:underline">
                 Adaugă produse
@@ -167,7 +167,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           </details>
         </div>
 
-        <dl className="space-y-2 border-t border-concrete-200 bg-concrete-50 px-4 py-4 text-sm">
+        <dl className="space-y-2 border-t border-neutral-200 bg-neutral-50 px-4 py-4 text-sm">
           <Row label="Total linii (fără TVA)" value={formatMoney(totals.linesNet, quote.currency)} />
           {totals.quoteDiscount > 0 ? (
             <Row
@@ -182,7 +182,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-4 text-base font-semibold text-concrete-900">Detaliile ofertei</h2>
+        <h2 className="mb-4 text-base font-semibold text-neutral-900">Detaliile ofertei</h2>
         <QuoteForm
           action={updateQuote.bind(null, quote.id)}
           clients={clientsData ?? []}
@@ -191,7 +191,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
       </section>
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="text-sm text-concrete-500">
+        <p className="text-sm text-neutral-500">
           Ștergerea ofertei elimină și liniile ei. Numărul folosit nu se refolosește.
         </p>
         <form action={deleteQuote}>
@@ -212,10 +212,10 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <dt className={strong ? "font-semibold text-concrete-900" : "text-concrete-500"}>{label}</dt>
+      <dt className={strong ? "font-semibold text-neutral-900" : "text-neutral-500"}>{label}</dt>
       <dd
         className={`tabular-nums ${
-          strong ? "text-base font-semibold text-concrete-900" : "text-concrete-900"
+          strong ? "text-base font-semibold text-neutral-900" : "text-neutral-900"
         }`}
       >
         {value}

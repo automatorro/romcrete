@@ -27,7 +27,7 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
         <Link href="/clienti" className="text-sm text-brand-700 hover:underline">
           ← Toți clienții
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-concrete-900">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">
           {client.name}
         </h1>
       </div>
@@ -43,7 +43,7 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
       </div>
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="text-sm text-concrete-500">
+        <p className="text-sm text-neutral-500">
           Un client cu oferte emise nu poate fi șters, ca să nu se piardă istoricul.
         </p>
         <form action={deleteClientRecord}>

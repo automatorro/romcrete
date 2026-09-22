@@ -19,10 +19,10 @@ export default async function HomePage() {
         <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
           Ofertare și devize
         </span>
-        <h1 className="text-4xl font-bold tracking-tight text-concrete-900 sm:text-5xl">
+        <h1 className="text-4xl font-bold tracking-tight text-neutral-900 sm:text-5xl">
           Romcrete
         </h1>
-        <p className="text-lg text-concrete-700">
+        <p className="text-lg text-neutral-700">
           Catalog de produse și servicii, oferte numerotate automat, calcul de TVA și discounturi,
           export PDF pentru client. Construit pentru firme de betoane și construcții.
         </p>
@@ -35,8 +35,8 @@ export default async function HomePage() {
           ["PDF", "Document gata de trimis, cu datele firmei și ale clientului."],
         ].map(([title, description]) => (
           <li key={title} className="card p-4">
-            <p className="font-medium text-concrete-900">{title}</p>
-            <p className="mt-1 text-sm text-concrete-500">{description}</p>
+            <p className="font-medium text-neutral-900">{title}</p>
+            <p className="mt-1 text-sm text-neutral-500">{description}</p>
           </li>
         ))}
       </ul>

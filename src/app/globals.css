@@ -8,16 +8,16 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-xl border border-concrete-200 bg-white shadow-sm;
+    @apply rounded-xl border border-neutral-200 bg-white shadow-sm;
   }
 
   .label {
-    @apply mb-1 block text-sm font-medium text-concrete-700;
+    @apply mb-1 block text-sm font-medium text-neutral-700;
   }
 
   .input {
-    @apply w-full rounded-lg border border-concrete-300 bg-white px-3 py-2 text-sm text-concrete-900
-      placeholder:text-concrete-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
+    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900
+      placeholder:text-neutral-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
   }
 
   .btn {
@@ -31,11 +31,11 @@ body {
   }
 
   .btn-secondary {
-    @apply border border-concrete-300 bg-white text-concrete-700 hover:bg-concrete-100;
+    @apply border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100;
   }
 
   .btn-ghost {
-    @apply text-concrete-700 hover:bg-concrete-100;
+    @apply text-neutral-700 hover:bg-neutral-100;
   }
 
   .btn-danger {
@@ -43,11 +43,11 @@ body {
   }
 
   .table-head {
-    @apply px-4 py-3 text-left text-xs font-semibold tracking-wide text-concrete-500 uppercase;
+    @apply px-4 py-3 text-left text-xs font-semibold tracking-wide text-neutral-500 uppercase;
   }
 
   .table-cell {
-    @apply px-4 py-3 text-sm text-concrete-900;
+    @apply px-4 py-3 text-sm text-neutral-900;
   }
 }
 
