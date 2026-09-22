@@ -5,6 +5,7 @@ import { createQuoteFromVisit, deleteVisit } from "@/app/teren/actions";
 import { VisitForm, type PumpOption } from "@/app/teren/vizita/[id]/visit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { buildMaterialSuggestions } from "@/lib/materiale";
 import { getQuestionCatalogue } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import type { Visit } from "@/lib/teren";
@@ -59,7 +60,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
     getQuestionCatalogue(orgId),
     supabase
       .from("catalog_items")
-      .select("sku, name, category, unit_price")
+      .select("sku, name, category, unit_price, description, materials")
       .eq("org_id", orgId)
       .not("sku", "is", null)
       .order("name"),
@@ -70,6 +71,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
 
   const visit = visitRow as Visit & { clients: { id: string; name: string; city: string | null } | null };
   const pumps = (pumpRows ?? []) as PumpOption[];
+  const suggestions = buildMaterialSuggestions(pumpRows ?? []);
 
   return (
     <div>
@@ -107,6 +109,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
         visitId={visit.id}
         sections={sections}
         pumps={pumps}
+        suggestions={suggestions}
         initial={{
           answers: visit.answers ?? {},
           notes: visit.notes ?? {},

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveVisit } from "@/app/teren/actions";
+import type { MatchLevel, MaterialSuggestions } from "@/lib/materiale";
 import { formatMoney } from "@/lib/totals";
 import type { Answers, Notes, QuestionGroup, QuestionSection } from "@/lib/teren";
 
@@ -12,6 +13,8 @@ type Props = {
   visitId: string;
   sections: QuestionSection[];
   pumps: PumpOption[];
+  /** Pentru fiecare material, ce categorii de pompe îl acoperă și cu ce certitudine. */
+  suggestions: MaterialSuggestions;
   initial: {
     answers: Answers;
     notes: Notes;
@@ -38,7 +41,7 @@ const STATUS_TEXT: Record<Status, string> = {
   error: "⚠ Fără confirmare — reîncerc",
 };
 
-export function VisitForm({ visitId, sections, pumps, initial }: Props) {
+export function VisitForm({ visitId, sections, pumps, suggestions, initial }: Props) {
   const draftKey = `romcrete_vizita_${visitId}`;
 
   /** Tot ce se salvează stă într-o singură stare: o schimbare, o salvare. */
@@ -135,6 +138,18 @@ export function VisitForm({ visitId, sections, pumps, initial }: Props) {
         : [...form.pumpSkus, sku],
     });
 
+  // Materialele bifate indică ce categorii de pompe merită discutate. Certitudinea
+  // mai mare câștigă: ce scrie în fișa produsului bate ce am dedus noi.
+  const suggested = new Map<string, MatchLevel>();
+  const chosenMaterials = Array.isArray(form.answers.materiale)
+    ? (form.answers.materiale as string[])
+    : [];
+  for (const material of chosenMaterials) {
+    for (const [category, level] of Object.entries(suggestions[material] ?? {})) {
+      if ((suggested.get(category) ?? 0) < level) suggested.set(category, level);
+    }
+  }
+
   const filled = (g: QuestionGroup) => {
     if (g.kind === "pump_picker") return form.pumpSkus.length;
     if (g.kind === "next_step_date") return form.nextStepDate ? 1 : 0;
@@ -191,14 +206,23 @@ export function VisitForm({ visitId, sections, pumps, initial }: Props) {
                                 : []
                               ).includes(o.id)
                             : form.answers[g.id] === o.id;
+                        const level =
+                          g.options_source === "pump_categories" ? suggested.get(o.id) : undefined;
                         return (
                           <button
                             key={o.id}
                             type="button"
+                            title={
+                              level === 2
+                                ? "Sugerat: materialul e trecut în fișa produsului"
+                                : level === 1
+                                  ? "Sugerat: dedus după consistența materialului — de confirmat tehnic"
+                                  : undefined
+                            }
                             onClick={() =>
                               g.kind === "multi" ? pickMulti(g.id, o.id) : pickSingle(g.id, o.id)
                             }
-                            className={`chip ${on ? "chip-on" : ""}`}
+                            className={`chip ${on ? "chip-on" : level ? "chip-sug" : ""}`}
                           >
                             {o.label}
                           </button>
@@ -206,6 +230,13 @@ export function VisitForm({ visitId, sections, pumps, initial }: Props) {
                       })}
                     </div>
                   )}
+
+                  {g.options_source === "pump_categories" && suggested.size > 0 ? (
+                    <p className="mt-1.5 text-xs text-neutral-500">
+                      Conturul punctat arată categoriile potrivite materialelor bifate mai sus.
+                      Cele deduse din consistență cer confirmare tehnică.
+                    </p>
+                  ) : null}
 
                   {g.allows_note ? (
                     <input

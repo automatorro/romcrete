@@ -54,6 +54,16 @@ select 'catalogul de întrebări',
             then 'OK' else 'INCOMPLET' end
 
 union all
+select 'catalogul de produse',
+       count(*)::text || ' poziții, ' ||
+       count(*) filter (where materials -> 'certain' <> '[]'::jsonb
+                           or materials -> 'equivalent' <> '[]'::jsonb)::text || ' cu materiale',
+       case when count(*) = 155 then 'OK'
+            when count(*) = 0 then 'GOL — rulează supabase/data/catalog_graco.sql'
+            else 'NUMĂR NEAȘTEPTAT' end
+from public.catalog_items
+
+union all
 select 'trigger updated_at (oferte, vizite)',
        count(*)::text || ' / 2',
        case when count(*) = 2 then 'OK' else 'LIPSEȘTE' end

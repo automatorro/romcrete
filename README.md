@@ -119,6 +119,21 @@ Un coleg nou intră în organizație printr-o invitație (`accept_invitation`), 
 până la adăugarea primului membru ea rămâne vizibilă prin `created_by`, altfel onboarding-ul
 s-ar bloca imediat după inserare.
 
+## Catalogul de produse
+
+`supabase/data/catalog_graco.sql` conține catalogul Romcrete: 103 pompe Graco și
+55 de familii de accesorii, 155 de poziții în total. Se rulează în SQL Editor, după
+migrații. Scriptul șterge catalogul firmei și îl reconstruiește, deci rularea
+repetată dă același rezultat.
+
+Fiecare poziție păstrează materialele pe care le aplică echipamentul — cele trecute
+în fișa produsului separat de cele deduse după consistență. Din ele se construiesc
+sugestiile de pe teren: agentul bifează materialele cu care lucrează meseriașul, iar
+categoriile de pompe potrivite se marchează singure.
+
+Prețurile din magazin sunt cu TVA; `unit_price` e prețul fără TVA, folosit pe ofertă,
+iar `price_with_vat` păstrează prețul din magazin ca să se poată verifica oricând conversia.
+
 ## Verificarea schemei
 
 Schema are un set de verificări care rulează pe o bază PostgreSQL locală, peste un stub minimal
