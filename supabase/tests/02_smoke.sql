@@ -25,11 +25,8 @@ select auth.uid(), id, 'owner' from public.organizations where name = 'Romcrete 
 
 insert into public._test_state select org_id from public.memberships limit 1;
 
-\echo '--- 2. catalogul implicit, idempotent (aștept 12, apoi tot 12) ---'
-select public.seed_default_catalog((select org_id from public._test_state));
+\echo '--- 2. o firmă nouă începe cu catalogul gol (aștept 0) ---'
 select count(*) as produse from public.catalog_items;
-select public.seed_default_catalog((select org_id from public._test_state));
-select count(*) as produse_dupa_al_doilea_apel from public.catalog_items;
 
 insert into public.clients (org_id, name, cui, city)
 select org_id, 'Constructii Alfa SRL', 'RO87654321', 'Cluj-Napoca' from public._test_state;

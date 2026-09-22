@@ -13,8 +13,7 @@ Stack: **Next.js 16** (App Router, Server Actions) · **TypeScript** ·
   (CUI, adresă, IBAN, cotă TVA implicită, condiții comerciale).
 - **Clienți** — listă cu căutare după nume, CUI sau oraș; datele se preiau automat pe ofertă.
 - **Catalog** — produse și servicii cu unitate de măsură, preț și cotă TVA proprie.
-  La prima configurare se populează un catalog implicit cu clase de beton, șape, mortar,
-  transport și pompă de beton.
+  O firmă nouă începe cu catalogul gol și își importă propriile produse.
 - **Oferte** — număr generat atomic în baza de date (`OF-2026-0001`, serie per firmă și an),
   linii din catalog sau linii libere, discount pe linie și pe ofertă, stări
   (ciornă / trimisă / acceptată / respinsă / expirată), duplicare.
@@ -29,8 +28,7 @@ Stack: **Next.js 16** (App Router, Server Actions) · **TypeScript** ·
 Creează un proiect pe [supabase.com](https://supabase.com), apoi rulează în **SQL Editor**,
 în ordine:
 
-1. `supabase/migrations/20260918131400_init.sql` — tabelele, view-ul de totaluri, funcțiile și politicile RLS
-2. `supabase/migrations/20260918131401_seed_catalog.sql` — funcția care populează catalogul implicit
+Fișierele din `supabase/migrations/`, în ordinea numelui.
 
 Fișierele respectă convenția de nume a Supabase CLI (`<timestamp>_nume.sql`), deci le aplică
 și `supabase db push` sau integrarea GitHub, în aceeași ordine.

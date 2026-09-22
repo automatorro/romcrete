@@ -19,12 +19,12 @@ where table_schema = 'public' and table_name = 'organizations' and column_name =
 
 union all
 select 'funcții',
-       count(*)::text || ' / 4',
-       case when count(*) = 4 then 'OK' else 'LIPSESC FUNCȚII' end
+       count(*)::text || ' / 3',
+       case when count(*) = 3 then 'OK' else 'LIPSESC FUNCȚII' end
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('is_member', 'next_quote_number', 'seed_default_catalog', 'touch_updated_at')
+  and p.proname in ('is_member', 'next_quote_number', 'touch_updated_at')
 
 union all
 select 'view quote_totals',

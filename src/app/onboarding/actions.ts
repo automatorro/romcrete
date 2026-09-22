@@ -39,9 +39,6 @@ export async function createOrganization(
 
   if (membershipError) return { error: membershipError.message };
 
-  // Catalogul implicit e doar un punct de plecare; poate fi modificat oricând.
-  await supabase.rpc("seed_default_catalog", { p_org: organization.id });
-
   revalidatePath("/", "layout");
   redirect("/oferte");
 }
