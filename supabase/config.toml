@@ -1,0 +1,4 @@
+# Referința proiectului Supabase (partea din URL-ul dashboard-ului).
+# Fișierul minimal e suficient pentru `supabase link` și `supabase db push`.
+# Dacă activezi branching-ul, rulează `supabase init` ca să obții varianta completă.
+project_id = "ikzhukidtpqgdbohehkm"

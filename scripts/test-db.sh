@@ -19,10 +19,15 @@ else
   PSQL=(psql -v ON_ERROR_STOP=1 -d "$DB_NAME")
 fi
 
+# Migrațiile se aplică în ordinea numelui, ca în Supabase.
+MIGRATION_ARGS=()
+for migration in supabase/migrations/*.sql; do
+  MIGRATION_ARGS+=(-f "$migration")
+done
+
 "${PSQL[@]}" -q \
   -f supabase/tests/00_stub_supabase.sql \
-  -f supabase/migrations/0001_init.sql \
-  -f supabase/migrations/0002_seed_catalog.sql \
+  "${MIGRATION_ARGS[@]}" \
   -f supabase/tests/01_grants.sql
 
 "${PSQL[@]}" -f supabase/tests/02_smoke.sql

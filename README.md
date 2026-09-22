@@ -29,13 +29,17 @@ Stack: **Next.js 16** (App Router, Server Actions) · **TypeScript** ·
 Creează un proiect pe [supabase.com](https://supabase.com), apoi rulează în **SQL Editor**,
 în ordine:
 
-1. `supabase/migrations/0001_init.sql` — tabelele, view-ul de totaluri, funcțiile și politicile RLS
-2. `supabase/migrations/0002_seed_catalog.sql` — funcția care populează catalogul implicit
+1. `supabase/migrations/20260918131400_init.sql` — tabelele, view-ul de totaluri, funcțiile și politicile RLS
+2. `supabase/migrations/20260918131401_seed_catalog.sql` — funcția care populează catalogul implicit
 
-Alternativ, cu [Supabase CLI](https://supabase.com/docs/guides/cli):
+Fișierele respectă convenția de nume a Supabase CLI (`<timestamp>_nume.sql`), deci le aplică
+și `supabase db push` sau integrarea GitHub, în aceeași ordine.
+
+Alternativ, cu [Supabase CLI](https://supabase.com/docs/guides/cli) — `supabase/config.toml`
+conține deja referința proiectului:
 
 ```bash
-supabase link --project-ref <project-ref>
+supabase link
 supabase db push
 ```
 
