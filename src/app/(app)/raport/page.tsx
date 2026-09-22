@@ -13,12 +13,21 @@ const PERIOADE: [Period, string][] = [
   ["all", "Tot"],
 ];
 
+/** Granularitatea foii „Evoluție” din exportul Excel. */
+const GRANULARITATI: [string, string][] = [
+  ["zi", "zilnic"],
+  ["saptamana", "săptămânal"],
+  ["luna", "lunar"],
+];
+
 export default async function RaportPage(props: PageProps<"/raport">) {
   const { orgId } = await requireOrg();
-  const { per, ag } = await props.searchParams;
+  const { per, ag, gran } = await props.searchParams;
 
   const period: Period = per === "7" || per === "all" ? per : "30";
   const agent = typeof ag === "string" ? ag : "";
+  const granularitate =
+    gran === "zi" || gran === "luna" ? gran : "saptamana";
 
   const r = await buildReport(orgId, period, agent);
   const agentName = (id: string) =>
@@ -26,7 +35,8 @@ export default async function RaportPage(props: PageProps<"/raport">) {
 
   const chipHref = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ per: period, ag: agent, ...patch })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ per: period, ag: agent, gran: granularitate, ...patch }))
+      if (v) p.set(k, v);
     return `/raport?${p.toString()}`;
   };
 
@@ -166,12 +176,32 @@ export default async function RaportPage(props: PageProps<"/raport">) {
         )}
       </section>
 
-      <section>
+      <section className="card p-4">
+        <h2 className="text-base font-semibold">Export Excel — activitatea agenților</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Șapte foi: sumar cu comparație față de perioada anterioară, defalcare pe agent,
+          evoluție în timp, plus vizitele, firmele, ofertele și răspunsurile din piață, brute,
+          pentru pivoturi proprii.
+        </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-neutral-700">Evoluția, defalcată</span>
+          {GRANULARITATI.map(([v, l]) => (
+            <Link
+              key={v}
+              href={chipHref({ gran: v })}
+              className={`chip chip-s ${granularitate === v ? "chip-on" : ""}`}
+            >
+              {l}
+            </Link>
+          ))}
+        </div>
+
         <a
-          href={`/raport/export?per=${period}${agent ? `&ag=${agent}` : ""}`}
-          className="btn btn-secondary"
+          href={`/raport/export?per=${period}&gran=${granularitate}${agent ? `&ag=${agent}` : ""}`}
+          className="btn btn-primary mt-3"
         >
-          Descarcă vizitele (CSV)
+          Descarcă Excel
         </a>
       </section>
     </div>
