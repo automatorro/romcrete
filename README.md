@@ -121,10 +121,13 @@ s-ar bloca imediat după inserare.
 
 ## Catalogul de produse
 
-`supabase/data/catalog_graco.sql` conține catalogul Romcrete: 103 pompe Graco și
-55 de familii de accesorii, 155 de poziții în total. Se rulează în SQL Editor, după
-migrații. Scriptul șterge catalogul firmei și îl reconstruiește, deci rularea
-repetată dă același rezultat.
+Catalogul Romcrete — 103 pompe Graco și 55 de familii de accesorii, 155 de poziții —
+intră printr-o migrație, ca orice altă schimbare de bază de date. Nu se copiază nimic
+manual în SQL Editor.
+
+La actualizarea prețurilor nu se modifică migrația existentă: se generează una nouă,
+datată, care reconstruiește catalogul. Istoricul rămâne întreg și se poate vedea
+oricând ce prețuri erau valabile la o anumită dată.
 
 Fiecare poziție păstrează materialele pe care le aplică echipamentul — cele trecute
 în fișa produsului separat de cele deduse după consistență. Din ele se construiesc
