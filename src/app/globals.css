@@ -66,3 +66,67 @@ body {
     margin: 14mm;
   }
 }
+
+/* ===========================================================================
+   Modulul de teren: interfață de telefon, portată din aplicația de vizite.
+   Ținte de atingere de minimum 44px — se folosește în mers, uneori cu mănuși.
+   =========================================================================== */
+
+@layer components {
+  .chip {
+    @apply inline-flex min-h-11 cursor-pointer items-center rounded-full border border-neutral-300
+      bg-white px-3.5 py-2 text-[15px] text-neutral-900 transition-colors;
+    touch-action: manipulation;
+  }
+
+  .chip-on {
+    @apply border-brand-600 bg-brand-600 text-white;
+  }
+
+  /* Opțiune sugerată de materialele declarate de meseriaș. */
+  .chip-sug {
+    @apply border-2 border-dashed border-brand-600;
+  }
+
+  /* „Altele”: intrare secundară, cu text liber. */
+  .chip-alt {
+    @apply border-dotted text-neutral-500;
+  }
+
+  .chip-s {
+    @apply min-h-8 px-2.5 py-1 text-[13px];
+  }
+
+  .teren-nav {
+    @apply fixed inset-x-0 bottom-0 z-10 flex justify-center border-t border-neutral-200 bg-white;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .teren-nav-item {
+    @apply flex-1 border-0 bg-transparent px-0.5 py-3 text-center text-[13px] text-neutral-500;
+  }
+
+  .teren-nav-item[aria-current="page"] {
+    @apply font-bold text-brand-700;
+  }
+
+  .hint {
+    @apply rounded-xl bg-neutral-100 px-3 py-2.5 text-sm text-neutral-700;
+  }
+
+  .sec {
+    @apply my-2.5 rounded-xl border border-neutral-200 bg-white px-3.5;
+  }
+
+  .sec > summary {
+    @apply flex cursor-pointer list-none items-center gap-2 py-3.5 font-semibold;
+  }
+
+  .sec > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sec[open] > summary {
+    @apply border-b border-neutral-200;
+  }
+}

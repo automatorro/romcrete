@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           </Link>
 
           <nav className="flex flex-wrap gap-1 lg:flex-col lg:flex-nowrap">
+            <NavLink href="/teren">Teren</NavLink>
             <NavLink href="/oferte">Oferte</NavLink>
             <NavLink href="/clienti">Clienți</NavLink>
             <NavLink href="/catalog">Catalog</NavLink>

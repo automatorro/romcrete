@@ -1,0 +1,299 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { saveVisit } from "@/app/teren/actions";
+import { formatMoney } from "@/lib/totals";
+import type { Answers, Notes, QuestionGroup, QuestionSection } from "@/lib/teren";
+
+export type PumpOption = { sku: string; name: string; category: string | null; unit_price: number };
+
+type Props = {
+  visitId: string;
+  sections: QuestionSection[];
+  pumps: PumpOption[];
+  initial: {
+    answers: Answers;
+    notes: Notes;
+    pumpSkus: string[];
+    nextStepDate: string;
+    visitDate: string;
+  };
+};
+
+type Status = "idle" | "saving" | "saved" | "error";
+
+type FormState = {
+  answers: Answers;
+  notes: Notes;
+  pumpSkus: string[];
+  nextStepDate: string;
+  visitDate: string;
+};
+
+const STATUS_TEXT: Record<Status, string> = {
+  idle: "",
+  saving: "Se salvează…",
+  saved: "✓ Salvat",
+  error: "⚠ Fără confirmare — reîncerc",
+};
+
+export function VisitForm({ visitId, sections, pumps, initial }: Props) {
+  const draftKey = `romcrete_vizita_${visitId}`;
+
+  /** Tot ce se salvează stă într-o singură stare: o schimbare, o salvare. */
+  const [form, setForm] = useState<FormState>(() => ({
+    answers: initial.answers,
+    notes: initial.notes,
+    pumpSkus: initial.pumpSkus,
+    nextStepDate: initial.nextStepDate,
+    visitDate: initial.visitDate,
+  }));
+  const [status, setStatus] = useState<Status>("idle");
+
+  const dirty = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Reîncercarea se programează prin referință, ca funcția să se poată chema
+  // pe ea însăși fără să se lege de o versiune veche a stării.
+  const flushRef = useRef<() => void>(() => {});
+
+  const flush = useCallback(async () => {
+    if (retry.current) clearTimeout(retry.current);
+    setStatus("saving");
+    const res = await saveVisit(visitId, {
+      answers: form.answers,
+      notes: form.notes,
+      pump_skus: form.pumpSkus,
+      next_step_date: form.nextStepDate || null,
+      visit_date: form.visitDate,
+    });
+    if (res.ok) {
+      dirty.current = false;
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {}
+      setStatus("saved");
+      return;
+    }
+    // Semnal pierdut pentru câteva secunde: reîncearcă singur, fără ca agentul
+    // să trebuiască să observe. Copia locală rămâne până salvarea trece.
+    setStatus("error");
+    retry.current = setTimeout(() => flushRef.current(), 5000);
+  }, [form, visitId, draftKey]);
+
+  useEffect(() => {
+    flushRef.current = flush;
+  }, [flush]);
+
+  useEffect(() => {
+    if (!dirty.current) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(form));
+    } catch {}
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(flush, 700);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [form, flush, draftKey]);
+
+  // Avertizează la închiderea paginii dacă ultima salvare n-a apucat să treacă.
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (dirty.current) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      if (retry.current) clearTimeout(retry.current);
+    };
+  }, []);
+
+  const update = (patch: Partial<FormState>) => {
+    dirty.current = true;
+    setForm((f) => ({ ...f, ...patch }));
+  };
+
+  const pickSingle = (gid: string, oid: string) =>
+    update({ answers: { ...form.answers, [gid]: form.answers[gid] === oid ? "" : oid } });
+
+  const pickMulti = (gid: string, oid: string) => {
+    const cur = Array.isArray(form.answers[gid]) ? (form.answers[gid] as string[]) : [];
+    update({
+      answers: {
+        ...form.answers,
+        [gid]: cur.includes(oid) ? cur.filter((x) => x !== oid) : [...cur, oid],
+      },
+    });
+  };
+
+  const togglePump = (sku: string) =>
+    update({
+      pumpSkus: form.pumpSkus.includes(sku)
+        ? form.pumpSkus.filter((x) => x !== sku)
+        : [...form.pumpSkus, sku],
+    });
+
+  const filled = (g: QuestionGroup) => {
+    if (g.kind === "pump_picker") return form.pumpSkus.length;
+    if (g.kind === "next_step_date") return form.nextStepDate ? 1 : 0;
+    const v = form.answers[g.id];
+    return Array.isArray(v) ? v.length : v ? 1 : 0;
+  };
+
+  return (
+    <>
+      <div className="card mb-3 flex items-center gap-3 p-3">
+        <label className="text-sm text-neutral-500" htmlFor="visit_date">
+          Data vizitei
+        </label>
+        <input
+          id="visit_date"
+          type="date"
+          value={form.visitDate}
+          onChange={(e) => update({ visitDate: e.target.value })}
+          className="input flex-1"
+        />
+      </div>
+
+      {sections.map((s) => {
+        const completate = s.groups.reduce((n, g) => n + (filled(g) ? 1 : 0), 0);
+        return (
+          <details key={s.id} className="sec" open={s.open_by_default}>
+            <summary>
+              {s.title}
+              <span className="ml-auto text-xs font-normal text-neutral-500">
+                {completate}/{s.groups.length}
+              </span>
+            </summary>
+            <div className="pb-3.5">
+              {s.groups.map((g) => (
+                <fieldset key={g.id} className="mt-4 first:mt-1">
+                  <legend className="mb-1.5 text-sm text-neutral-500">{g.label}</legend>
+
+                  {g.kind === "next_step_date" ? (
+                    <input
+                      type="date"
+                      value={form.nextStepDate}
+                      onChange={(e) => update({ nextStepDate: e.target.value })}
+                      className="input"
+                    />
+                  ) : g.kind === "pump_picker" ? (
+                    <PumpPicker pumps={pumps} selected={form.pumpSkus} onToggle={togglePump} />
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {g.options.map((o) => {
+                        const on =
+                          g.kind === "multi"
+                            ? (Array.isArray(form.answers[g.id])
+                                ? (form.answers[g.id] as string[])
+                                : []
+                              ).includes(o.id)
+                            : form.answers[g.id] === o.id;
+                        return (
+                          <button
+                            key={o.id}
+                            type="button"
+                            onClick={() =>
+                              g.kind === "multi" ? pickMulti(g.id, o.id) : pickSingle(g.id, o.id)
+                            }
+                            className={`chip ${on ? "chip-on" : ""}`}
+                          >
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {g.allows_note ? (
+                    <input
+                      type="text"
+                      value={form.notes[g.id] ?? ""}
+                      onChange={(e) => update({ notes: { ...form.notes, [g.id]: e.target.value } })}
+                      placeholder="Altele — scrie cu cuvintele lui"
+                      className="input mt-2 text-sm"
+                    />
+                  ) : null}
+                </fieldset>
+              ))}
+            </div>
+          </details>
+        );
+      })}
+
+      <div className="fixed inset-x-0 bottom-[57px] z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
+        <div className="mx-auto flex max-w-[760px] items-center gap-3">
+          <span
+            className={`flex-1 text-sm ${
+              status === "error" ? "font-semibold text-[var(--color-bad)]" : "text-neutral-500"
+            }`}
+          >
+            {STATUS_TEXT[status]}
+          </span>
+          <button type="button" onClick={flush} className="btn btn-secondary text-sm">
+            Salvează acum
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PumpPicker({
+  pumps,
+  selected,
+  onToggle,
+}: {
+  pumps: PumpOption[];
+  selected: string[];
+  onToggle: (sku: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+  const list = needle
+    ? pumps.filter((p) => `${p.name} ${p.sku} ${p.category ?? ""}`.toLowerCase().includes(needle)).slice(0, 40)
+    : pumps.filter((p) => selected.includes(p.sku));
+
+  return (
+    <div>
+      {selected.length ? (
+        <p className="mb-2 text-sm">
+          {selected.length} {selected.length === 1 ? "model ales" : "modele alese"}
+        </p>
+      ) : null}
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Caută modelul discutat"
+        className="input"
+      />
+      <ul className="mt-2 space-y-1">
+        {list.map((p) => {
+          const on = selected.includes(p.sku);
+          return (
+            <li key={p.sku}>
+              <button
+                type="button"
+                onClick={() => onToggle(p.sku)}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
+                  on ? "border-brand-600 bg-brand-50" : "border-neutral-200 bg-white"
+                }`}
+              >
+                <span className="font-medium">{p.name}</span>
+                <span className="block text-xs text-neutral-500">
+                  {p.sku} · {formatMoney(p.unit_price)} fără TVA
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {needle && list.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">Niciun model găsit.</p>
+      ) : null}
+    </div>
+  );
+}
