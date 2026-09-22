@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatMoney } from "@/lib/totals";
+import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
 import { QUOTE_STATUS_LABELS, type CatalogItem, type Quote, type QuoteItem, type QuoteStatus } from "@/lib/types";
 
 export const metadata = { title: "Ofertă" };
@@ -29,7 +29,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
   const [{ data: quoteData }, { data: itemsData }, { data: clientsData }, { data: catalogData }] =
     await Promise.all([
-      supabase.from("quotes").select("*").eq("id", id).maybeSingle(),
+      supabase.from("quotes").select("*, visits(id, visit_date)").eq("id", id).maybeSingle(),
       supabase.from("quote_items").select("*").eq("quote_id", id).order("position"),
       supabase.from("clients").select("id, name").eq("org_id", orgId).order("name"),
       supabase
@@ -43,7 +43,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
   if (!quoteData) notFound();
 
-  const quote = quoteData as Quote;
+  const quote = quoteData as Quote & { visits: { id: string; visit_date: string } | null };
   const items = (itemsData ?? []) as QuoteItem[];
   const catalog = (catalogData ?? []) as CatalogItem[];
   const totals = computeTotals(items, quote.discount_pct);
@@ -79,6 +79,15 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           </form>
         </div>
       </div>
+
+      {quote.visits ? (
+        <p className="text-sm text-neutral-500">
+          Pornită din vizita de teren de la {formatDate(quote.visits.visit_date)} ·{" "}
+          <Link href={`/teren/vizita/${quote.visits.id}`} className="font-medium text-brand-700 hover:underline">
+            deschide vizita
+          </Link>
+        </p>
+      ) : null}
 
       <div className="card flex flex-wrap items-center gap-3 p-4">
         <form action={setQuoteStatus} className="flex flex-wrap items-center gap-2">

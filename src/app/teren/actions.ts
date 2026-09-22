@@ -109,3 +109,83 @@ export async function deleteVisit(formData: FormData) {
   revalidatePath("/teren");
   redirect(clientId ? `/teren/firma/${clientId}` : "/teren");
 }
+
+/**
+ * Deschide o ofertă pornind de la vizită: preia clientul și modelele discutate,
+ * cu prețul din catalog la momentul ofertei. Cantitatea pornește de la 1 —
+ * vizita înregistrează ce s-a discutat, nu câte bucăți.
+ */
+export async function createQuoteFromVisit(formData: FormData) {
+  const { orgId, organization, user } = await requireOrg();
+  const visitId = String(formData.get("visit_id") ?? "");
+  if (!visitId) return;
+
+  const supabase = await createClient();
+
+  // O vizită produce o singură ofertă: a doua apăsare o deschide pe prima.
+  const { data: existing } = await supabase
+    .from("quotes")
+    .select("id")
+    .eq("visit_id", visitId)
+    .maybeSingle();
+  if (existing) redirect(`/oferte/${existing.id}`);
+
+  const { data: visit } = await supabase
+    .from("visits")
+    .select("id, client_id, pump_skus")
+    .eq("id", visitId)
+    .maybeSingle();
+  if (!visit) return;
+
+  const { data: number } = await supabase.rpc("next_quote_number", { p_org: orgId });
+  if (!number) return;
+
+  const { data: quote } = await supabase
+    .from("quotes")
+    .insert({
+      org_id: orgId,
+      client_id: visit.client_id,
+      visit_id: visit.id,
+      number,
+      status: "draft",
+      terms: organization.quote_terms,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (!quote) return;
+
+  const skus = (visit.pump_skus ?? []) as string[];
+  if (skus.length) {
+    const { data: items } = await supabase
+      .from("catalog_items")
+      .select("sku, name, description, unit, unit_price, vat_rate")
+      .eq("org_id", orgId)
+      .in("sku", skus);
+
+    // Ordinea de pe ofertă o dă ordinea în care agentul a ales modelele.
+    const bySku = new Map((items ?? []).map((i) => [i.sku as string, i]));
+    const lines = skus
+      .map((sku, index) => {
+        const item = bySku.get(sku);
+        if (!item) return null;
+        return {
+          quote_id: quote.id,
+          position: index + 1,
+          name: item.name,
+          description: item.description,
+          unit: item.unit,
+          quantity: 1,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+        };
+      })
+      .filter((l) => l !== null);
+
+    if (lines.length) await supabase.from("quote_items").insert(lines);
+  }
+
+  revalidatePath("/oferte");
+  revalidatePath(`/teren/vizita/${visitId}`);
+  redirect(`/oferte/${quote.id}`);
+}
