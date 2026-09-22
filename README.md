@@ -102,9 +102,20 @@ src/
 | `quote_items` | liniile ofertei, cu prețul înghețat la momentul adăugării |
 | `quote_counters` | contorul de numerotare, per firmă și an |
 | `quote_totals` | view cu totalurile calculate, folosit în listă |
+| `visits` | vizita de teren: răspunsurile agentului, pasul următor, modelele discutate |
+| `client_contacts` | oamenii întâlniți la firmă: patron, șef de echipă, meșter |
+| `client_state` | view: starea firmei derivată din toate vizitele ei, cu prioritatea A/B/C |
+| `question_sections` / `question_groups` / `question_options` | catalogul de întrebări din vizită, ca date |
+| `invitations` | invitarea unui coleg în organizația existentă |
 
-Toate tabelele au **RLS activ**: accesul se face exclusiv prin apartenența la organizație,
-verificată de funcția `public.is_member(uuid)`. Excepția e organizația proaspăt creată —
+Toate tabelele au **RLS activ**. Accesul are două niveluri, verificate de
+`public.is_member(uuid)` și `public.is_org_admin(uuid)`:
+
+- **agent** — vede doar firmele de care răspunde (`clients.owner_agent_id`), vizitele lui și
+  ofertele firmelor lui; citește tot catalogul, dar nu îl modifică
+- **owner / admin** — vede și modifică tot ce ține de organizație
+
+Un coleg nou intră în organizație printr-o invitație (`accept_invitation`), nu creând una nouă. Excepția e organizația proaspăt creată —
 până la adăugarea primului membru ea rămâne vizibilă prin `created_by`, altfel onboarding-ul
 s-ar bloca imediat după inserare.
 

@@ -30,4 +30,5 @@ done
   "${MIGRATION_ARGS[@]}" \
   -f supabase/tests/01_grants.sql
 
-"${PSQL[@]}" -f supabase/tests/02_smoke.sql
+# 03 și 04 se rulează pe proiectul Supabase real, nu local.
+"${PSQL[@]}" -f supabase/tests/02_smoke.sql -f supabase/tests/05_crm.sql
