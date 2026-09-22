@@ -1,29 +1,9 @@
 @import "tailwindcss";
-
-@theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-
-  /* Paleta Romcrete: gri de beton cu accent portocaliu de șantier. */
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-
-  --color-concrete-50: #f8f8f7;
-  --color-concrete-100: #f1f1ef;
-  --color-concrete-200: #e3e3e0;
-  --color-concrete-300: #cdcdc8;
-  --color-concrete-500: #7b7b74;
-  --color-concrete-700: #45453f;
-  --color-concrete-900: #22221f;
-}
+@import "./theme.css";
 
 body {
-  background-color: var(--color-concrete-50);
-  color: var(--color-concrete-900);
+  background-color: var(--surface-page);
+  color: var(--text-ink);
 }
 
 @layer components {

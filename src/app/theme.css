@@ -1,0 +1,50 @@
+/* ============================================================================
+   Culorile Romcrete — singurul loc unde se schimbă identitatea vizuală.
+   Restul aplicației folosește doar numele de mai jos, niciodată un cod de culoare.
+
+   ⚠ Valorile de accent sunt PROVIZORII, până la culorile de brand de pe
+   shop.romcrete.ro. Se înlocuiesc aici, în --color-brand-*, și se propagă
+   singure în toată aplicația: butoane, badge-uri, linkuri, chip-uri, antetul
+   ofertei tipărite.
+   ============================================================================ */
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Accentul de brand: butoane principale, stări active, linkuri. */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c; /* culoarea principală */
+  --color-brand-700: #c2410c; /* hover, text pe fundal deschis */
+
+  /* Neutrele: fundal, borduri, text. */
+  --color-concrete-50: #f8f8f7;
+  --color-concrete-100: #f1f1ef;
+  --color-concrete-200: #e3e3e0;
+  --color-concrete-300: #cdcdc8;
+  --color-concrete-500: #7b7b74;
+  --color-concrete-700: #45453f;
+  --color-concrete-900: #22221f;
+
+  /* Stări: folosite de badge-uri, mesaje și indicatorii din raport. */
+  --color-ok: #2f7a4d;
+  --color-warn: #a86a10;
+  --color-bad: #b3261e;
+}
+
+/* Suprafețele, ca variabile separate, ca modul întunecat să le poată reașeza
+   fără să atingă paleta de mai sus. */
+:root {
+  --surface-page: var(--color-concrete-50);
+  --surface-card: #ffffff;
+  --surface-soft: var(--color-concrete-100);
+  --border-line: var(--color-concrete-200);
+  --text-ink: var(--color-concrete-900);
+  --text-muted: var(--color-concrete-500);
+  --accent: var(--color-brand-600);
+  --accent-ink: #ffffff;
+  --accent-soft: var(--color-brand-50);
+}
