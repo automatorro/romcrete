@@ -55,7 +55,8 @@ export default async function TerenPage(props: PageProps<"/teren">) {
     <div>
       <h1 className="text-xl font-semibold">Firme și meseriași</h1>
       <p className="mt-0.5 text-sm text-neutral-500">
-        {rows.length} {rows.length === 1 ? "firmă" : "firme"} · {late} pași restanți · {due} azi
+        {rows.length} {rows.length === 1 ? "firmă" : "firme"} · {late}{" "}
+        {late === 1 ? "pas restant" : "pași restanți"} · {due} scadent{due === 1 ? "" : "e"} azi
       </p>
 
       <form className="my-3">
@@ -111,9 +112,12 @@ export default async function TerenPage(props: PageProps<"/teren">) {
         <ul className="mt-3 space-y-2">
           {rows.map((r) => {
             const lipsuri = gaps(r.answers).slice(0, 2);
+            // Pasul e programat dacă are dată, chiar dacă agentul n-a apucat să aleagă
+            // și felul lui. Altfel ar fi numărat în antet, dar invizibil pe card.
+            const hasStep = Boolean(r.next_step || r.next_step_date);
             const stepLabel = r.next_step
-              ? (stageGroupLabel(sections, "urmator", r.next_step) ?? "pas următor")
-              : null;
+              ? stageGroupLabel(sections, "urmator", r.next_step)
+              : "pas următor";
 
             return (
               <li key={r.client_id} className="card p-3">
@@ -148,7 +152,7 @@ export default async function TerenPage(props: PageProps<"/teren">) {
                   </div>
                 </Link>
 
-                {stepLabel ? (
+                {hasStep ? (
                   <div
                     className={`mt-1.5 flex items-center gap-2 text-sm ${
                       r.next_step_late ? "font-semibold text-[var(--color-bad)]" : ""

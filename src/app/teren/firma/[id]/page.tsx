@@ -69,9 +69,10 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
         </SubmitButton>
       </form>
 
-      {state.next_step ? (
+      {state.next_step || state.next_step_date ? (
         <div className={`card mt-3 p-3 text-sm ${state.next_step_late ? "border-[var(--color-bad)]" : ""}`}>
-          <b>Pasul următor:</b> {optionLabel(sections, "urmator", state.next_step)}
+          <b>Pasul următor:</b>{" "}
+          {state.next_step ? optionLabel(sections, "urmator", state.next_step) : "nestabilit"}
           {state.next_step_date ? ` · ${formatDate(state.next_step_date)}` : ""}
           {state.next_step_late ? (
             <span className="ml-1 font-semibold text-[var(--color-bad)]">restant</span>
