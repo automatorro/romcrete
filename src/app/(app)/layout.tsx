@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <NavLink href="/oferte">Oferte</NavLink>
             <NavLink href="/clienti">Clienți</NavLink>
             <NavLink href="/catalog">Catalog</NavLink>
+            <NavLink href="/raport">Raport</NavLink>
             <NavLink href="/setari">Setări firmă</NavLink>
           </nav>
 
