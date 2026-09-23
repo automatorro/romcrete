@@ -5,7 +5,8 @@
 insert into auth.users (id, email) values
   ('a0000000-0000-0000-0000-000000000001', 'sef@romcrete.ro'),
   ('a0000000-0000-0000-0000-000000000002', 'agent1@romcrete.ro'),
-  ('a0000000-0000-0000-0000-000000000003', 'agent2@romcrete.ro');
+  ('a0000000-0000-0000-0000-000000000003', 'strain@gmail.com'),
+  ('a0000000-0000-0000-0000-000000000004', 'agent2@romcrete.ro');
 
 create table public._t (k text primary key, v text);
 grant all on public._t to authenticated;
@@ -19,29 +20,22 @@ insert into public.memberships (user_id, org_id, role)
 select auth.uid(), id, 'owner' from public.organizations;
 insert into public._t select 'org', id::text from public.organizations;
 
-\echo '--- 1. conducerea emite două invitații de agent ---'
-insert into public.invitations (org_id, email, role, code)
-select (select v from public._t where k='org')::uuid, 'agent1@romcrete.ro', 'agent', 'cod-agent-1';
-insert into public.invitations (org_id, email, role, code)
-select (select v from public._t where k='org')::uuid, 'agent2@romcrete.ro', 'agent', 'cod-agent-2';
-select count(*) as invitatii from public.invitations;
+\echo '--- 1. agentul își face singur contul și intră pe domeniul firmei ---'
+update public.organizations set join_domains = array['romcrete.ro'];
 
--- ========================= agentul 1 acceptă și lucrează =========================
 reset role; set role authenticated;
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', false);
+select public.join_org_by_domain() is not null as a_intrat;
+select role as rol_primit from public.memberships where user_id = auth.uid();
 
-\echo '--- 2. agentul acceptă invitația și intră în organizația existentă ---'
-select public.accept_invitation('cod-agent-1') is not null as a_intrat;
-select count(*) as organizatii_vizibile from public.organizations;
+\echo '--- 2. un email din afara domeniului e refuzat ---'
+reset role; set role authenticated;
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000003', false);
+select public.join_org_by_domain() is null as refuzat,
+       (select count(*) from public.memberships where user_id = auth.uid()) as membru;
 
-\echo '--- 3. un cod deja folosit nu mai merge ---'
-do $$ begin
-  perform public.accept_invitation('cod-agent-1');
-  raise exception 'PROBLEMĂ: codul s-a putut refolosi';
-exception when others then
-  if sqlerrm like 'PROBLEMĂ%' then raise; end if;
-  raise notice 'OK: %', sqlerrm;
-end $$;
+reset role; set role authenticated;
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', false);
 
 insert into public.clients (org_id, name, city, trade_type)
 select (select v from public._t where k='org')::uuid, 'Iacob', 'Arad', 'general';
@@ -92,8 +86,8 @@ end $$;
 
 -- ========================= agentul 2 nu vede firmele colegului =========================
 reset role; set role authenticated;
-select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000003', false);
-select public.accept_invitation('cod-agent-2');
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000004', false);
+select public.join_org_by_domain();
 
 \echo '--- 8. izolarea între agenți (aștept 0 firme, 0 vizite) ---'
 select (select count(*) from public.clients) as firme,

@@ -95,6 +95,24 @@ export function OrganizationForm({ organization }: { organization: Organization 
         </div>
 
         <div className="sm:col-span-2">
+          <label className="label" htmlFor="join_domains">
+            Domenii de email cu acces
+          </label>
+          <input
+            id="join_domains"
+            name="join_domains"
+            defaultValue={(organization.join_domains ?? []).join(", ")}
+            placeholder="romcrete.ro"
+            className="input"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Cine își face cont cu o adresă de pe aceste domenii intră automat ca agent, fără
+            invitație. Restul primesc refuz. Lista goală înseamnă că nimeni nu se mai poate
+            înscrie singur.
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
           <label className="label" htmlFor="quote_terms">
             Condiții comerciale implicite
           </label>

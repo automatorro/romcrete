@@ -31,7 +31,17 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 
   const redirectTo = String(formData.get("redirectTo") ?? "").trim();
   revalidatePath("/", "layout");
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/oferte");
+  if (redirectTo.startsWith("/")) redirect(redirectTo);
+
+  // Agentul lucrează pe teren, conducerea la birou: fiecare ajunge direct unde trebuie.
+  const { data: user } = await supabase.auth.getUser();
+  const { data: membership } = await supabase
+    .from("memberships")
+    .select("role")
+    .eq("user_id", user.user?.id ?? "")
+    .maybeSingle();
+
+  redirect(membership?.role === "agent" ? "/teren" : "/oferte");
 }
 
 export async function signUp(_prev: ActionState, formData: FormData): Promise<ActionState> {

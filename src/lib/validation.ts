@@ -47,6 +47,18 @@ export const organizationSchema = z.object({
   working_days_per_month: numberField(21).pipe(
     z.number().int("Număr întreg de zile").min(1).max(31),
   ),
+  // Lista se scrie ca text, câte un domeniu pe linie sau separate prin virgulă.
+  join_domains: z
+    .string()
+    .trim()
+    .transform((v) =>
+      v
+        .split(/[\s,;]+/)
+        .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+        .filter(Boolean),
+    )
+    // Lipsa câmpului înseamnă listă goală: nimeni nu se mai poate înscrie singur.
+    .default([]),
 });
 
 export const clientSchema = z.object({

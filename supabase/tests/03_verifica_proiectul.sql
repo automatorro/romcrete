@@ -2,22 +2,22 @@
 -- Se rulează în SQL Editor, pe proiectul propriu. Nu modifică nimic — doar citește.
 
 select 'tabele' as verificare,
-       count(*)::text || ' / 13' as gasit,
-       case when count(*) = 13 then 'OK' else 'LIPSESC TABELE' end as stare
+       count(*)::text || ' / 12' as gasit,
+       case when count(*) = 12 then 'OK' else 'LIPSESC TABELE' end as stare
 from information_schema.tables
 where table_schema = 'public' and table_type = 'BASE TABLE'
 
 union all
 select 'RLS activ pe toate tabelele',
-       count(*)::text || ' / 13',
-       case when count(*) = 13 then 'OK' else 'ATENȚIE — date expuse fără RLS' end
+       count(*)::text || ' / 12',
+       case when count(*) = 12 then 'OK' else 'ATENȚIE — date expuse fără RLS' end
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and c.relrowsecurity
 
 union all
 select 'politici RLS',
-       count(*)::text || ' / 20',
-       case when count(*) = 20 then 'OK' else 'NUMĂR NEAȘTEPTAT' end
+       count(*)::text || ' / 19',
+       case when count(*) = 19 then 'OK' else 'NUMĂR NEAȘTEPTAT' end
 from pg_policies where schemaname = 'public'
 
 union all
@@ -28,7 +28,7 @@ from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('is_member', 'is_org_admin', 'is_any_org_admin', 'next_quote_number',
                     'touch_updated_at', 'merge_visit_answers', 'client_priority',
-                    'client_feasibility', 'client_focus', 'accept_invitation')
+                    'client_feasibility', 'client_focus', 'join_org_by_domain')
 
 union all
 select 'view-uri (quote_totals, client_state)',
