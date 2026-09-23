@@ -23,14 +23,16 @@ const GRANULARITATI: [string, string][] = [
 
 export default async function RaportPage(props: PageProps<"/raport">) {
   const { orgId } = await requireOrg();
-  const { per, ag, gran } = await props.searchParams;
+  const { per, ag, gran, dom } = await props.searchParams;
 
   const period: Period = per === "7" || per === "all" ? per : "30";
   const agent = typeof ag === "string" ? ag : "";
   const granularitate =
     gran === "zi" || gran === "luna" ? gran : "saptamana";
+  const domeniu = typeof dom === "string" ? dom : "";
 
-  const r = await buildReport(orgId, period, agent);
+  const r = await buildReport(orgId, period, agent, domeniu);
+  const domainName = (id: string) => r.domains.find((d) => d.id === id)?.label ?? "";
   const agentName = (id: string) =>
     r.members.find((m) => m.user_id === id)?.full_name ?? "Agent fără nume";
 
@@ -40,7 +42,9 @@ export default async function RaportPage(props: PageProps<"/raport">) {
 
   const chipHref = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ per: period, ag: agent, gran: granularitate, ...patch }))
+    for (const [k, v] of Object.entries({
+      per: period, ag: agent, gran: granularitate, dom: domeniu, ...patch,
+    }))
       if (v) p.set(k, v);
     return `/raport?${p.toString()}`;
   };
@@ -52,6 +56,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
         <p className="mt-1 text-sm text-neutral-500">
           {period === "all" ? "Toată perioada" : `Ultimele ${period} zile`}
           {agent ? ` · ${agentName(agent)}` : " · toți agenții"}
+          {domeniu ? ` · ${domainName(domeniu)}` : " · toate domeniile"}
         </p>
       </header>
 
@@ -72,6 +77,21 @@ export default async function RaportPage(props: PageProps<"/raport">) {
             className={`chip chip-s ${agent === m.user_id ? "chip-on" : ""}`}
           >
             {m.full_name ?? "Fără nume"}
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={chipHref({ dom: null })} className={`chip chip-s ${domeniu ? "" : "chip-on"}`}>
+          Toate domeniile
+        </Link>
+        {r.domains.map((d) => (
+          <Link
+            key={d.id}
+            href={chipHref({ dom: d.id })}
+            className={`chip chip-s ${domeniu === d.id ? "chip-on" : ""}`}
+          >
+            {d.short_label}
           </Link>
         ))}
       </div>
@@ -133,6 +153,17 @@ export default async function RaportPage(props: PageProps<"/raport">) {
             leasing, generator, sau un argument care nu depinde de volum.
           </p>
           <BarList rows={r.blockers} />
+        </section>
+      ) : null}
+
+      {r.domainCounts.length > 1 ? (
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Unde sunt firmele</h2>
+          <p className="mb-3 text-sm text-neutral-500">
+            Romcrete vinde în toate domeniile. Împărțirea arată unde s-a ajuns cu piciorul —
+            nu neapărat unde e piața.
+          </p>
+          <BarList rows={r.domainCounts} />
         </section>
       ) : null}
 
@@ -294,7 +325,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
         </div>
 
         <a
-          href={`/raport/export?per=${period}&gran=${granularitate}${agent ? `&ag=${agent}` : ""}`}
+          href={`/raport/export?per=${period}&gran=${granularitate}${agent ? `&ag=${agent}` : ""}${domeniu ? `&dom=${domeniu}` : ""}`}
           className="btn btn-primary mt-3"
         >
           Descarcă Excel

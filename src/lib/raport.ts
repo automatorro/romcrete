@@ -1,3 +1,4 @@
+import { type Domain, getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Focus, Notes, QuestionSection } from "@/lib/teren";
@@ -12,11 +13,15 @@ export type VisitRow = {
   answers: Answers;
   notes: Notes;
   pump_skus: string[];
-  clients: { name: string } | null;
+  clients: { name: string; domain: string | null } | null;
 };
 
 export type Report = {
   sections: QuestionSection[];
+  /** Domeniile firmei, pentru filtre și pentru citirea unităților de măsură. */
+  domains: Domain[];
+  /** Câte firme sunt în fiecare domeniu, în perioada și filtrul alese. */
+  domainCounts: [string, number][];
   members: { user_id: string; full_name: string | null; target_visits_per_day: number | null }[];
   /** Zile lucrătoare din perioada aleasă, pentru comparația cu ținta zilnică. */
   workingDays: number;
@@ -53,6 +58,7 @@ export async function buildReport(
   orgId: string,
   period: Period,
   agentId: string,
+  domainId = "",
 ): Promise<Report> {
   const cut = periodCutoff(period);
   const supabase = await createClient();
@@ -64,11 +70,17 @@ export async function buildReport(
     const wd = d.getUTCDay();
     if (wd >= 1 && wd <= 5) workingDays++;
   }
-  const sections = await getQuestionCatalogue(orgId);
+  const domains = await getDomains(orgId);
+  // Pe un domeniu ales, întrebările se îngustează la vocabularul lui; fără filtru
+  // se citesc toate, ca opțiunile tuturor domeniilor să-și găsească eticheta.
+  const sections = await getQuestionCatalogue(
+    orgId,
+    domainId ? (domains.find((d) => d.id === domainId) ?? null) : null,
+  );
 
   let visitQuery = supabase
     .from("visits")
-    .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, clients(name)")
+    .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, clients(name, domain)")
     .eq("org_id", orgId)
     .order("visit_date", { ascending: false });
   if (cut) visitQuery = visitQuery.gte("visit_date", cut);
@@ -86,12 +98,16 @@ export async function buildReport(
     ]);
 
   // Cadranele se citesc din view, care aplică aceleași reguli ca pe teren.
-  const { data: stateRows } = await supabase
-    .from("client_state")
-    .select("focus, answers")
-    .eq("org_id", orgId);
+  let stateQuery = supabase.from("client_state").select("focus, answers, domain").eq("org_id", orgId);
+  if (domainId) stateQuery = stateQuery.eq("domain", domainId);
+  const { data: stateRows } = await stateQuery;
 
-  const visits = (visitRows ?? []) as unknown as VisitRow[];
+  const allVisits = (visitRows ?? []) as unknown as VisitRow[];
+  // Filtrul pe domeniu se aplică peste vizite prin firma vizitată: o vizită
+  // aparține domeniului firmei, nu al agentului.
+  const visits = domainId
+    ? allVisits.filter((v) => (v.clients?.domain ?? "constructii") === domainId)
+    : allVisits;
   const pumpName = new Map((itemRows ?? []).map((i) => [i.sku as string, i.name as string]));
 
   const visitIds = new Set(visits.map((v) => v.id));
@@ -172,8 +188,19 @@ export async function buildReport(
     .eq("id", orgId)
     .maybeSingle();
 
+  const domainCounts = new Map<string, number>();
+  for (const row of stateRows ?? []) {
+    const id = (row.domain as string | null) ?? "constructii";
+    domainCounts.set(id, (domainCounts.get(id) ?? 0) + 1);
+  }
+
   return {
     sections,
+    domains,
+    domainCounts: domains
+      .map((d) => [d.short_label, domainCounts.get(d.id) ?? 0] as [string, number])
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1]),
     members: memberRows ?? [],
     workingDays,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),

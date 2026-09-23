@@ -3,6 +3,7 @@ import Link from "next/link";
 import { markStepDone } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { getAllDomains, getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
@@ -12,7 +13,7 @@ export const metadata = { title: "Firme" };
 
 export default async function TerenPage(props: PageProps<"/teren/firme">) {
   const { orgId } = await requireOrg();
-  const { q, etapa, prio, restante, focus, city } = await props.searchParams;
+  const { q, etapa, prio, restante, focus, city, domeniu } = await props.searchParams;
 
   const search = typeof q === "string" ? q.trim() : "";
   const stage = typeof etapa === "string" ? etapa : "";
@@ -20,8 +21,17 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
   const onlyLate = restante === "1";
   const focusFilter = typeof focus === "string" ? focus : "";
   const oras = typeof city === "string" ? city : "";
+  const domainFilter = typeof domeniu === "string" ? domeniu : "";
 
-  const [sections, supabase] = await Promise.all([getQuestionCatalogue(orgId), createClient()]);
+  const [sections, domains, toate, supabase] = await Promise.all([
+    getQuestionCatalogue(orgId),
+    getDomains(orgId),
+    getAllDomains(orgId),
+    createClient(),
+  ]);
+  // Filtrele arată domeniile folosite; etichetele se citesc din toate, ca o
+  // firmă rămasă într-un domeniu scos din uz să nu apară fără nume.
+  const domainById = new Map(toate.map((d) => [d.id, d]));
   const stageGroup = sections.flatMap((s) => s.groups).find((g) => g.id === "etapa");
 
   let query = supabase.from("client_state").select("*").eq("org_id", orgId);
@@ -31,6 +41,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
   if (onlyLate) query = query.eq("next_step_late", true);
   if (focusFilter) query = query.eq("focus", focusFilter);
   if (oras) query = query.eq("city", oras);
+  if (domainFilter) query = query.eq("domain", domainFilter);
 
   const { data } = await query;
   const rows = (data ?? []) as ClientState[];
@@ -52,6 +63,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
     const base: Record<string, string> = {
       q: search, etapa: stage, prio: priority,
       restante: onlyLate ? "1" : "", focus: focusFilter, city: oras,
+      domeniu: domainFilter,
     };
     for (const [k, v] of Object.entries({ ...base, ...patch })) if (v) p.set(k, v);
     const s = p.toString();
@@ -78,6 +90,18 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
           className="input"
         />
       </form>
+
+      <div className="mb-2 flex flex-wrap gap-2">
+        {domains.map((d) => (
+          <Link
+            key={d.id}
+            href={chipHref({ domeniu: domainFilter === d.id ? null : d.id })}
+            className={`chip chip-s ${domainFilter === d.id ? "chip-on" : ""}`}
+          >
+            {d.short_label}
+          </Link>
+        ))}
+      </div>
 
       <div className="mb-2 flex flex-wrap gap-2">
         {(["urmareste", "deblocheaza", "educa"] as Focus[]).map((f) => (
@@ -123,14 +147,15 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
 
       {rows.length === 0 ? (
         <div className="card mt-3 p-4 text-sm text-neutral-500">
-          {search || stage || priority || onlyLate
+          {search || stage || priority || onlyLate || domainFilter
             ? "Nicio firmă pentru filtrul ales."
             : "Încă nicio firmă. Apasă „＋ Vizită” după prima întâlnire."}
         </div>
       ) : (
         <ul className="mt-3 space-y-2">
           {rows.map((r) => {
-            const lipsuri = gaps(r.answers).slice(0, 2);
+            // Lipsurile se numesc în unitatea domeniului: „ml/zi” la marcaje.
+            const lipsuri = gaps(r.answers, domainById.get(r.domain ?? "")?.unit_short).slice(0, 2);
             // Pasul e programat dacă are dată, chiar dacă agentul n-a apucat să aleagă
             // și felul lui. Altfel ar fi numărat în antet, dar invizibil pe card.
             const hasStep = Boolean(r.next_step || r.next_step_date);
@@ -165,6 +190,9 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
                     ) : null}
                     {r.interest ? (
                       <Badge>{stageGroupLabel(sections, "interes", r.interest)}</Badge>
+                    ) : null}
+                    {r.domain ? (
+                      <Badge>{domainById.get(r.domain)?.short_label ?? r.domain}</Badge>
                     ) : null}
                     {r.trade_type ? (
                       <span className="text-neutral-500">{tradeLabel(r.trade_type)}</span>

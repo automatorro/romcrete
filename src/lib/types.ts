@@ -60,6 +60,11 @@ export type Client = {
   city: string | null;
   county: string | null;
   notes: string | null;
+  /** Meseria, în vocabularul construcțiilor. Rămâne o nuanță în interiorul domeniului. */
+  trade_type: string | null;
+  /** Domeniul în care lucrează: hotărăște întrebările și unitatea de calcul. */
+  domain: string | null;
+  owner_agent_id: string | null;
   created_at: string;
 };
 
@@ -74,6 +79,13 @@ export type CatalogItem = {
   unit_price: number;
   vat_rate: number;
   is_active: boolean;
+  /** Materialele compatibile, din fișa produsului sau deduse după consistență. */
+  materials: { certain?: string[]; equivalent?: string[] } | null;
+  /** Airless, HVLP, Rotor-Stator, Bicomponent — folosit la filtrarea pe domeniu. */
+  tech_type: string | null;
+  shop_url: string | null;
+  details: Record<string, unknown> | null;
+  price_with_vat: number | null;
   created_at: string;
 };
 

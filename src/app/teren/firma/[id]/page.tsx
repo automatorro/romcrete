@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { startVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { findDomain, getAllDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { computePayback, demandFrom } from "@/lib/amortizare";
 import { createClient } from "@/lib/supabase/server";
@@ -20,16 +21,18 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const { orgId, organization } = await requireOrg();
 
   const supabase = await createClient();
-  const [{ data: stateRow }, { data: visitRows }, sections] = await Promise.all([
+  const [{ data: stateRow }, { data: visitRows }, domains] = await Promise.all([
     supabase.from("client_state").select("*").eq("client_id", id).maybeSingle(),
     supabase.from("visits").select("*").eq("client_id", id).order("visit_date", { ascending: false }),
-    getQuestionCatalogue(orgId),
+    getAllDomains(orgId),
   ]);
 
   if (!stateRow) notFound();
 
   const state = stateRow as ClientState;
   const visits = (visitRows ?? []) as Visit[];
+  const domain = findDomain(domains, state.domain);
+  const sections = await getQuestionCatalogue(orgId, domain);
 
   // Amortizarea, pe starea adunată din toate vizitele, cu cel mai ieftin model discutat.
   const skuri = [...new Set(visits.flatMap((v) => v.pump_skus ?? []))];
@@ -45,14 +48,14 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   };
 
   const payback = computePayback({
-    mpPerDay: valoare("supr", state.answers.supr),
-    leiPerMp: valoare("manopera", state.answers.manopera),
-    productivityFactor: Number(organization.productivity_factor ?? 2.5),
+    unitsPerDay: valoare("supr", state.answers.supr),
+    leiPerUnit: valoare("manopera", state.answers.manopera),
+    productivityFactor: domain?.productivity_factor ?? Number(organization.productivity_factor ?? 2.5),
     workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
     pumpPrice: preturi.length ? Math.min(...preturi) : null,
     hasDemand: demandFrom(state.answers.refuzat),
   });
-  const lipsuri = gaps(state.answers);
+  const lipsuri = gaps(state.answers, domain?.unit_short);
   const allGroups = sections.flatMap((s) => s.groups);
 
   return (
@@ -75,7 +78,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
       </div>
 
       <p className="text-sm text-neutral-500">
-        {[state.city, tradeLabel(state.trade_type)].filter(Boolean).join(" · ")}
+        {[state.city, domain?.label, tradeLabel(state.trade_type)].filter(Boolean).join(" · ")}
       </p>
       <p className="text-sm text-neutral-500">
         {lastVisitLabel(state.last_visit)} · {state.visit_count}{" "}
@@ -104,7 +107,8 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
 
       {payback ? (
         <div className="card mt-3 border-brand-200 p-3 text-sm">
-          <b>Calculul pentru el:</b> {formatNumber(payback.extraMpPerDay)} mp în plus pe zi ={" "}
+          <b>Calculul pentru el:</b> {formatNumber(payback.extraUnitsPerDay)}{" "}
+          {domain?.unit_short ?? "mp"} în plus pe zi ={" "}
           {formatMoney(payback.extraLeiPerMonth)} pe lună
           {payback.months !== null ? (
             <> · pompa se plătește în {formatNumber(payback.months)} luni</>

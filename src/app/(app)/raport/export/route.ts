@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth";
 import { buildActivity, type Granularity, type Metrics } from "@/lib/activitate";
+import { getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 
 // exceljs are nevoie de Node, nu de runtime-ul edge.
@@ -106,11 +107,18 @@ export async function GET(request: NextRequest) {
   const gran: Granularity =
     granRaw === "zi" || granRaw === "saptamana" || granRaw === "luna" ? granRaw : "saptamana";
   const agent = sp.get("ag");
+  const domeniu = sp.get("dom");
 
-  const [data, sections] = await Promise.all([
-    buildActivity(orgId, from, to, gran, agent),
-    getQuestionCatalogue(orgId),
+  const [domenii, data] = await Promise.all([
+    getDomains(orgId),
+    buildActivity(orgId, from, to, gran, agent, domeniu),
   ]);
+  // Fără filtru de domeniu, exportul are nevoie de vocabularul întreg, ca
+  // fiecare bifă din orice domeniu să-și găsească eticheta.
+  const sections = await getQuestionCatalogue(
+    orgId,
+    domeniu ? (domenii.find((d) => d.id === domeniu) ?? null) : null,
+  );
 
   const wb = new ExcelJS.Workbook();
   wb.creator = organization.name;
@@ -126,7 +134,10 @@ export async function GET(request: NextRequest) {
 
   sumar.addRow({ i: `${organization.name} — activitate comercială` }).font = { bold: true, size: 13 };
   sumar.addRow({
-    i: `${from} → ${to}${agent ? ` · ${data.members.find((m) => m.user_id === agent)?.full_name ?? "agent"}` : " · toți agenții"}`,
+    i:
+      `${from} → ${to}` +
+      `${agent ? ` · ${data.members.find((m) => m.user_id === agent)?.full_name ?? "agent"}` : " · toți agenții"}` +
+      `${domeniu ? ` · ${domenii.find((d) => d.id === domeniu)?.label ?? domeniu}` : " · toate domeniile"}`,
   }).font = { italic: true, color: { argb: "FF737373" } };
   sumar.addRow({});
   sumar.addRow({ i: "Comparația e cu intervalul de aceeași lungime, imediat anterior." }).font = {
@@ -178,6 +189,32 @@ export async function GET(request: NextRequest) {
   }
   finish(peAgent);
 
+  // ---------------------------------------------------------- Pe domeniu
+  // Romcrete vinde în toate domeniile, iar unitatea de măsură diferă de la unul
+  // la altul. De aceea domeniul are foaia lui: fără ea, „mp” din antet ar fi o
+  // minciună pentru marcaje și pentru atelierele auto.
+  const peDomeniu = sheet(wb, "Pe domeniu", [
+    { header: "Domeniu", key: "domeniu", width: 34 },
+    { header: "Unitate", key: "unitate", width: 12 },
+    ...INDICATORI.map((ind) => ({
+      header: ind.label,
+      key: ind.label,
+      width: Math.max(12, Math.min(22, ind.label.length + 2)),
+      format: ind.format,
+    })),
+  ]);
+  for (const d of data.perDomain) {
+    const row: Record<string, unknown> = { domeniu: d.domain, unitate: d.unit };
+    for (const ind of INDICATORI) row[ind.label] = ind.get(d.metrics);
+    peDomeniu.addRow(row);
+  }
+  if (data.perDomain.length === 0) {
+    peDomeniu.addRow({ domeniu: "Nicio vizită în perioada aleasă." }).font = {
+      italic: true, color: { argb: "FF737373" },
+    };
+  }
+  finish(peDomeniu);
+
   // ------------------------------------------------------------ Evoluție
   const numeGran = gran === "zi" ? "Ziua" : gran === "luna" ? "Luna" : "Săptămâna";
   const evolutie = sheet(wb, "Evoluție", [
@@ -203,6 +240,7 @@ export async function GET(request: NextRequest) {
     { header: "Agent", key: "agent", width: 20 },
     { header: "Firmă", key: "firma", width: 26 },
     { header: "Localitate", key: "oras", width: 16 },
+    { header: "Domeniu", key: "domeniu", width: 18 },
     { header: "Tip vizită", key: "tip", width: 13 },
     ...groups.map((g) => ({ header: g.label, key: `g_${g.id}`, width: 22 })),
     { header: "Modele discutate", key: "modele", width: 30 },
@@ -217,6 +255,7 @@ export async function GET(request: NextRequest) {
       agent: v.agent,
       firma: v.client,
       oras: v.city ?? "",
+      domeniu: v.domain,
       tip: v.prima ? "Prima vizită" : "Revizită",
       modele: v.pumpSkus.join(" | "),
       pasdata: v.nextStepDate ? new Date(`${v.nextStepDate}T12:00:00Z`) : null,
@@ -242,6 +281,7 @@ export async function GET(request: NextRequest) {
   const firme = sheet(wb, "Firme", [
     { header: "Firmă", key: "nume", width: 28 },
     { header: "Localitate", key: "oras", width: 16 },
+    { header: "Domeniu", key: "domeniu", width: 18 },
     { header: "Meserie", key: "meserie", width: 18 },
     { header: "Agent", key: "agent", width: 20 },
     { header: "Ce e de făcut", key: "cadran", width: 18 },
@@ -256,7 +296,7 @@ export async function GET(request: NextRequest) {
   ]);
   for (const c of data.clients) {
     firme.addRow({
-      nume: c.name, oras: c.city ?? "", meserie: c.tradeType ?? "", agent: c.agent,
+      nume: c.name, oras: c.city ?? "", domeniu: c.domain, meserie: c.tradeType ?? "", agent: c.agent,
       cadran: FOCUS[c.focus] ?? c.focus,
       prio: c.priority,
       fez: FEZ[c.feasibility] ?? c.feasibility,
@@ -305,7 +345,7 @@ export async function GET(request: NextRequest) {
   for (const m of data.market) piata.addRow({ grup: m.group, optiune: m.option, firme: m.firms });
   finish(piata);
 
-  for (const ws of [sumar, peAgent, evolutie, piata]) {
+  for (const ws of [sumar, peAgent, peDomeniu, evolutie, piata]) {
     ws.getColumn(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: SOFT } };
     ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
   }

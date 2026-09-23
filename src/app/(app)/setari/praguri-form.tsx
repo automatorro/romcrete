@@ -7,7 +7,15 @@ import { FormMessage } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
 import type { QuestionOption } from "@/lib/teren";
 
-type Group = { id: string; label: string; hint: string; options: QuestionOption[] };
+type Group = {
+  /** Cheie unică în listă: aceeași întrebare apare o dată pentru fiecare domeniu. */
+  key: string;
+  /** Id-ul întrebării din baza de date, cel care se trimite la salvare. */
+  questionId: string;
+  label: string;
+  hint: string;
+  options: QuestionOption[];
+};
 
 /**
  * Pragurile numerice folosite în calcule. Sunt ipoteze despre piață, nu adevăruri:
@@ -19,7 +27,7 @@ export function PraguriForm({ groups }: { groups: Group[] }) {
   return (
     <form action={formAction} className="space-y-5">
       {groups.map((g) => (
-        <fieldset key={g.id}>
+        <fieldset key={g.key}>
           <legend className="text-sm font-medium text-neutral-900">{g.label}</legend>
           <p className="mb-2 text-xs text-neutral-500">{g.hint}</p>
           <div className="space-y-2">
@@ -30,7 +38,7 @@ export function PraguriForm({ groups }: { groups: Group[] }) {
                   type="number"
                   step="0.5"
                   min="0"
-                  name={`val_${g.id}_${o.id}`}
+                  name={`val_${g.questionId}_${o.id}`}
                   defaultValue={o.value ?? ""}
                   placeholder="nu intră în calcul"
                   className="input w-44 text-right tabular-nums"

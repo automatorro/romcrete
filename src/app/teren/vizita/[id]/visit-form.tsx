@@ -16,8 +16,16 @@ type Props = {
   pumps: PumpOption[];
   /** Pentru fiecare material, ce categorii de pompe îl acoperă și cu ce certitudine. */
   suggestions: MaterialSuggestions;
-  /** Ipotezele de calcul ale firmei, schimbabile din Setări. */
-  assumptions: { productivityFactor: number; workingDaysPerMonth: number };
+  /**
+   * Ipotezele de calcul: randamentul vine din domeniul firmei, zilele lucrate
+   * din Setări, iar unitatea de măsură spune în ce se socotește totul.
+   */
+  assumptions: {
+    productivityFactor: number;
+    workingDaysPerMonth: number;
+    unitShort: string;
+    unitLabel: string;
+  };
   initial: {
     answers: Answers;
     notes: Notes;
@@ -168,8 +176,8 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     .filter((p): p is number => typeof p === "number" && p > 0);
 
   const payback = computePayback({
-    mpPerDay: valoareOptiune("supr", form.answers.supr),
-    leiPerMp: valoareOptiune("manopera", form.answers.manopera),
+    unitsPerDay: valoareOptiune("supr", form.answers.supr),
+    leiPerUnit: valoareOptiune("manopera", form.answers.manopera),
     productivityFactor: assumptions.productivityFactor,
     workingDaysPerMonth: assumptions.workingDaysPerMonth,
     pumpPrice: preturiAlese.length ? Math.min(...preturiAlese) : null,
@@ -291,16 +299,21 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           <dl className="mt-3 space-y-1.5 text-sm">
             <div className="flex justify-between gap-3">
               <dt className="text-neutral-500">Face acum</dt>
-              <dd className="tabular-nums">{formatNumber(payback.mpNow)} mp/zi</dd>
+              <dd className="tabular-nums">
+                {formatNumber(payback.unitsNow)} {assumptions.unitShort}/zi
+              </dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-neutral-500">Ar face mecanizat</dt>
-              <dd className="tabular-nums">{formatNumber(payback.mpMechanised)} mp/zi</dd>
+              <dd className="tabular-nums">
+                {formatNumber(payback.unitsMechanised)} {assumptions.unitShort}/zi
+              </dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-neutral-500">În plus pe zi</dt>
               <dd className="tabular-nums">
-                {formatNumber(payback.extraMpPerDay)} mp · {formatMoney(payback.extraLeiPerDay)}
+                {formatNumber(payback.extraUnitsPerDay)} {assumptions.unitShort} ·{" "}
+                {formatMoney(payback.extraLeiPerDay)}
               </dd>
             </div>
             <div className="flex justify-between gap-3 border-t border-neutral-200 pt-1.5 font-semibold">
@@ -331,8 +344,9 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
         </section>
       ) : (
         <p className="hint mt-4">
-          Bifează <b>suprafața pe zi</b> și <b>cât ia pe mp</b> ca să apară calculul de amortizare,
-          cel care mută discuția de la „e scumpă” la „când o iau”.
+          Bifează <b>cât face pe zi</b> ({assumptions.unitLabel}) și <b>cât ia pe{" "}
+          {assumptions.unitShort}</b> ca să apară calculul de amortizare, cel care mută discuția de
+          la „e scumpă” la „când o iau”.
         </p>
       )}
 

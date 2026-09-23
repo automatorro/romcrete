@@ -3,6 +3,7 @@ import Link from "next/link";
 import { startVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
 import { TRADE_TYPES, lastVisitLabel, type ClientState } from "@/lib/teren";
 
@@ -15,6 +16,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
   const firmaNoua = nou === "1";
 
   const supabase = await createClient();
+  const domains = await getDomains(orgId);
   let query = supabase
     .from("client_state")
     .select("client_id, name, city, last_visit")
@@ -58,7 +60,32 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
           </div>
 
           <fieldset>
-            <legend className="label">Ce este</legend>
+            <legend className="label">În ce domeniu lucrează</legend>
+            <div className="flex flex-wrap gap-2">
+              {domains.map((d, i) => (
+                <label
+                  key={d.id}
+                  className="chip has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white"
+                >
+                  <input
+                    type="radio"
+                    name="domain"
+                    value={d.id}
+                    defaultChecked={i === 0}
+                    className="sr-only"
+                  />
+                  {d.short_label}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-neutral-500">
+              De aici pornesc întrebările din vizită, unitatea în care se socotește randamentul
+              și pompele care i se potrivesc.
+            </p>
+          </fieldset>
+
+          <fieldset>
+            <legend className="label">Ce este (la construcții)</legend>
             <div className="flex flex-wrap gap-2">
               {TRADE_TYPES.map((t) => (
                 <label key={t.id} className="chip has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white">

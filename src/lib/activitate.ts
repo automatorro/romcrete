@@ -1,3 +1,4 @@
+import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
 
@@ -38,6 +39,7 @@ export type VisitDetail = {
   agent: string;
   client: string;
   city: string | null;
+  domain: string;
   tradeType: string | null;
   prima: boolean;
   answers: Answers;
@@ -64,6 +66,7 @@ export type ActivityDataset = {
   to: string;
   granularity: Granularity;
   agentFilter: string | null;
+  domainFilter: string | null;
   members: {
     user_id: string;
     full_name: string | null;
@@ -75,12 +78,15 @@ export type ActivityDataset = {
   /** Aceeași perioadă, imediat înainte — pentru comparație. */
   previous: Metrics;
   perAgent: { agentId: string; agent: string; metrics: Metrics }[];
+  /** Aceiași indicatori, tăiați pe domeniul firmelor vizitate. */
+  perDomain: { domainId: string; domain: string; unit: string; metrics: Metrics }[];
   perPeriod: Bucket[];
   visits: VisitDetail[];
   quotes: QuoteDetail[];
   clients: {
     name: string;
     city: string | null;
+    domain: string;
     tradeType: string | null;
     agent: string;
     priority: string;
@@ -205,6 +211,7 @@ export async function buildActivity(
   to: string,
   granularity: Granularity,
   agentFilter: string | null,
+  domainFilter: string | null = null,
 ): Promise<ActivityDataset> {
   const supabase = await createClient();
   const azi = zi(new Date());
@@ -234,7 +241,10 @@ export async function buildActivity(
       .from("memberships")
       .select("user_id, full_name, role, target_visits_per_day")
       .eq("org_id", orgId),
-    supabase.from("clients").select("id, name, city, trade_type, owner_agent_id, created_at").eq("org_id", orgId),
+    supabase
+      .from("clients")
+      .select("id, name, city, domain, trade_type, owner_agent_id, created_at")
+      .eq("org_id", orgId),
     supabase
       .from("quotes")
       .select("id, number, issue_date, status, client_id, created_by, visit_id")
@@ -246,12 +256,18 @@ export async function buildActivity(
     supabase.from("question_options").select("group_id, id, label"),
   ]);
 
+  const domenii = await getDomains(orgId);
+  const numeDomeniu = new Map(domenii.map((d) => [d.id, d.short_label]));
+
   const members = memberRows ?? [];
   const numeAgent = (id: string | null) =>
     members.find((m) => m.user_id === id)?.full_name ?? (id ? "Agent fără nume" : "—");
 
   const clients = clientRows ?? [];
   const numeClient = new Map(clients.map((c) => [c.id, c.name as string]));
+  // Domeniul unei vizite e domeniul firmei vizitate: acolo se decide în ce
+  // unitate se măsoară lucrarea și ce pompe se discută.
+  const domeniuFirma = new Map(clients.map((c) => [c.id as string, (c.domain as string) ?? "constructii"]));
 
   // Prima vizită pe fiecare firmă, din tot istoricul — nu doar din perioada cerută.
   const primaVizita = new Map<string, string>();
@@ -274,13 +290,14 @@ export async function buildActivity(
     ]),
   );
 
-  const toateOfertele: (QuoteDetail & { agentId: string | null; date: string })[] = (quoteRows ?? []).map((q) => {
+  const toateOfertele: (QuoteDetail & { agentId: string | null; clientId: string; date: string })[] = (quoteRows ?? []).map((q) => {
     const sursa = q.visit_id ? visitById.get(q.visit_id) : undefined;
     const t = totaluri.get(q.id) ?? { net: 0, gross: 0 };
     return {
       number: q.number as string,
       date: q.issue_date as string,
       client: numeClient.get(q.client_id as string) ?? "—",
+      clientId: q.client_id as string,
       agent: numeAgent(q.created_by as string | null),
       agentId: (q.created_by as string | null) ?? null,
       status: q.status as string,
@@ -294,16 +311,23 @@ export async function buildActivity(
   const inInterval = (d: string, a: string, b: string) => d >= a && d <= b;
   const filtruAgent = <T extends { agent_id?: string | null; agentId?: string | null }>(rows: T[]) =>
     agentFilter ? rows.filter((r) => (r.agent_id ?? r.agentId) === agentFilter) : rows;
+  const filtruDomeniu = (rows: RawVisit[]) =>
+    domainFilter ? rows.filter((v) => domeniuFirma.get(v.client_id) === domainFilter) : rows;
 
-  const vizitePerioada = filtruAgent(totiiVizite.filter((v) => inInterval(v.visit_date, from, to)));
-  const vizitePrecedent = filtruAgent(totiiVizite.filter((v) => inInterval(v.visit_date, prevFrom, prevTo)));
-  const ofertePerioada = filtruAgent(toateOfertele.filter((q) => inInterval(q.date, from, to)));
-  const ofertePrecedent = filtruAgent(toateOfertele.filter((q) => inInterval(q.date, prevFrom, prevTo)));
+  const vizitePerioada = filtruDomeniu(filtruAgent(totiiVizite.filter((v) => inInterval(v.visit_date, from, to))));
+  const vizitePrecedent = filtruDomeniu(filtruAgent(totiiVizite.filter((v) => inInterval(v.visit_date, prevFrom, prevTo))));
+  const filtruDomeniuOferte = (rows: typeof toateOfertele) =>
+    domainFilter ? rows.filter((q) => domeniuFirma.get(q.clientId) === domainFilter) : rows;
+
+  const ofertePerioada = filtruDomeniuOferte(filtruAgent(toateOfertele.filter((q) => inInterval(q.date, from, to))));
+  const ofertePrecedent = filtruDomeniuOferte(filtruAgent(toateOfertele.filter((q) => inInterval(q.date, prevFrom, prevTo))));
 
   const firmeNoiIn = (a: string, b: string) =>
     clients.filter((c) => {
       const creat = (c.created_at as string).slice(0, 10);
-      return inInterval(creat, a, b) && (!agentFilter || c.owner_agent_id === agentFilter);
+      return inInterval(creat, a, b)
+        && (!agentFilter || c.owner_agent_id === agentFilter)
+        && (!domainFilter || ((c.domain as string) ?? "constructii") === domainFilter);
     }).length;
 
   const total = computeMetrics(vizitePerioada, ofertePerioada, firmeNoiIn(from, to), primaVizita, from, to, azi);
@@ -324,6 +348,27 @@ export async function buildActivity(
         primaVizita, from, to, azi,
       ),
     }))
+    .sort((a, b) => b.metrics.vizite - a.metrics.vizite);
+
+  // Pe domeniu: aceiași indicatori, ca să se vadă unde se lucrează și unde nu.
+  const perDomain = domenii
+    .map((d) => ({
+      domainId: d.id,
+      domain: d.label,
+      unit: d.unit_short,
+      metrics: computeMetrics(
+        vizitePerioada.filter((v) => domeniuFirma.get(v.client_id) === d.id),
+        ofertePerioada.filter((q) => domeniuFirma.get(q.clientId) === d.id),
+        clients.filter(
+          (c) =>
+            ((c.domain as string) ?? "constructii") === d.id &&
+            inInterval((c.created_at as string).slice(0, 10), from, to) &&
+            (!agentFilter || c.owner_agent_id === agentFilter),
+        ).length,
+        primaVizita, from, to, azi,
+      ),
+    }))
+    .filter((d) => d.metrics.vizite > 0 || d.metrics.firmeNoi > 0)
     .sort((a, b) => b.metrics.vizite - a.metrics.vizite);
 
   // Pe perioadă
@@ -395,9 +440,9 @@ export async function buildActivity(
     .maybeSingle();
 
   return {
-    from, to, granularity, agentFilter, members,
+    from, to, granularity, agentFilter, domainFilter, members,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
-    total, previous, perAgent, perPeriod,
+    total, previous, perAgent, perDomain, perPeriod,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);
       return {
@@ -406,6 +451,7 @@ export async function buildActivity(
         agent: numeAgent(v.agent_id),
         client: (c?.name as string) ?? "—",
         city: (c?.city as string) ?? null,
+        domain: numeDomeniu.get(domeniuFirma.get(v.client_id) ?? "") ?? "—",
         tradeType: (c?.trade_type as string) ?? null,
         prima: primaVizita.get(v.client_id) === v.visit_date,
         answers: v.answers ?? {},
@@ -428,9 +474,11 @@ export async function buildActivity(
     })),
     clients: (stateRows ?? [])
       .filter((s) => !agentFilter || s.owner_agent_id === agentFilter)
+      .filter((s) => !domainFilter || ((s.domain as string) ?? "constructii") === domainFilter)
       .map((s) => ({
         name: s.name as string,
         city: (s.city as string) ?? null,
+        domain: numeDomeniu.get((s.domain as string) ?? "") ?? "—",
         tradeType: (s.trade_type as string) ?? null,
         agent: numeAgent(s.owner_agent_id as string | null),
         priority: s.priority as string,

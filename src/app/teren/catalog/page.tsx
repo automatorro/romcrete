@@ -1,4 +1,5 @@
 import { requireOrg } from "@/lib/auth";
+import { getDomains, matchesDomain } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/totals";
 import type { CatalogItem } from "@/lib/types";
@@ -7,10 +8,13 @@ export const metadata = { title: "Catalog" };
 
 export default async function TerenCatalogPage(props: PageProps<"/teren/catalog">) {
   const { orgId } = await requireOrg();
-  const { q, cat } = await props.searchParams;
+  const { q, cat, dom } = await props.searchParams;
   const search = typeof q === "string" ? q.trim() : "";
   const category = typeof cat === "string" ? cat : "";
+  const domeniu = typeof dom === "string" ? dom : "";
 
+  const domains = await getDomains(orgId);
+  const domain = domains.find((d) => d.id === domeniu) ?? null;
   const supabase = await createClient();
   const { data: allRows } = await supabase
     .from("catalog_items")
@@ -20,7 +24,9 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
     .order("category", { ascending: true, nullsFirst: false })
     .order("unit_price", { ascending: false });
 
-  const all = (allRows ?? []) as CatalogItem[];
+  // Filtrarea pe domeniu ține și de tehnologie: aceeași categorie servește și
+  // zugrăveala, și finisajul fin.
+  const all = ((allRows ?? []) as CatalogItem[]).filter((i) => (domain ? matchesDomain(domain, i) : true));
   const categories = [...new Set(all.map((i) => i.category).filter(Boolean))] as string[];
 
   const needle = search.toLowerCase();
@@ -32,7 +38,8 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
 
   const chipHref = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ q: search, cat: category, ...patch })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ q: search, cat: category, dom: domeniu, ...patch }))
+      if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/teren/catalog?${s}` : "/teren/catalog";
   };
@@ -46,6 +53,7 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
 
       <form className="my-3">
         {category ? <input type="hidden" name="cat" value={category} /> : null}
+        {domeniu ? <input type="hidden" name="dom" value={domeniu} /> : null}
         <input
           type="search"
           name="q"
@@ -56,6 +64,22 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
       </form>
 
       <div className="flex flex-wrap gap-2">
+        <a
+          href={chipHref({ dom: null, cat: null })}
+          className={`chip chip-s ${domeniu ? "" : "chip-on"}`}
+        >
+          Toate domeniile
+        </a>
+        {domains.map((d) => (
+          <a
+            key={d.id}
+            href={chipHref({ dom: domeniu === d.id ? null : d.id, cat: null })}
+            className={`chip chip-s ${domeniu === d.id ? "chip-on" : ""}`}
+          >
+            {d.short_label}
+          </a>
+        ))}
+        <span className="basis-full" />
         <a href={chipHref({ cat: null })} className={`chip chip-s ${category ? "" : "chip-on"}`}>
           Toate
         </a>

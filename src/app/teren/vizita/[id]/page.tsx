@@ -5,6 +5,7 @@ import { createQuoteFromVisit, deleteVisit } from "@/app/teren/actions";
 import { VisitForm, type PumpOption } from "@/app/teren/vizita/[id]/visit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { findDomain, getAllDomains, matchesDomain } from "@/lib/domenii";
 import { buildMaterialSuggestions } from "@/lib/materiale";
 import { getQuestionCatalogue } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
@@ -55,12 +56,16 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   const { orgId, organization } = await requireOrg();
 
   const supabase = await createClient();
-  const [{ data: visitRow }, sections, { data: pumpRows }, { data: quoteRow }] = await Promise.all([
-    supabase.from("visits").select("*, clients(id, name, city)").eq("id", id).maybeSingle(),
-    getQuestionCatalogue(orgId),
+  const [{ data: visitRow }, domains, { data: pumpRows }, { data: quoteRow }] = await Promise.all([
+    supabase
+      .from("visits")
+      .select("*, clients(id, name, city, domain)")
+      .eq("id", id)
+      .maybeSingle(),
+    getAllDomains(orgId),
     supabase
       .from("catalog_items")
-      .select("sku, name, category, unit_price, description, materials")
+      .select("sku, name, category, tech_type, unit_price, description, materials")
       .eq("org_id", orgId)
       .not("sku", "is", null)
       .order("name"),
@@ -69,9 +74,22 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
 
   if (!visitRow) notFound();
 
-  const visit = visitRow as Visit & { clients: { id: string; name: string; city: string | null } | null };
-  const pumps = (pumpRows ?? []) as PumpOption[];
-  const suggestions = buildMaterialSuggestions(pumpRows ?? []);
+  const visit = visitRow as Visit & {
+    clients: { id: string; name: string; city: string | null; domain: string | null } | null;
+  };
+
+  // Domeniul firmei hotărăște ce se întreabă, în ce unitate se socotește și ce
+  // pompe au rost să fie discutate.
+  const domain = findDomain(domains, visit.clients?.domain ?? null);
+  const sections = await getQuestionCatalogue(orgId, domain);
+
+  const allPumps = (pumpRows ?? []) as (PumpOption & {
+    tech_type: string | null;
+    description: string | null;
+    materials: { certain?: string[]; equivalent?: string[] } | null;
+  })[];
+  const pumps = allPumps.filter((p) => matchesDomain(domain, p));
+  const suggestions = buildMaterialSuggestions(pumps);
 
   return (
     <div>
@@ -94,9 +112,9 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       </div>
 
       <h1 className="mt-1 text-xl font-semibold">{visit.clients?.name ?? "Vizită"}</h1>
-      {visit.clients?.city ? (
-        <p className="text-sm text-neutral-500">{visit.clients.city}</p>
-      ) : null}
+      <p className="text-sm text-neutral-500">
+        {[visit.clients?.city, domain?.label].filter(Boolean).join(" · ")}
+      </p>
 
       <p className="hint my-3">
         Nimic nu e obligatoriu și totul se salvează singur. Prima secțiune se completează în
@@ -111,8 +129,12 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
         pumps={pumps}
         suggestions={suggestions}
         assumptions={{
-          productivityFactor: Number(organization.productivity_factor ?? 2.5),
+          // Randamentul e al domeniului: la marcaje mecanizarea schimbă ordinul
+          // de mărime, la atelierul auto abia dublează.
+          productivityFactor: domain?.productivity_factor ?? Number(organization.productivity_factor ?? 2.5),
           workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
+          unitShort: domain?.unit_short ?? "mp",
+          unitLabel: domain?.unit_label ?? "metri pătrați",
         }}
         initial={{
           answers: visit.answers ?? {},

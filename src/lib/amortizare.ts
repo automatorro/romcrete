@@ -5,13 +5,17 @@
  * fiecare ipoteză e explicită și schimbabilă din Setări, nu ascunsă în cod:
  * randamentul mecanizat față de manual și zilele lucrate pe lună sunt ale firmei,
  * nu ale mele.
+ *
+ * Unitatea nu e metrul pătrat: un om care face marcaje vinde metri liniari, iar
+ * un atelier auto vinde mașini. Calculul e același, unitatea vine din domeniul
+ * firmei — altfel cifrele ar fi corecte aritmetic și fără sens pe teren.
  */
 
 export type PaybackInput = {
-  /** Metri pătrați pe zi, acum — din intervalul bifat la „Suprafață pe zi”. */
-  mpPerDay: number | null;
-  /** Lei pe metru pătrat — din intervalul bifat la „Cât ia pe mp”. */
-  leiPerMp: number | null;
+  /** Unități pe zi, acum — din intervalul bifat la producția zilnică. */
+  unitsPerDay: number | null;
+  /** Lei pe unitate — din intervalul bifat la prețul manoperei. */
+  leiPerUnit: number | null;
   productivityFactor: number;
   workingDaysPerMonth: number;
   /** Prețul fără TVA al pompei discutate. */
@@ -21,9 +25,9 @@ export type PaybackInput = {
 };
 
 export type Payback = {
-  mpNow: number;
-  mpMechanised: number;
-  extraMpPerDay: number;
+  unitsNow: number;
+  unitsMechanised: number;
+  extraUnitsPerDay: number;
   extraLeiPerDay: number;
   extraLeiPerMonth: number;
   /** Luni până se plătește pompa. Null dacă nu s-a ales niciun model. */
@@ -42,18 +46,20 @@ const round = (n: number, zecimale = 0) => {
 
 /** Null când lipsește oricare dintre cele două cifre fără care nu există calcul. */
 export function computePayback(input: PaybackInput): Payback | null {
-  const { mpPerDay, leiPerMp, productivityFactor, workingDaysPerMonth, pumpPrice } = input;
-  if (!mpPerDay || !leiPerMp || productivityFactor <= 1 || workingDaysPerMonth <= 0) return null;
+  const { unitsPerDay, leiPerUnit, productivityFactor, workingDaysPerMonth, pumpPrice } = input;
+  if (!unitsPerDay || !leiPerUnit || productivityFactor <= 1 || workingDaysPerMonth <= 0) return null;
 
-  const mpMechanised = round(mpPerDay * productivityFactor);
-  const extraMpPerDay = round(mpMechanised - mpPerDay);
-  const extraLeiPerDay = round(extraMpPerDay * leiPerMp);
+  // Unitățile mici (o mașină pe zi) nu suportă rotunjirea la întreg.
+  const zecimale = unitsPerDay < 10 ? 1 : 0;
+  const unitsMechanised = round(unitsPerDay * productivityFactor, zecimale);
+  const extraUnitsPerDay = round(unitsMechanised - unitsPerDay, zecimale);
+  const extraLeiPerDay = round(extraUnitsPerDay * leiPerUnit);
   const extraLeiPerMonth = round(extraLeiPerDay * workingDaysPerMonth);
 
   return {
-    mpNow: mpPerDay,
-    mpMechanised,
-    extraMpPerDay,
+    unitsNow: unitsPerDay,
+    unitsMechanised,
+    extraUnitsPerDay,
     extraLeiPerDay,
     extraLeiPerMonth,
     months:

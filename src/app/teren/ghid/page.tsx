@@ -7,7 +7,7 @@ const CONVERSATIE: [string, string][] = [
   ],
   [
     "2. O lucrare concretă și recentă",
-    "„Ce ai avut pe mână luna asta? Cât a fost, în cât timp ai terminat-o?” Întrebi despre o lucrare, nu despre medii. Suprafața pe zi o alegi tu din trepte, iar materialele apar de la sine.",
+    "„Ce ai avut pe mână luna asta? Cât a fost, în cât timp ai terminat-o?” Întrebi despre o lucrare, nu despre medii. Cât face pe zi alegi tu din trepte — în metri pătrați, metri liniari, repere sau mașini, după domeniul firmei —, iar materialele apar de la sine.",
   ],
   ["3. Oameni și ritm", "„Câți sunteți pe șantier? Găsești oameni ușor acum?”"],
   [
@@ -20,7 +20,7 @@ const CONVERSATIE: [string, string][] = [
   ],
   [
     "6. Banii, doar dacă relația e bună",
-    "„Când dai un preț pe mp, cum te gândești?” Nu spui „rentabilitate”. Vrei doar să afli dacă socotește pe mp, pe zi, din ochi sau deloc. Dacă îți dă și cifra, bifează intervalul — din ea iese calculul de amortizare.",
+    "„Când dai un preț, cum te gândești?” Nu spui „rentabilitate”. Vrei doar să afli dacă socotește pe mp, pe zi, din ochi sau deloc. Dacă îți dă și cifra, bifează intervalul — din ea iese calculul de amortizare.",
   ],
   [
     "7. Dacă are de lucru",
@@ -46,12 +46,16 @@ const CUM_FUNCTIONEAZA: [string, string][] = [
     "Primul tab e ziua ta, nu baza de date. Sus vezi cât ai făcut față de țintă — vizitele de azi și ofertele lunii. Sub el, pașii scadenți, cu buton de sunat și de bifat direct. Apoi firmele de reluat: cele la care n-ai mai trecut de mult și n-ai niciun pas programat. O firmă caldă revine după o săptămână, una rece după o lună. Jos, firmele grupate pe localități, ca să-ți poți face ziua pe zone, nu firmă cu firmă.",
   ],
   [
+    "Domeniul firmei",
+    "La firmă nouă alegi domeniul: construcții și finisaje, vopsire industrială, ignifugare, izolații, marcaje rutiere, lemn și mobilier, ateliere auto sau injectări. Nu e o etichetă de raport — de el atârnă tot restul: ce tipuri de lucrare și ce scule ți se arată în vizită, în ce unitate se socotește cât face pe zi și cât ia pe ea, și ce pompe din catalog îi ies în față. Restul întrebărilor — relația, interesul, cine decide, când, cum ar plăti, ce are împotrivă — sunt aceleași peste tot: alea țin de vânzare, nu de meserie.",
+  ],
+  [
     "Ce e de făcut cu firma",
     "Aplicația măsoară două lucruri diferite. Apetitul — cât vrea — și fezabilitatea — cât poate: dacă are cu ce plăti, dacă are curent pe șantier, dacă are cerere pentru capacitatea în plus. Din ele iese o singură etichetă. „Urmărește acum” = vrea și poate; acolo se închid vânzările. „Deblochează” = vrea, dar ceva îl oprește; acolo te duci cu leasingul sau cu generatorul, nu cu încă o vizită de convingere. „Educă” = poate, dar nu vede rostul; acolo arăți calculul. „Lasă” = niciuna, revii peste câteva luni.",
   ],
   [
     "Calculul de amortizare",
-    "Când ai bifat suprafața pe zi și cât ia pe mp, apare în vizită un calcul: câți mp ar face mecanizat, cât înseamnă în plus pe zi și pe lună, și în câte luni se plătește pompa aleasă. E gândit ca să i-l arăți pe telefon. Dacă a spus că nu refuză lucrări, calculul apare cu avertisment — presupune o cerere pe care încă n-o are, iar dacă i-l arăți oricum, își va da seama singur și pierzi încrederea.",
+    "Când ai bifat cât face pe zi și cât ia pe unitate, apare în vizită un calcul: cât ar face mecanizat, cât înseamnă în plus pe zi și pe lună, și în câte luni se plătește pompa aleasă. Randamentul nu e același peste tot: la marcaje rutiere mașina schimbă ordinul de mărime, la un atelier auto abia dublează — aplicația îl ia din domeniul firmei. E gândit ca să i-l arăți pe telefon. Dacă a spus că nu refuză lucrări, calculul apare cu avertisment — presupune o cerere pe care încă n-o are, iar dacă i-l arăți oricum, își va da seama singur și pierzi încrederea.",
   ],
   [
     "Prioritatea A / B / C",
@@ -59,7 +63,7 @@ const CUM_FUNCTIONEAZA: [string, string][] = [
   ],
   [
     "„De aflat”",
-    "Sub fiecare firmă scrie ce nu s-a aflat încă: cum lucrează, cu ce materiale, câți mp pe zi, ce scule are, de ce lucrează manual, cât e de interesat și cine decide. Sunt întrebările fără de care nu poți califica un meseriaș.",
+    "Sub fiecare firmă scrie ce nu s-a aflat încă: cum lucrează, cu ce materiale, cât face pe zi, ce scule are, de ce lucrează manual, cât e de interesat și cine decide. Sunt întrebările fără de care nu poți califica un meseriaș.",
   ],
   [
     "Starea firmei",

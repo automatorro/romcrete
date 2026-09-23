@@ -26,6 +26,8 @@ export async function startVisit(formData: FormData) {
         city: String(formData.get("city") ?? "").trim() || null,
         phone: String(formData.get("phone") ?? "").trim() || null,
         trade_type: String(formData.get("trade_type") ?? "").trim() || null,
+        // Domeniul hotărăște întrebările din vizită și unitatea de calcul.
+        domain: String(formData.get("domain") ?? "").trim() || "constructii",
         owner_agent_id: user.id,
       })
       .select("id")

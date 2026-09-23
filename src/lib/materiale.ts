@@ -65,6 +65,31 @@ export const MATERIAL_RULES: MaterialRule[] = [
     include: /anticoroz|intumesc|ignifug|epoxid|industrial/,
   },
   { id: "marcaje", label: "Marcaje rutiere", include: /marcaj|rutier|trafic|reflector/ },
+  // Materialele domeniilor din afara construcțiilor. Fiecare opțiune nouă din
+  // `materiale` are nevoie de o regulă aici: fără ea, bifa n-ar sugera nicio
+  // categorie de pompe, adică n-ar folosi la nimic.
+  {
+    id: "epoxid",
+    label: "Epoxidice / poliuretanice bicomponente",
+    include: /epoxid|bicomponent|poliuretanic/,
+    exclude: /marcaj|rutier/,
+  },
+  {
+    id: "ignifug",
+    label: "Vopsea intumescentă / ignifugă",
+    include: /intumesc|ignifug|protecție la foc/,
+  },
+  {
+    id: "vopseaauto",
+    label: "Vopsea auto / lacuri fine",
+    include: /\blac\b|lacuri fine|emailuri fine|vopsele fine|vopsele decorative fine|baiț|finisaje fine|mobilier/,
+    exclude: /anticoroz|industrial|marcaj|tencuial/,
+  },
+  {
+    id: "rasini",
+    label: "Rășini de injectare",
+    include: /rășin|rasin|inject/,
+  },
 ];
 
 /** 2 = scrie în fișa produsului, 1 = dedus după consistență, de confirmat tehnic. */

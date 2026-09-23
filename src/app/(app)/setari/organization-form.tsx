@@ -123,7 +123,7 @@ export function OrganizationForm({ organization }: { organization: Organization 
 
         <div>
           <label className="label" htmlFor="productivity_factor">
-            Randament mecanizat față de manual
+            Randament mecanizat — valoare de rezervă
           </label>
           <input
             id="productivity_factor"
@@ -136,8 +136,9 @@ export function OrganizationForm({ organization }: { organization: Organization 
             className="input"
           />
           <p className="mt-1 text-xs text-neutral-500">
-            De câte ori se aplică mai mult material cu pompa. Intră direct în calculul de
-            amortizare arătat pe teren.
+            De câte ori se aplică mai mult material cu pompa. Calculul folosește randamentul
+            domeniului firmei vizitate — cel de mai jos; asta e valoarea folosită doar dacă
+            firma n-a fost încadrată în niciun domeniu.
           </p>
         </div>
 

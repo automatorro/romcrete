@@ -7,6 +7,8 @@ export type QuestionOption = {
   label: string;
   /** Valoarea folosită în calcule, ex. mijlocul intervalului de preț. */
   value?: number | null;
+  /** Domeniile în care apare opțiunea. Null = în toate. */
+  domains?: string[] | null;
 };
 
 export type QuestionGroup = {
@@ -18,6 +20,10 @@ export type QuestionGroup = {
   options_source: "pump_categories" | "accessory_categories" | null;
   counts_for_priority: boolean;
   position: number;
+  /** Domeniile în care apare întrebarea. Null = în toate. */
+  domains?: string[] | null;
+  /** Eticheta schimbată pe domeniu: „Cât ia pe mp” devine „Cât ia pe metru liniar”. */
+  label_by_domain?: Record<string, string> | null;
   options: QuestionOption[];
 };
 
@@ -86,6 +92,7 @@ export type ClientState = {
   owner_agent_id: string | null;
   name: string;
   trade_type: string | null;
+  domain: string | null;
   city: string | null;
   phone: string | null;
   answers: Answers;
@@ -141,7 +148,7 @@ export function lastVisitLabel(date: string | null): string {
  * Ce nu s-a aflat încă despre firmă. Aceleași reguli ca în aplicația de teren:
  * întrebările fără care agentul nu poate califica meseriașul.
  */
-export function gaps(a: Answers): string[] {
+export function gaps(a: Answers, unitShort = "mp"): string[] {
   const has = (k: string) => {
     const v = a[k];
     return Array.isArray(v) ? v.length > 0 : Boolean(v);
@@ -149,7 +156,7 @@ export function gaps(a: Answers): string[] {
   const out: string[] = [];
   if (!has("mod")) out.push("cum lucrează");
   if (!has("materiale")) out.push("materiale");
-  if (!has("supr")) out.push("suprafață/zi");
+  if (!has("supr")) out.push(`${unitShort}/zi`);
   if (!has("scule")) out.push("scule");
   if ((a.mod === "manual" || a.mod === "mixt") && !has("dece")) out.push("de ce manual");
   if (!has("interes")) out.push("interes");
