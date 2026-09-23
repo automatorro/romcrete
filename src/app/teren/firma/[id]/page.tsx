@@ -57,7 +57,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
 
   return (
     <div>
-      <Link href="/teren" className="text-sm text-brand-700 hover:underline">
+      <Link href="/teren/firme" className="text-sm text-brand-700 hover:underline">
         ← Firme
       </Link>
 

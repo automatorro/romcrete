@@ -42,6 +42,10 @@ const CONVERSATIE: [string, string][] = [
 
 const CUM_FUNCTIONEAZA: [string, string][] = [
   [
+    "Ecranul „Azi” și țintele",
+    "Primul tab e ziua ta, nu baza de date. Sus vezi cât ai făcut față de țintă — vizitele de azi și ofertele lunii. Sub el, pașii scadenți, cu buton de sunat și de bifat direct. Apoi firmele de reluat: cele la care n-ai mai trecut de mult și n-ai niciun pas programat. O firmă caldă revine după o săptămână, una rece după o lună. Jos, firmele grupate pe localități, ca să-ți poți face ziua pe zone, nu firmă cu firmă.",
+  ],
+  [
     "Ce e de făcut cu firma",
     "Aplicația măsoară două lucruri diferite. Apetitul — cât vrea — și fezabilitatea — cât poate: dacă are cu ce plăti, dacă are curent pe șantier, dacă are cerere pentru capacitatea în plus. Din ele iese o singură etichetă. „Urmărește acum” = vrea și poate; acolo se închid vânzările. „Deblochează” = vrea, dar ceva îl oprește; acolo te duci cu leasingul sau cu generatorul, nu cu încă o vizită de convingere. „Educă” = poate, dar nu vede rostul; acolo arăți calculul. „Lasă” = niciuna, revii peste câteva luni.",
   ],

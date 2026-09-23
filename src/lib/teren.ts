@@ -101,6 +101,10 @@ export type ClientState = {
   next_step_visit_id: string | null;
   next_step_late: boolean | null;
   pending_escalations: number;
+  /** Caldă: vrea ofertă, e gata de cumpărare, sau e în cadranul „Urmărește acum”. */
+  is_warm: boolean;
+  recontact_due: string | null;
+  needs_recontact: boolean;
 };
 
 export const TRADE_TYPES: QuestionOption[] = [

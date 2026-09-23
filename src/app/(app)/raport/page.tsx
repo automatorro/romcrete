@@ -34,6 +34,10 @@ export default async function RaportPage(props: PageProps<"/raport">) {
   const agentName = (id: string) =>
     r.members.find((m) => m.user_id === id)?.full_name ?? "Agent fără nume";
 
+  // Ținta personală bate ținta firmei.
+  const tintaAgent = (id: string) =>
+    r.members.find((m) => m.user_id === id)?.target_visits_per_day ?? r.orgTargetVisitsPerDay;
+
   const chipHref = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ per: period, ag: agent, gran: granularitate, ...patch }))
@@ -195,6 +199,9 @@ export default async function RaportPage(props: PageProps<"/raport">) {
                 <th className="py-2">Agent</th>
                 <th className="py-2 text-right">Vizite</th>
                 <th className="py-2 text-right">Firme</th>
+                <th className="py-2 text-right">Vizite / zi</th>
+                <th className="py-2 text-right">Țintă / zi</th>
+                <th className="py-2 text-right">Realizare</th>
                 <th className="py-2 text-right">Ultima vizită</th>
               </tr>
             </thead>
@@ -204,6 +211,27 @@ export default async function RaportPage(props: PageProps<"/raport">) {
                   <td className="py-2">{agentName(a.agentId)}</td>
                   <td className="py-2 text-right tabular-nums">{a.visits}</td>
                   <td className="py-2 text-right tabular-nums">{a.clients}</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {r.workingDays ? (a.visits / r.workingDays).toFixed(1) : "—"}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-neutral-500">
+                    {tintaAgent(a.agentId)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {r.workingDays && tintaAgent(a.agentId) > 0 ? (
+                      <span
+                        className={
+                          a.visits / r.workingDays >= tintaAgent(a.agentId)
+                            ? "font-semibold text-[var(--color-ok)]"
+                            : ""
+                        }
+                      >
+                        {Math.round((a.visits / r.workingDays / tintaAgent(a.agentId)) * 100)}%
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="py-2 text-right text-neutral-500">{formatDate(a.last)}</td>
                 </tr>
               ))}

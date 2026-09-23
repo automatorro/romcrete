@@ -59,3 +59,40 @@ export async function updateOptionValues(
   revalidatePath("/teren", "layout");
   return { success: `Am salvat ${modificari.length} praguri.` };
 }
+
+/** Ținte personale. Câmpul gol înseamnă „ca la toată lumea”, deci se scrie null. */
+export async function updateAgentTargets(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { orgId } = await requireOrg();
+  const supabase = await createClient();
+
+  const perAgent = new Map<string, { vizite: number | null; oferte: number | null }>();
+  for (const [name, raw] of formData.entries()) {
+    const m = name.match(/^(vizite|oferte)_(.+)$/);
+    if (!m) continue;
+    const [, camp, userId] = m;
+    const text = String(raw).trim();
+    const value = text === "" ? null : Number(text);
+    if (value !== null && !Number.isFinite(value)) continue;
+
+    const rec = perAgent.get(userId) ?? { vizite: null, oferte: null };
+    if (camp === "vizite") rec.vizite = value;
+    else rec.oferte = value;
+    perAgent.set(userId, rec);
+  }
+
+  for (const [userId, t] of perAgent) {
+    const { error } = await supabase
+      .from("memberships")
+      .update({ target_visits_per_day: t.vizite, target_quotes_per_month: t.oferte })
+      .eq("org_id", orgId)
+      .eq("user_id", userId);
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/setari");
+  revalidatePath("/teren");
+  return { success: `Am salvat țintele pentru ${perAgent.size} persoane.` };
+}

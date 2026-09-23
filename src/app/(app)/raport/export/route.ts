@@ -155,6 +155,8 @@ export async function GET(request: NextRequest) {
   // ------------------------------------------------------------- Pe agent
   const peAgent = sheet(wb, "Pe agent", [
     { header: "Agent", key: "agent", width: 24 },
+    { header: "Țintă vizite / zi", key: "tinta", width: 15 },
+    { header: "Realizare țintă", key: "realizare", width: 15, format: "0%" },
     ...INDICATORI.map((ind) => ({
       header: ind.label,
       key: ind.label,
@@ -163,7 +165,14 @@ export async function GET(request: NextRequest) {
     })),
   ]);
   for (const a of data.perAgent) {
-    const row: Record<string, unknown> = { agent: a.agent };
+    const tinta =
+      data.members.find((m) => m.user_id === a.agentId)?.target_visits_per_day ??
+      data.orgTargetVisitsPerDay;
+    const row: Record<string, unknown> = {
+      agent: a.agent,
+      tinta,
+      realizare: tinta > 0 && a.metrics.zileLucratoare > 0 ? a.metrics.vizitePeZi / tinta : null,
+    };
     for (const ind of INDICATORI) row[ind.label] = ind.get(a.metrics);
     peAgent.addRow(row);
   }

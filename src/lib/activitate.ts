@@ -64,7 +64,13 @@ export type ActivityDataset = {
   to: string;
   granularity: Granularity;
   agentFilter: string | null;
-  members: { user_id: string; full_name: string | null; role: string }[];
+  members: {
+    user_id: string;
+    full_name: string | null;
+    role: string;
+    target_visits_per_day: number | null;
+  }[];
+  orgTargetVisitsPerDay: number;
   total: Metrics;
   /** Aceeași perioadă, imediat înainte — pentru comparație. */
   previous: Metrics;
@@ -224,7 +230,10 @@ export async function buildActivity(
       .gte("visit_date", prevFrom)
       .lte("visit_date", to)
       .order("visit_date"),
-    supabase.from("memberships").select("user_id, full_name, role").eq("org_id", orgId),
+    supabase
+      .from("memberships")
+      .select("user_id, full_name, role, target_visits_per_day")
+      .eq("org_id", orgId),
     supabase.from("clients").select("id, name, city, trade_type, owner_agent_id, created_at").eq("org_id", orgId),
     supabase
       .from("quotes")
@@ -379,8 +388,15 @@ export async function buildActivity(
     }
   }
 
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("target_visits_per_day")
+    .eq("id", orgId)
+    .maybeSingle();
+
   return {
     from, to, granularity, agentFilter, members,
+    orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
     total, previous, perAgent, perPeriod,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);

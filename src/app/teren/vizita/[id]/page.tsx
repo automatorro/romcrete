@@ -76,7 +76,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   return (
     <div>
       <div className="flex items-center gap-2">
-        <Link href="/teren" className="text-sm text-brand-700 hover:underline">
+        <Link href="/teren/firme" className="text-sm text-brand-700 hover:underline">
           ← Firme
         </Link>
         <span className="flex-1" />

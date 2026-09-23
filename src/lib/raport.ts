@@ -17,7 +17,10 @@ export type VisitRow = {
 
 export type Report = {
   sections: QuestionSection[];
-  members: { user_id: string; full_name: string | null }[];
+  members: { user_id: string; full_name: string | null; target_visits_per_day: number | null }[];
+  /** Zile lucrătoare din perioada aleasă, pentru comparația cu ținta zilnică. */
+  workingDays: number;
+  orgTargetVisitsPerDay: number;
   visits: VisitRow[];
   clientCount: number;
   quotesFromVisits: number;
@@ -53,6 +56,14 @@ export async function buildReport(
 ): Promise<Report> {
   const cut = periodCutoff(period);
   const supabase = await createClient();
+  const azi = new Date().toISOString().slice(0, 10);
+
+  // Zile de luni până vineri din perioadă: fără ele, „vizite pe zi” e diluat de weekenduri.
+  let workingDays = 0;
+  for (let d = new Date(`${cut ?? azi}T12:00:00Z`); d.toISOString().slice(0, 10) <= azi; d.setUTCDate(d.getUTCDate() + 1)) {
+    const wd = d.getUTCDay();
+    if (wd >= 1 && wd <= 5) workingDays++;
+  }
   const sections = await getQuestionCatalogue(orgId);
 
   let visitQuery = supabase
@@ -66,7 +77,10 @@ export async function buildReport(
   const [{ data: visitRows }, { data: memberRows }, { data: quoteRows }, { data: itemRows }] =
     await Promise.all([
       visitQuery,
-      supabase.from("memberships").select("user_id, full_name").eq("org_id", orgId),
+      supabase
+        .from("memberships")
+        .select("user_id, full_name, target_visits_per_day")
+        .eq("org_id", orgId),
       supabase.from("quotes").select("id, status, visit_id").eq("org_id", orgId),
       supabase.from("catalog_items").select("sku, name").eq("org_id", orgId).not("sku", "is", null),
     ]);
@@ -152,9 +166,17 @@ export async function buildReport(
     if (a.refuzat === "nu") blocaje.set("Nu are destule lucrări", (blocaje.get("Nu are destule lucrări") ?? 0) + 1);
   }
 
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("target_visits_per_day")
+    .eq("id", orgId)
+    .maybeSingle();
+
   return {
     sections,
     members: memberRows ?? [],
+    workingDays,
+    orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
     visits,
     clientCount: new Set(visits.map((v) => v.client_id)).size,
     quotesFromVisits: fromVisits.length,

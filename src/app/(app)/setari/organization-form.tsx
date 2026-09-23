@@ -59,6 +59,69 @@ export function OrganizationForm({ organization }: { organization: Organization 
         </div>
 
         <div>
+          <label className="label" htmlFor="target_visits_per_day">
+            Țintă vizite pe zi
+          </label>
+          <input
+            id="target_visits_per_day"
+            name="target_visits_per_day"
+            type="number"
+            step="1"
+            min="0"
+            defaultValue={organization.target_visits_per_day}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="target_quotes_per_month">
+            Țintă oferte pe lună
+          </label>
+          <input
+            id="target_quotes_per_month"
+            name="target_quotes_per_month"
+            type="number"
+            step="1"
+            min="0"
+            defaultValue={organization.target_quotes_per_month}
+            className="input"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="recontact_days_warm">
+            Reluare firmă caldă (zile)
+          </label>
+          <input
+            id="recontact_days_warm"
+            name="recontact_days_warm"
+            type="number"
+            step="1"
+            min="1"
+            defaultValue={organization.recontact_days_warm}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Caldă = vrea ofertă, e gata de cumpărare, sau e în „Urmărește acum”.
+          </p>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="recontact_days_cold">
+            Reluare firmă rece (zile)
+          </label>
+          <input
+            id="recontact_days_cold"
+            name="recontact_days_cold"
+            type="number"
+            step="1"
+            min="1"
+            defaultValue={organization.recontact_days_cold}
+            className="input"
+          />
+        </div>
+
+        <div>
           <label className="label" htmlFor="productivity_factor">
             Randament mecanizat față de manual
           </label>

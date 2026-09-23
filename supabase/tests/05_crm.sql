@@ -140,6 +140,44 @@ select descriere,
        public.client_focus(a)       as cadran
 from cazuri;
 
+\echo '--- 14. firme de reluat: caldă la 7 zile, rece la 30 ---'
+insert into public.clients (org_id, name, city)
+select (select v from public._t where k='org')::uuid, 'Caldă recentă', 'Arad';
+insert into public.clients (org_id, name, city)
+select (select v from public._t where k='org')::uuid, 'Caldă uitată', 'Arad';
+insert into public.clients (org_id, name, city)
+select (select v from public._t where k='org')::uuid, 'Rece uitată de 10 zile', 'Arad';
+insert into public.clients (org_id, name, city)
+select (select v from public._t where k='org')::uuid, 'Rece uitată de 40 zile', 'Arad';
+
+-- Caldă = vrea ofertă. Fără pas următor, ca să intre în regula de reluare.
+insert into public.visits (org_id, client_id, visit_date, answers)
+select c.org_id, c.id, current_date - 3, '{"interes":"oferta"}'::jsonb
+from public.clients c where c.name = 'Caldă recentă';
+insert into public.visits (org_id, client_id, visit_date, answers)
+select c.org_id, c.id, current_date - 10, '{"interes":"oferta"}'::jsonb
+from public.clients c where c.name = 'Caldă uitată';
+insert into public.visits (org_id, client_id, visit_date, answers)
+select c.org_id, c.id, current_date - 10, '{"interes":"curios"}'::jsonb
+from public.clients c where c.name = 'Rece uitată de 10 zile';
+insert into public.visits (org_id, client_id, visit_date, answers)
+select c.org_id, c.id, current_date - 40, '{"interes":"curios"}'::jsonb
+from public.clients c where c.name = 'Rece uitată de 40 zile';
+
+select name, is_warm as calda, last_visit, recontact_due as termen, needs_recontact as de_reluat
+from public.client_state
+where name in ('Caldă recentă','Caldă uitată','Rece uitată de 10 zile','Rece uitată de 40 zile')
+order by name;
+
+\echo '    (aștept: Caldă recentă = nu, Caldă uitată = DA, Rece 10 zile = nu, Rece 40 zile = DA)'
+
+\echo '--- 15. o firmă cu pas următor deschis nu intră la reluare ---'
+insert into public.visits (org_id, client_id, visit_date, answers, next_step_date)
+select c.org_id, c.id, current_date - 40, '{"interes":"curios","urmator":"sun"}'::jsonb, current_date + 5
+from public.clients c where c.name = 'Rece uitată de 40 zile';
+select name, needs_recontact as de_reluat_dupa_ce_are_pas
+from public.client_state where name = 'Rece uitată de 40 zile';
+
 reset role;
 drop table public._t;
 \echo '--- toate verificările CRM au trecut ---'

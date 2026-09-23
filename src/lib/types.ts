@@ -30,6 +30,10 @@ export type Organization = {
   vat_rate: number;
   quote_terms: string | null;
   join_domains: string[];
+  target_visits_per_day: number;
+  target_quotes_per_month: number;
+  recontact_days_warm: number;
+  recontact_days_cold: number;
   productivity_factor: number;
   working_days_per_month: number;
   created_at: string;

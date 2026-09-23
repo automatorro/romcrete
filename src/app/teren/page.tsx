@@ -3,223 +3,246 @@ import Link from "next/link";
 import { markStepDone } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
-import { getQuestionCatalogue } from "@/lib/questions";
+import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
-import { FOCUS_LABELS, gaps, lastVisitLabel, tradeLabel, type ClientState, type Focus } from "@/lib/teren";
+import { lastVisitLabel, type ClientState } from "@/lib/teren";
 
-export const metadata = { title: "Firme" };
+export const metadata = { title: "Azi" };
 
-export default async function TerenPage(props: PageProps<"/teren">) {
-  const { orgId } = await requireOrg();
-  const { q, etapa, prio, restante, focus } = await props.searchParams;
+/** Luni–vineri din săptămâna curentă, până azi inclusiv: câte zile s-au consumat din țintă. */
+function workingDaysSoFar(today: Date) {
+  const dow = (today.getDay() + 6) % 7; // 0 = luni
+  let n = 0;
+  for (let i = 0; i <= Math.min(dow, 4); i++) n++;
+  return n;
+}
 
-  const search = typeof q === "string" ? q.trim() : "";
-  const stage = typeof etapa === "string" ? etapa : "";
-  const priority = typeof prio === "string" ? prio : "";
-  const onlyLate = restante === "1";
-  const focusFilter = typeof focus === "string" ? focus : "";
-
-  const [sections, supabase] = await Promise.all([getQuestionCatalogue(orgId), createClient()]);
-  const stageGroup = sections.flatMap((s) => s.groups).find((g) => g.id === "etapa");
-
-  let query = supabase.from("client_state").select("*").eq("org_id", orgId);
-  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%,phone.ilike.%${search}%`);
-  if (stage) query = query.eq("stage", stage);
-  if (priority) query = query.eq("priority", priority);
-  if (onlyLate) query = query.eq("next_step_late", true);
-  if (focusFilter) query = query.eq("focus", focusFilter);
-
-  const { data } = await query;
-  const rows = (data ?? []) as ClientState[];
-
-  // Întâi ce are pas scadent, apoi ce a fost vizitat cel mai recent.
-  rows.sort((a, b) => {
-    const ka = a.next_step_date ?? "9999-12-31";
-    const kb = b.next_step_date ?? "9999-12-31";
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return (b.last_visit ?? "").localeCompare(a.last_visit ?? "") || a.name.localeCompare(b.name, "ro");
-  });
-
-  const late = rows.filter((r) => r.next_step_late).length;
-  const today = new Date().toISOString().slice(0, 10);
-  const due = rows.filter((r) => r.next_step_date === today).length;
-
-  const chipHref = (patch: Record<string, string | null>) => {
-    const p = new URLSearchParams();
-    const base: Record<string, string> = {
-      q: search, etapa: stage, prio: priority,
-      restante: onlyLate ? "1" : "", focus: focusFilter,
-    };
-    for (const [k, v] of Object.entries({ ...base, ...patch })) if (v) p.set(k, v);
-    const s = p.toString();
-    return s ? `/teren?${s}` : "/teren";
-  };
+function Progress({
+  label,
+  done,
+  target,
+  hint,
+}: {
+  label: string;
+  done: number;
+  target: number;
+  hint: string;
+}) {
+  const pct = target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
+  const atins = target > 0 && done >= target;
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Firme și meseriași</h1>
-      <p className="mt-0.5 text-sm text-neutral-500">
-        {rows.length} {rows.length === 1 ? "firmă" : "firme"} · {late}{" "}
-        {late === 1 ? "pas restant" : "pași restanți"} · {due} scadent{due === 1 ? "" : "e"} azi
-      </p>
-
-      <form className="my-3">
-        {stage ? <input type="hidden" name="etapa" value={stage} /> : null}
-        {priority ? <input type="hidden" name="prio" value={priority} /> : null}
-        {onlyLate ? <input type="hidden" name="restante" value="1" /> : null}
-        <input
-          type="search"
-          name="q"
-          defaultValue={search}
-          placeholder="Caută firmă, localitate, telefon"
-          className="input"
+      <div className="flex items-baseline gap-2 text-sm">
+        <span className="text-neutral-700">{label}</span>
+        <span className="flex-1" />
+        <span className="tabular-nums">
+          <b className="text-base">{done}</b>
+          <span className="text-neutral-500"> / {target}</span>
+        </span>
+      </div>
+      <span className="mt-1 block h-2.5 overflow-hidden rounded-full bg-neutral-100">
+        <span
+          className={`block h-full rounded-full ${atins ? "bg-[var(--color-ok)]" : "bg-brand-600"}`}
+          style={{ width: `${pct}%` }}
         />
-      </form>
-
-      <div className="mb-2 flex flex-wrap gap-2">
-        {(["urmareste", "deblocheaza", "educa"] as Focus[]).map((f) => (
-          <Link
-            key={f}
-            href={chipHref({ focus: focusFilter === f ? null : f })}
-            className={`chip chip-s ${focusFilter === f ? "chip-on" : ""}`}
-          >
-            {FOCUS_LABELS[f]}
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {(stageGroup?.options ?? []).map((o) => (
-          <Link
-            key={o.id}
-            href={chipHref({ etapa: stage === o.id ? null : o.id })}
-            className={`chip chip-s ${stage === o.id ? "chip-on" : ""}`}
-          >
-            {o.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Link
-          href={chipHref({ restante: onlyLate ? null : "1" })}
-          className={`chip chip-s ${onlyLate ? "chip-on" : ""}`}
-        >
-          Pași restanți
-        </Link>
-        {["A", "B", "C"].map((p) => (
-          <Link
-            key={p}
-            href={chipHref({ prio: priority === p ? null : p })}
-            className={`chip chip-s ${priority === p ? "chip-on" : ""}`}
-          >
-            Prioritate {p}
-          </Link>
-        ))}
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="card mt-3 p-4 text-sm text-neutral-500">
-          {search || stage || priority || onlyLate
-            ? "Nicio firmă pentru filtrul ales."
-            : "Încă nicio firmă. Apasă „＋ Vizită” după prima întâlnire."}
-        </div>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {rows.map((r) => {
-            const lipsuri = gaps(r.answers).slice(0, 2);
-            // Pasul e programat dacă are dată, chiar dacă agentul n-a apucat să aleagă
-            // și felul lui. Altfel ar fi numărat în antet, dar invizibil pe card.
-            const hasStep = Boolean(r.next_step || r.next_step_date);
-            const stepLabel = r.next_step
-              ? stageGroupLabel(sections, "urmator", r.next_step)
-              : "pas următor";
-
-            return (
-              <li key={r.client_id} className="card p-3">
-                <Link href={`/teren/firma/${r.client_id}`} className="block">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <b className="text-[15px]">{r.name}</b>
-                    <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
-                    <span className="flex-1" />
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-xs ${
-                        r.focus === "urmareste"
-                          ? "border-brand-600 bg-brand-600 text-white"
-                          : r.focus === "deblocheaza"
-                            ? "border-brand-200 bg-brand-50 text-brand-700"
-                            : "border-neutral-200 bg-neutral-100 text-neutral-700"
-                      }`}
-                    >
-                      {FOCUS_LABELS[r.focus]}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                    {r.stage ? <Badge>{stageGroupLabel(sections, "etapa", r.stage)}</Badge> : null}
-                    {r.answers.mod ? (
-                      <Badge>{stageGroupLabel(sections, "mod", String(r.answers.mod))}</Badge>
-                    ) : null}
-                    {r.interest ? (
-                      <Badge>{stageGroupLabel(sections, "interes", r.interest)}</Badge>
-                    ) : null}
-                    {r.trade_type ? (
-                      <span className="text-neutral-500">{tradeLabel(r.trade_type)}</span>
-                    ) : null}
-                    <span className="text-neutral-500">apetit {r.priority}</span>
-                    {r.pending_escalations > 0 ? <Badge>întrebare owner</Badge> : null}
-                  </div>
-                </Link>
-
-                {hasStep ? (
-                  <div
-                    className={`mt-1.5 flex items-center gap-2 text-sm ${
-                      r.next_step_late ? "font-semibold text-[var(--color-bad)]" : ""
-                    }`}
-                  >
-                    <span>
-                      → {stepLabel}
-                      {r.next_step_date ? ` · ${formatDate(r.next_step_date)}` : ""}
-                    </span>
-                    <form action={markStepDone}>
-                      <input type="hidden" name="visit_id" value={r.next_step_visit_id ?? ""} />
-                      <SubmitButton className="btn btn-secondary text-xs" pendingLabel="…">
-                        ✓ făcut
-                      </SubmitButton>
-                    </form>
-                  </div>
-                ) : null}
-
-                <p className="mt-1 text-xs text-neutral-500">
-                  {lastVisitLabel(r.last_visit)}
-                  {lipsuri.length ? ` · de aflat: ${lipsuri.join(", ")}` : ""}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      </span>
+      <p className="mt-0.5 text-xs text-neutral-500">{hint}</p>
     </div>
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5">
-      {children}
-    </span>
-  );
-}
+export default async function AziPage() {
+  const { orgId, organization, user } = await requireOrg();
+  const supabase = await createClient();
+  const sections = await getQuestionCatalogue(orgId);
 
-function stageGroupLabel(
-  sections: Awaited<ReturnType<typeof getQuestionCatalogue>>,
-  groupId: string,
-  optionId: string,
-): string {
-  for (const s of sections) {
-    const g = s.groups.find((x) => x.id === groupId);
-    if (g) return g.options.find((o) => o.id === optionId)?.label ?? optionId;
+  const now = new Date();
+  const azi = now.toISOString().slice(0, 10);
+  const inceputLuna = `${azi.slice(0, 7)}-01`;
+  const luni = new Date(now);
+  luni.setDate(luni.getDate() - ((now.getDay() + 6) % 7));
+  const inceputSaptamana = luni.toISOString().slice(0, 10);
+
+  const [{ data: membership }, { count: viziteAzi }, { count: viziteSapt }, { count: oferteLuna }, { data: stateRows }] =
+    await Promise.all([
+      supabase
+        .from("memberships")
+        .select("target_visits_per_day, target_quotes_per_month")
+        .eq("user_id", user.id)
+        .eq("org_id", orgId)
+        .maybeSingle(),
+      supabase
+        .from("visits")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_id", user.id)
+        .eq("visit_date", azi),
+      supabase
+        .from("visits")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_id", user.id)
+        .gte("visit_date", inceputSaptamana),
+      supabase
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("created_by", user.id)
+        .gte("issue_date", inceputLuna),
+      supabase.from("client_state").select("*").eq("org_id", orgId),
+    ]);
+
+  // Ținta personală bate ținta firmei; null înseamnă „ca la toată lumea”.
+  const tintaZi = membership?.target_visits_per_day ?? organization.target_visits_per_day ?? 5;
+  const tintaLuna = membership?.target_quotes_per_month ?? organization.target_quotes_per_month ?? 10;
+
+  const rows = (stateRows ?? []) as ClientState[];
+
+  const deFacut = rows
+    .filter((r) => r.next_step_date && r.next_step_date <= azi)
+    .sort((a, b) => (a.next_step_date ?? "").localeCompare(b.next_step_date ?? ""));
+
+  const deReluat = rows
+    .filter((r) => r.needs_recontact)
+    .sort((a, b) => (a.recontact_due ?? "").localeCompare(b.recontact_due ?? ""))
+    .slice(0, 12);
+
+  const zone = new Map<string, { total: number; urgente: number }>();
+  for (const r of rows) {
+    const oras = r.city?.trim() || "Fără localitate";
+    const z = zone.get(oras) ?? { total: 0, urgente: 0 };
+    z.total++;
+    if (r.next_step_late || r.needs_recontact) z.urgente++;
+    zone.set(oras, z);
   }
-  return optionId;
+  const zoneSortate = [...zone.entries()].sort((a, b) => b[1].urgente - a[1].urgente || b[1].total - a[1].total);
+
+  const zileLucrate = workingDaysSoFar(now);
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold">Azi</h1>
+      <p className="mt-0.5 text-sm text-neutral-500">
+        {new Intl.DateTimeFormat("ro-RO", { weekday: "long", day: "numeric", month: "long" }).format(now)}
+      </p>
+
+      <section className="card mt-3 space-y-4 p-4">
+        <Progress
+          label="Vizite azi"
+          done={viziteAzi ?? 0}
+          target={tintaZi}
+          hint={`Săptămâna asta: ${viziteSapt ?? 0} din ${tintaZi * zileLucrate} până acum.`}
+        />
+        <Progress
+          label="Oferte luna asta"
+          done={oferteLuna ?? 0}
+          target={tintaLuna}
+          hint="Se numără ofertele emise de tine, indiferent din ce vizită pornesc."
+        />
+      </section>
+
+      <h2 className="mt-5 mb-1 text-base font-semibold">
+        De făcut {deFacut.length ? `· ${deFacut.length}` : ""}
+      </h2>
+      {deFacut.length === 0 ? (
+        <p className="card p-3 text-sm text-neutral-500">
+          Niciun pas scadent. Dacă ai timp, ia o firmă din „De reluat”.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {deFacut.map((r) => (
+            <li key={r.client_id} className="card p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/teren/firma/${r.client_id}`} className="font-medium">
+                  {r.name}
+                </Link>
+                <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
+                <span className="flex-1" />
+                {r.next_step_late ? (
+                  <span className="text-xs font-semibold text-[var(--color-bad)]">
+                    restant din {formatDate(r.next_step_date)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-neutral-500">azi</span>
+                )}
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-sm">
+                <span>
+                  →{" "}
+                  {r.next_step
+                    ? optionLabel(sections, "urmator", r.next_step)
+                    : "pas următor"}
+                </span>
+                <span className="flex-1" />
+                {r.phone ? (
+                  <a href={`tel:${r.phone}`} className="btn btn-secondary text-xs">
+                    Sună
+                  </a>
+                ) : null}
+                <form action={markStepDone}>
+                  <input type="hidden" name="visit_id" value={r.next_step_visit_id ?? ""} />
+                  <SubmitButton className="btn btn-secondary text-xs" pendingLabel="…">
+                    ✓ făcut
+                  </SubmitButton>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2 className="mt-5 mb-1 text-base font-semibold">
+        De reluat {deReluat.length ? `· ${deReluat.length}` : ""}
+      </h2>
+      <p className="mb-2 text-xs text-neutral-500">
+        Firme fără pas următor, la care n-ai mai trecut de mult. Cele calde revin după{" "}
+        {organization.recontact_days_warm ?? 7} zile, restul după {organization.recontact_days_cold ?? 30}.
+      </p>
+      {deReluat.length === 0 ? (
+        <p className="card p-3 text-sm text-neutral-500">Nicio firmă uitată. Bine.</p>
+      ) : (
+        <ul className="space-y-2">
+          {deReluat.map((r) => (
+            <li key={r.client_id} className="card p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/teren/firma/${r.client_id}`} className="font-medium">
+                  {r.name}
+                </Link>
+                <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
+                <span className="flex-1" />
+                {r.is_warm ? (
+                  <span className="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs text-brand-700">
+                    caldă
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-xs text-neutral-500">{lastVisitLabel(r.last_visit)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {zoneSortate.length > 1 ? (
+        <>
+          <h2 className="mt-5 mb-1 text-base font-semibold">Pe zone</h2>
+          <p className="mb-2 text-xs text-neutral-500">
+            Câte firme ai în fiecare localitate și câte cer atenție. Util când îți faci ziua.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {zoneSortate.map(([oras, z]) => (
+              <Link
+                key={oras}
+                href={`/teren/firme?city=${encodeURIComponent(oras === "Fără localitate" ? "" : oras)}`}
+                className="chip chip-s"
+              >
+                {oras} · {z.total}
+                {z.urgente ? (
+                  <span className="ml-1 font-semibold text-[var(--color-bad)]">{z.urgente}</span>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
 }
