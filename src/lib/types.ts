@@ -29,6 +29,8 @@ export type Organization = {
   bank: string | null;
   vat_rate: number;
   quote_terms: string | null;
+  productivity_factor: number;
+  working_days_per_month: number;
   created_at: string;
 };
 

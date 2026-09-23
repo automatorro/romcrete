@@ -4,6 +4,7 @@ import { BarList, Funnel, StatTile, WorkModeShare } from "@/app/(app)/raport/cha
 import { requireOrg } from "@/lib/auth";
 import { buildReport, type Period } from "@/lib/raport";
 import { formatDate, formatMoney } from "@/lib/totals";
+import { FOCUS_EXPLAIN, FOCUS_LABELS, type Focus } from "@/lib/teren";
 
 export const metadata = { title: "Raport" };
 
@@ -90,6 +91,48 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       </section>
 
       <section className="card p-4">
+        <h2 className="text-base font-semibold">Ce e de făcut cu firmele</h2>
+        <p className="mt-0.5 mb-3 text-sm text-neutral-500">
+          Două axe: cât vrea și cât poate. O firmă entuziasmată fără bani și fără curent pe
+          șantier nu e o vânzare aproape de finalizare, e un blocaj de rezolvat.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(["urmareste", "deblocheaza", "educa", "lasa"] as Focus[]).map((f) => (
+            <div
+              key={f}
+              className={`rounded-xl border p-3 ${
+                f === "urmareste" ? "border-brand-600 bg-brand-50" : "border-neutral-200"
+              }`}
+            >
+              <p className="flex items-baseline gap-2">
+                <span className="text-2xl font-semibold tabular-nums">{r.focusCounts[f]}</span>
+                <span className="font-medium">{FOCUS_LABELS[f]}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-500">{FOCUS_EXPLAIN[f]}</p>
+            </div>
+          ))}
+        </div>
+        {r.focusCounts.necunoscut > 0 ? (
+          <p className="mt-3 text-sm text-neutral-500">
+            {r.focusCounts.necunoscut}{" "}
+            {r.focusCounts.necunoscut === 1 ? "firmă nu are" : "firme nu au"} destule răspunsuri
+            cât să poată fi încadrate. Sunt vizitele de completat la următoarea trecere.
+          </p>
+        ) : null}
+      </section>
+
+      {r.blockers.length ? (
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Ce le stă în cale</h2>
+          <p className="mb-3 text-sm text-neutral-500">
+            Firmele care vor, dar nu pot încă. Fiecare blocaj are o soluție comercială:
+            leasing, generator, sau un argument care nu depinde de volum.
+          </p>
+          <BarList rows={r.blockers} />
+        </section>
+      ) : null}
+
+      <section className="card p-4">
         <h2 className="mb-3 text-base font-semibold">Cum lucrează piața</h2>
         <WorkModeShare counts={r.workModes} />
         <p className="mt-2 text-xs text-neutral-500">
@@ -113,6 +156,31 @@ export default async function RaportPage(props: PageProps<"/raport">) {
         <section className="card p-4">
           <h2 className="mb-3 text-base font-semibold">Modele discutate</h2>
           <BarList rows={r.models} limit={8} empty="Încă nu s-a discutat niciun model." />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Ce utilaj au acum</h2>
+          <p className="mb-3 text-xs text-neutral-500">
+            Cei cu utilaj mai vechi de 5 ani sunt cei mai apropiați de o înlocuire.
+          </p>
+          <BarList rows={r.countBy("utilaj")} />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Găsesc oameni?</h2>
+          <p className="mb-3 text-xs text-neutral-500">
+            Criza de personal e argumentul de mecanizare care nu depinde de volumul de lucrări.
+          </p>
+          <BarList rows={r.countBy("oameni")} />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-3 text-base font-semibold">Cum ar plăti</h2>
+          <BarList rows={r.countBy("plata")} />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Condiții pe șantier</h2>
+          <p className="mb-3 text-xs text-neutral-500">
+            „Șantiere fără curent” înseamnă vânzare de generator înainte de pompă.
+          </p>
+          <BarList rows={r.countBy("santier")} />
         </section>
       </div>
 

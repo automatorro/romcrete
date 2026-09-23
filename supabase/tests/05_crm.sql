@@ -123,6 +123,29 @@ select public.client_priority('{"interes":"curios","decide":"nu"}'::jsonb) as do
        -- „nu știu” nu se numără deloc; „nimic” se numără drept criteriu completat, dar aduce 0 puncte
        public.client_priority('{"interes":"gata","decide":"singur","volum":"l6","cand":"nustiu","atragere":["nimic"]}'::jsonb) as patru_criterii_scor_8_astept_A;
 
+\echo '--- 12. fezabilitatea: poate cumpăra și are unde folosi? ---'
+select
+  public.client_feasibility('{"plata":"cash"}'::jsonb)                                as un_criteriu_astept_intrebare,
+  public.client_feasibility('{"plata":"cash","refuzat":"des"}'::jsonb)                as scor_4_astept_da,
+  public.client_feasibility('{"plata":"rate","santier":["faracurent"]}'::jsonb)       as scor_2_astept_blocaj,
+  public.client_feasibility('{"plata":"nupoate","refuzat":"nu"}'::jsonb)              as scor_0_astept_nu,
+  public.client_feasibility('{"plata":"nustie","refuzat":"des"}'::jsonb)              as nustie_nu_se_numara_astept_intrebare,
+  public.client_feasibility('{"santier":["230v","distanta"],"refuzat":"cateva"}'::jsonb) as curent_plus_cerere_astept_da;
+
+\echo '--- 13. cadranele: ce e de făcut cu firma ---'
+with cazuri(descriere, a) as (values
+  ('vrea și poate',        '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult","termene"],"plata":"cash","refuzat":"des"}'::jsonb),
+  ('vrea, dar e blocat',   '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult"],"plata":"nupoate","santier":["faracurent"]}'::jsonb),
+  ('poate, dar nu vrea',   '{"interes":"curios","decide":"nu","volum":"l12","plata":"cash","refuzat":"des"}'::jsonb),
+  ('nici, nici',           '{"interes":"nu","decide":"nu","volum":"l12","plata":"nupoate","refuzat":"nu"}'::jsonb),
+  ('date insuficiente',    '{"interes":"gata","plata":"cash"}'::jsonb)
+)
+select descriere,
+       public.client_priority(a)    as apetit,
+       public.client_feasibility(a) as fezabilitate,
+       public.client_focus(a)       as cadran
+from cazuri;
+
 reset role;
 drop table public._t;
 \echo '--- toate verificările CRM au trecut ---'

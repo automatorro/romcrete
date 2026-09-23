@@ -35,10 +35,10 @@ export const getQuestionCatalogue = cache(async (orgId: string): Promise<Questio
     pumpCategories = all.filter((c) => !c.startsWith("Accesorii"));
   }
 
-  const byGroup = new Map<string, { id: string; label: string }[]>();
+  const byGroup = new Map<string, { id: string; label: string; value: number | null }[]>();
   for (const o of options ?? []) {
     const list = byGroup.get(o.group_id) ?? [];
-    list.push({ id: o.id, label: o.label });
+    list.push({ id: o.id, label: o.label, value: o.value ?? null });
     byGroup.set(o.group_id, list);
   }
 
@@ -49,7 +49,7 @@ export const getQuestionCatalogue = cache(async (orgId: string): Promise<Questio
         : source === "accessory_categories"
           ? accessoryCategories
           : [];
-    return source_.map((c) => ({ id: c, label: c.replace(/^Accesorii — /, "") }));
+    return source_.map((c) => ({ id: c, label: c.replace(/^Accesorii — /, ""), value: null }));
   };
 
   return (sections ?? []).map((s) => ({

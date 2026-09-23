@@ -2,7 +2,12 @@
 
 export type QuestionKind = "single" | "multi" | "next_step_date" | "pump_picker";
 
-export type QuestionOption = { id: string; label: string };
+export type QuestionOption = {
+  id: string;
+  label: string;
+  /** Valoarea folosită în calcule, ex. mijlocul intervalului de preț. */
+  value?: number | null;
+};
 
 export type QuestionGroup = {
   id: string;
@@ -46,6 +51,35 @@ export type Visit = {
 };
 
 /** Rândul din view-ul client_state: starea firmei, derivată din vizitele ei. */
+/** A doua axă: poate cumpăra și are unde folosi utilajul. */
+export type Feasibility = "da" | "blocaj" | "nu" | "?";
+
+/** Cele două axe împreună: ce e de făcut cu firma. */
+export type Focus = "urmareste" | "deblocheaza" | "educa" | "lasa" | "necunoscut";
+
+export const FOCUS_LABELS: Record<Focus, string> = {
+  urmareste: "Urmărește acum",
+  deblocheaza: "Deblochează",
+  educa: "Educă",
+  lasa: "Lasă",
+  necunoscut: "Date insuficiente",
+};
+
+export const FOCUS_EXPLAIN: Record<Focus, string> = {
+  urmareste: "Vrea și poate cumpăra. Aici se închid vânzările.",
+  deblocheaza: "Vrea, dar ceva îl oprește: banii, curentul pe șantier sau lipsa de lucrări.",
+  educa: "Poate cumpăra, dar nu vede încă rostul. Arată-i calculul.",
+  lasa: "Nici apetit, nici posibilitate. Revii peste câteva luni.",
+  necunoscut: "Nu s-au aflat destule cât să se poată spune.",
+};
+
+export const FEASIBILITY_LABELS: Record<Feasibility, string> = {
+  da: "Poate cumpăra",
+  blocaj: "Are un blocaj",
+  nu: "Nu poate acum",
+  "?": "Nu se știe",
+};
+
 export type ClientState = {
   client_id: string;
   org_id: string;
@@ -58,6 +92,8 @@ export type ClientState = {
   stage: string | null;
   interest: string | null;
   priority: "A" | "B" | "C" | "?";
+  feasibility: Feasibility;
+  focus: Focus;
   visit_count: number;
   last_visit: string | null;
   next_step: string | null;

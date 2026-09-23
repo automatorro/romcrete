@@ -6,18 +6,19 @@ import { requireOrg } from "@/lib/auth";
 import { getQuestionCatalogue } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
-import { gaps, lastVisitLabel, tradeLabel, type ClientState } from "@/lib/teren";
+import { FOCUS_LABELS, gaps, lastVisitLabel, tradeLabel, type ClientState, type Focus } from "@/lib/teren";
 
 export const metadata = { title: "Firme" };
 
 export default async function TerenPage(props: PageProps<"/teren">) {
   const { orgId } = await requireOrg();
-  const { q, etapa, prio, restante } = await props.searchParams;
+  const { q, etapa, prio, restante, focus } = await props.searchParams;
 
   const search = typeof q === "string" ? q.trim() : "";
   const stage = typeof etapa === "string" ? etapa : "";
   const priority = typeof prio === "string" ? prio : "";
   const onlyLate = restante === "1";
+  const focusFilter = typeof focus === "string" ? focus : "";
 
   const [sections, supabase] = await Promise.all([getQuestionCatalogue(orgId), createClient()]);
   const stageGroup = sections.flatMap((s) => s.groups).find((g) => g.id === "etapa");
@@ -27,6 +28,7 @@ export default async function TerenPage(props: PageProps<"/teren">) {
   if (stage) query = query.eq("stage", stage);
   if (priority) query = query.eq("priority", priority);
   if (onlyLate) query = query.eq("next_step_late", true);
+  if (focusFilter) query = query.eq("focus", focusFilter);
 
   const { data } = await query;
   const rows = (data ?? []) as ClientState[];
@@ -45,7 +47,10 @@ export default async function TerenPage(props: PageProps<"/teren">) {
 
   const chipHref = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const base: Record<string, string> = { q: search, etapa: stage, prio: priority, restante: onlyLate ? "1" : "" };
+    const base: Record<string, string> = {
+      q: search, etapa: stage, prio: priority,
+      restante: onlyLate ? "1" : "", focus: focusFilter,
+    };
     for (const [k, v] of Object.entries({ ...base, ...patch })) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/teren?${s}` : "/teren";
@@ -71,6 +76,18 @@ export default async function TerenPage(props: PageProps<"/teren">) {
           className="input"
         />
       </form>
+
+      <div className="mb-2 flex flex-wrap gap-2">
+        {(["urmareste", "deblocheaza", "educa"] as Focus[]).map((f) => (
+          <Link
+            key={f}
+            href={chipHref({ focus: focusFilter === f ? null : f })}
+            className={`chip chip-s ${focusFilter === f ? "chip-on" : ""}`}
+          >
+            {FOCUS_LABELS[f]}
+          </Link>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {(stageGroup?.options ?? []).map((o) => (
@@ -128,12 +145,14 @@ export default async function TerenPage(props: PageProps<"/teren">) {
                     <span className="flex-1" />
                     <span
                       className={`rounded-full border px-2 py-0.5 text-xs ${
-                        r.priority === "A"
+                        r.focus === "urmareste"
                           ? "border-brand-600 bg-brand-600 text-white"
-                          : "border-neutral-200 bg-neutral-100 text-neutral-700"
+                          : r.focus === "deblocheaza"
+                            ? "border-brand-200 bg-brand-50 text-brand-700"
+                            : "border-neutral-200 bg-neutral-100 text-neutral-700"
                       }`}
                     >
-                      prioritate {r.priority}
+                      {FOCUS_LABELS[r.focus]}
                     </span>
                   </div>
 
@@ -148,6 +167,7 @@ export default async function TerenPage(props: PageProps<"/teren">) {
                     {r.trade_type ? (
                       <span className="text-neutral-500">{tradeLabel(r.trade_type)}</span>
                     ) : null}
+                    <span className="text-neutral-500">apetit {r.priority}</span>
                     {r.pending_escalations > 0 ? <Badge>întrebare owner</Badge> : null}
                   </div>
                 </Link>

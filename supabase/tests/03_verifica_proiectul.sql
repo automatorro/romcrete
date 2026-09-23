@@ -16,18 +16,19 @@ where n.nspname = 'public' and c.relrowsecurity
 
 union all
 select 'politici RLS',
-       count(*)::text || ' / 19',
-       case when count(*) = 19 then 'OK' else 'NUMĂR NEAȘTEPTAT' end
+       count(*)::text || ' / 20',
+       case when count(*) = 20 then 'OK' else 'NUMĂR NEAȘTEPTAT' end
 from pg_policies where schemaname = 'public'
 
 union all
 select 'funcții',
-       count(*)::text || ' / 7',
-       case when count(*) = 7 then 'OK' else 'LIPSESC FUNCȚII' end
+       count(*)::text || ' / 10',
+       case when count(*) = 10 then 'OK' else 'LIPSESC FUNCȚII' end
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('is_member', 'is_org_admin', 'next_quote_number', 'touch_updated_at',
-                    'merge_visit_answers', 'client_priority', 'accept_invitation')
+  and p.proname in ('is_member', 'is_org_admin', 'is_any_org_admin', 'next_quote_number',
+                    'touch_updated_at', 'merge_visit_answers', 'client_priority',
+                    'client_feasibility', 'client_focus', 'accept_invitation')
 
 union all
 select 'view-uri (quote_totals, client_state)',
@@ -49,8 +50,8 @@ select 'catalogul de întrebări',
        (select count(*) from public.question_groups)::text  || ' grupuri, ' ||
        (select count(*) from public.question_options)::text || ' opțiuni',
        case when (select count(*) from public.question_sections) = 6
-             and (select count(*) from public.question_groups)  = 25
-             and (select count(*) from public.question_options) = 125
+             and (select count(*) from public.question_groups)  = 31
+             and (select count(*) from public.question_options) = 156
             then 'OK' else 'INCOMPLET' end
 
 union all
@@ -59,7 +60,7 @@ select 'catalogul de produse',
        count(*) filter (where materials -> 'certain' <> '[]'::jsonb
                            or materials -> 'equivalent' <> '[]'::jsonb)::text || ' cu materiale',
        case when count(*) = 155 then 'OK'
-            when count(*) = 0 then 'GOL — rulează supabase/data/catalog_graco.sql'
+            when count(*) = 0 then 'GOL — migrația îl încarcă după ce firma e creată'
             else 'NUMĂR NEAȘTEPTAT' end
 from public.catalog_items
 

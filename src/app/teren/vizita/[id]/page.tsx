@@ -52,7 +52,7 @@ function QuoteBridge({
 
 export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">) {
   const { id } = await props.params;
-  const { orgId } = await requireOrg();
+  const { orgId, organization } = await requireOrg();
 
   const supabase = await createClient();
   const [{ data: visitRow }, sections, { data: pumpRows }, { data: quoteRow }] = await Promise.all([
@@ -110,6 +110,10 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
         sections={sections}
         pumps={pumps}
         suggestions={suggestions}
+        assumptions={{
+          productivityFactor: Number(organization.productivity_factor ?? 2.5),
+          workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
+        }}
         initial={{
           answers: visit.answers ?? {},
           notes: visit.notes ?? {},

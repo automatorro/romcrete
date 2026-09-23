@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveVisit } from "@/app/teren/actions";
+import { computePayback, demandFrom } from "@/lib/amortizare";
 import type { MatchLevel, MaterialSuggestions } from "@/lib/materiale";
-import { formatMoney } from "@/lib/totals";
+import { formatMoney, formatNumber } from "@/lib/totals";
 import type { Answers, Notes, QuestionGroup, QuestionSection } from "@/lib/teren";
 
 export type PumpOption = { sku: string; name: string; category: string | null; unit_price: number };
@@ -15,6 +16,8 @@ type Props = {
   pumps: PumpOption[];
   /** Pentru fiecare material, ce categorii de pompe îl acoperă și cu ce certitudine. */
   suggestions: MaterialSuggestions;
+  /** Ipotezele de calcul ale firmei, schimbabile din Setări. */
+  assumptions: { productivityFactor: number; workingDaysPerMonth: number };
   initial: {
     answers: Answers;
     notes: Notes;
@@ -41,7 +44,7 @@ const STATUS_TEXT: Record<Status, string> = {
   error: "⚠ Fără confirmare — reîncerc",
 };
 
-export function VisitForm({ visitId, sections, pumps, suggestions, initial }: Props) {
+export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, initial }: Props) {
   const draftKey = `romcrete_vizita_${visitId}`;
 
   /** Tot ce se salvează stă într-o singură stare: o schimbare, o salvare. */
@@ -150,6 +153,29 @@ export function VisitForm({ visitId, sections, pumps, suggestions, initial }: Pr
     }
   }
 
+  // Amortizarea, recalculată la fiecare bifă: agentul o poate arăta pe loc.
+  const valoareOptiune = (groupId: string, optionId: unknown) => {
+    if (typeof optionId !== "string" || !optionId) return null;
+    for (const s of sections) {
+      const g = s.groups.find((x) => x.id === groupId);
+      if (g) return g.options.find((o) => o.id === optionId)?.value ?? null;
+    }
+    return null;
+  };
+
+  const preturiAlese = form.pumpSkus
+    .map((sku) => pumps.find((p) => p.sku === sku)?.unit_price)
+    .filter((p): p is number => typeof p === "number" && p > 0);
+
+  const payback = computePayback({
+    mpPerDay: valoareOptiune("supr", form.answers.supr),
+    leiPerMp: valoareOptiune("manopera", form.answers.manopera),
+    productivityFactor: assumptions.productivityFactor,
+    workingDaysPerMonth: assumptions.workingDaysPerMonth,
+    pumpPrice: preturiAlese.length ? Math.min(...preturiAlese) : null,
+    hasDemand: demandFrom(form.answers.refuzat),
+  });
+
   const filled = (g: QuestionGroup) => {
     if (g.kind === "pump_picker") return form.pumpSkus.length;
     if (g.kind === "next_step_date") return form.nextStepDate ? 1 : 0;
@@ -253,6 +279,62 @@ export function VisitForm({ visitId, sections, pumps, suggestions, initial }: Pr
           </details>
         );
       })}
+
+      {payback ? (
+        <section className="card mt-4 border-brand-200 p-4">
+          <h2 className="text-base font-semibold">Calculul pentru el</h2>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            Pe cifrele lui, cu randamentul de {assumptions.productivityFactor}× și{" "}
+            {assumptions.workingDaysPerMonth} zile lucrate pe lună.
+          </p>
+
+          <dl className="mt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-neutral-500">Face acum</dt>
+              <dd className="tabular-nums">{formatNumber(payback.mpNow)} mp/zi</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-neutral-500">Ar face mecanizat</dt>
+              <dd className="tabular-nums">{formatNumber(payback.mpMechanised)} mp/zi</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-neutral-500">În plus pe zi</dt>
+              <dd className="tabular-nums">
+                {formatNumber(payback.extraMpPerDay)} mp · {formatMoney(payback.extraLeiPerDay)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-neutral-200 pt-1.5 font-semibold">
+              <dt>În plus pe lună</dt>
+              <dd className="tabular-nums">{formatMoney(payback.extraLeiPerMonth)}</dd>
+            </div>
+            {payback.months !== null ? (
+              <div className="flex justify-between gap-3 text-base font-semibold text-brand-700">
+                <dt>Pompa se plătește în</dt>
+                <dd className="tabular-nums">
+                  {formatNumber(payback.months)} {payback.months === 1 ? "lună" : "luni"}
+                </dd>
+              </div>
+            ) : (
+              <p className="pt-1 text-xs text-neutral-500">
+                Alege un model mai sus ca să vezi în câte luni se plătește.
+              </p>
+            )}
+          </dl>
+
+          {payback.demandWarning ? (
+            <p className="hint mt-3">
+              A spus că <b>nu refuză lucrări</b>. Calculul presupune că are de lucru cât să umple
+              capacitatea în plus — deocamdată n-are. Cu el, argumentul nu e viteza, ci efortul,
+              calitatea constantă sau oamenii pe care nu-i găsește.
+            </p>
+          ) : null}
+        </section>
+      ) : (
+        <p className="hint mt-4">
+          Bifează <b>suprafața pe zi</b> și <b>cât ia pe mp</b> ca să apară calculul de amortizare,
+          cel care mută discuția de la „e scumpă” la „când o iau”.
+        </p>
+      )}
 
       <div className="fixed inset-x-0 bottom-[57px] z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
         <div className="mx-auto flex max-w-[760px] items-center gap-3">

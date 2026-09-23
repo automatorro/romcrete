@@ -17,6 +17,8 @@ export type Metrics = {
   pasiRestanti: number;
   /** Vizite în care s-a aflat destul cât să se poată califica meseriașul. */
   calificareCompleta: number;
+  /** Vizite în care s-au aflat ambele cifre necesare calculului de amortizare. */
+  cuCalculAmortizare: number;
   modeleDiscutate: number;
   intrebariOwner: number;
   oferteEmise: number;
@@ -76,6 +78,8 @@ export type ActivityDataset = {
     tradeType: string | null;
     agent: string;
     priority: string;
+    feasibility: string;
+    focus: string;
     stage: string | null;
     visits: number;
     lastVisit: string | null;
@@ -173,6 +177,7 @@ function computeMetrics(
       (v) => v.next_step_date && !v.next_step_done_at && v.next_step_date < azi,
     ).length,
     calificareCompleta: visits.filter((v) => calificat(v.answers)).length,
+    cuCalculAmortizare: visits.filter((v) => v.answers?.supr && v.answers?.manopera).length,
     modeleDiscutate: visits.reduce((n, v) => n + (v.pump_skus?.length ?? 0), 0),
     intrebariOwner: visits.filter(
       (v) => Array.isArray(v.answers?.esc) && (v.answers.esc as string[]).length > 0,
@@ -413,6 +418,8 @@ export async function buildActivity(
         tradeType: (s.trade_type as string) ?? null,
         agent: numeAgent(s.owner_agent_id as string | null),
         priority: s.priority as string,
+        feasibility: (s.feasibility as string) ?? "?",
+        focus: (s.focus as string) ?? "necunoscut",
         stage: s.stage ? eticheta("etapa", s.stage as string) : null,
         visits: Number(s.visit_count ?? 0),
         lastVisit: (s.last_visit as string) ?? null,

@@ -5,15 +5,19 @@ import { startVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import { computePayback, demandFrom } from "@/lib/amortizare";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/totals";
-import { gaps, lastVisitLabel, tradeLabel, type ClientState, type Visit } from "@/lib/teren";
+import { formatDate, formatMoney, formatNumber } from "@/lib/totals";
+import {
+  FEASIBILITY_LABELS, FOCUS_EXPLAIN, FOCUS_LABELS,
+  gaps, lastVisitLabel, tradeLabel, type ClientState, type Visit,
+} from "@/lib/teren";
 
 export const metadata = { title: "Fișa firmei" };
 
 export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const { id } = await props.params;
-  const { orgId } = await requireOrg();
+  const { orgId, organization } = await requireOrg();
 
   const supabase = await createClient();
   const [{ data: stateRow }, { data: visitRows }, sections] = await Promise.all([
@@ -26,6 +30,28 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
 
   const state = stateRow as ClientState;
   const visits = (visitRows ?? []) as Visit[];
+
+  // Amortizarea, pe starea adunată din toate vizitele, cu cel mai ieftin model discutat.
+  const skuri = [...new Set(visits.flatMap((v) => v.pump_skus ?? []))];
+  const { data: modele } = skuri.length
+    ? await supabase.from("catalog_items").select("unit_price").eq("org_id", orgId).in("sku", skuri)
+    : { data: [] };
+  const preturi = (modele ?? []).map((m) => Number(m.unit_price)).filter((p) => p > 0);
+
+  const valoare = (groupId: string, optionId: unknown) => {
+    if (typeof optionId !== "string" || !optionId) return null;
+    const g = sections.flatMap((s) => s.groups).find((x) => x.id === groupId);
+    return g?.options.find((o) => o.id === optionId)?.value ?? null;
+  };
+
+  const payback = computePayback({
+    mpPerDay: valoare("supr", state.answers.supr),
+    leiPerMp: valoare("manopera", state.answers.manopera),
+    productivityFactor: Number(organization.productivity_factor ?? 2.5),
+    workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
+    pumpPrice: preturi.length ? Math.min(...preturi) : null,
+    hasDemand: demandFrom(state.answers.refuzat),
+  });
   const lipsuri = gaps(state.answers);
   const allGroups = sections.flatMap((s) => s.groups);
 
@@ -39,12 +65,12 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
         <h1 className="text-xl font-semibold">{state.name}</h1>
         <span
           className={`rounded-full border px-2 py-0.5 text-xs ${
-            state.priority === "A"
+            state.focus === "urmareste"
               ? "border-brand-600 bg-brand-600 text-white"
               : "border-neutral-200 bg-neutral-100 text-neutral-700"
           }`}
         >
-          prioritate {state.priority}
+          {FOCUS_LABELS[state.focus]}
         </span>
       </div>
 
@@ -68,6 +94,28 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
           ＋ Vizită nouă aici
         </SubmitButton>
       </form>
+
+      <p className="hint mt-3">
+        <b>{FOCUS_LABELS[state.focus]}.</b> {FOCUS_EXPLAIN[state.focus]}
+        <span className="mt-1 block text-xs text-neutral-500">
+          Apetit {state.priority} · {FEASIBILITY_LABELS[state.feasibility]}
+        </span>
+      </p>
+
+      {payback ? (
+        <div className="card mt-3 border-brand-200 p-3 text-sm">
+          <b>Calculul pentru el:</b> {formatNumber(payback.extraMpPerDay)} mp în plus pe zi ={" "}
+          {formatMoney(payback.extraLeiPerMonth)} pe lună
+          {payback.months !== null ? (
+            <> · pompa se plătește în {formatNumber(payback.months)} luni</>
+          ) : null}
+          {payback.demandWarning ? (
+            <span className="mt-1 block text-xs text-neutral-500">
+              A spus că nu refuză lucrări — calculul presupune o cerere pe care încă n-o are.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {state.next_step || state.next_step_date ? (
         <div className={`card mt-3 p-3 text-sm ${state.next_step_late ? "border-[var(--color-bad)]" : ""}`}>

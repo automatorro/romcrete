@@ -41,6 +41,12 @@ export const organizationSchema = z.object({
   bank: optionalText,
   vat_rate: percent(21),
   quote_terms: optionalText,
+  productivity_factor: numberField(2.5).pipe(
+    z.number().gt(1, "Randamentul trebuie să fie mai mare decât 1").max(10, "Valoare nerealistă"),
+  ),
+  working_days_per_month: numberField(21).pipe(
+    z.number().int("Număr întreg de zile").min(1).max(31),
+  ),
 });
 
 export const clientSchema = z.object({

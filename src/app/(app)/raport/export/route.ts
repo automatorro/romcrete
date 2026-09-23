@@ -14,6 +14,21 @@ const BRAND = "FF0033AB";
 const SOFT = "FFF2F5FB";
 const LINE = "FFE8E8E8";
 
+const FOCUS: Record<string, string> = {
+  urmareste: "Urmărește acum",
+  deblocheaza: "Deblochează",
+  educa: "Educă",
+  lasa: "Lasă",
+  necunoscut: "Date insuficiente",
+};
+
+const FEZ: Record<string, string> = {
+  da: "Da",
+  blocaj: "Are un blocaj",
+  nu: "Nu poate acum",
+  "?": "Nu se știe",
+};
+
 const BANI = '#,##0.00 "lei"';
 const DATA = "dd.mm.yyyy";
 
@@ -63,6 +78,8 @@ const INDICATORI: { label: string; get: (m: Metrics) => number | null; format?: 
   { label: "Pași restanți", get: (m) => m.pasiRestanti },
   { label: "Vizite cu calificare completă", get: (m) => m.calificareCompleta },
   { label: "Pondere calificare completă", get: (m) => PROCENT(m.calificareCompleta, m.vizite), format: "0%" },
+  { label: "Vizite cu calcul de amortizare", get: (m) => m.cuCalculAmortizare },
+  { label: "Pondere cu calcul de amortizare", get: (m) => PROCENT(m.cuCalculAmortizare, m.vizite), format: "0%" },
   { label: "Modele discutate", get: (m) => m.modeleDiscutate },
   { label: "Întrebări tehnice pentru owner", get: (m) => m.intrebariOwner },
   { label: "Oferte emise", get: (m) => m.oferteEmise },
@@ -218,7 +235,9 @@ export async function GET(request: NextRequest) {
     { header: "Localitate", key: "oras", width: 16 },
     { header: "Meserie", key: "meserie", width: 18 },
     { header: "Agent", key: "agent", width: 20 },
-    { header: "Prioritate", key: "prio", width: 11 },
+    { header: "Ce e de făcut", key: "cadran", width: 18 },
+    { header: "Apetit", key: "prio", width: 9 },
+    { header: "Poate cumpăra", key: "fez", width: 15 },
     { header: "Etapă", key: "etapa", width: 15 },
     { header: "Vizite", key: "vizite", width: 9 },
     { header: "Ultima vizită", key: "ultima", width: 14, format: DATA },
@@ -229,7 +248,10 @@ export async function GET(request: NextRequest) {
   for (const c of data.clients) {
     firme.addRow({
       nume: c.name, oras: c.city ?? "", meserie: c.tradeType ?? "", agent: c.agent,
-      prio: c.priority, etapa: c.stage ?? "", vizite: c.visits,
+      cadran: FOCUS[c.focus] ?? c.focus,
+      prio: c.priority,
+      fez: FEZ[c.feasibility] ?? c.feasibility,
+      etapa: c.stage ?? "", vizite: c.visits,
       ultima: c.lastVisit ? new Date(`${c.lastVisit}T12:00:00Z`) : null,
       pas: c.nextStep ?? "",
       termen: c.nextStepDate ? new Date(`${c.nextStepDate}T12:00:00Z`) : null,

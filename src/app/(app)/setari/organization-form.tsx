@@ -58,6 +58,42 @@ export function OrganizationForm({ organization }: { organization: Organization 
           />
         </div>
 
+        <div>
+          <label className="label" htmlFor="productivity_factor">
+            Randament mecanizat față de manual
+          </label>
+          <input
+            id="productivity_factor"
+            name="productivity_factor"
+            type="number"
+            step="0.1"
+            min="1.1"
+            max="10"
+            defaultValue={organization.productivity_factor}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            De câte ori se aplică mai mult material cu pompa. Intră direct în calculul de
+            amortizare arătat pe teren.
+          </p>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="working_days_per_month">
+            Zile lucrate pe lună
+          </label>
+          <input
+            id="working_days_per_month"
+            name="working_days_per_month"
+            type="number"
+            step="1"
+            min="1"
+            max="31"
+            defaultValue={organization.working_days_per_month}
+            className="input"
+          />
+        </div>
+
         <div className="sm:col-span-2">
           <label className="label" htmlFor="quote_terms">
             Condiții comerciale implicite
