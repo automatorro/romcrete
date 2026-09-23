@@ -280,7 +280,14 @@ export async function GET(request: NextRequest) {
   // --------------------------------------------------------------- Firme
   const firme = sheet(wb, "Firme", [
     { header: "Firmă", key: "nume", width: 28 },
+    { header: "Persoană de contact", key: "contact", width: 22 },
+    { header: "Telefon", key: "telefon", width: 14 },
+    { header: "Email", key: "email", width: 24 },
+    { header: "CUI", key: "cui", width: 13 },
+    { header: "Nr. Reg. Com.", key: "regcom", width: 15 },
+    { header: "Adresă", key: "adresa", width: 28 },
     { header: "Localitate", key: "oras", width: 16 },
+    { header: "Județ", key: "judet", width: 12 },
     { header: "Domeniu", key: "domeniu", width: 18 },
     { header: "Meserie", key: "meserie", width: 18 },
     { header: "Agent", key: "agent", width: 20 },
@@ -296,7 +303,9 @@ export async function GET(request: NextRequest) {
   ]);
   for (const c of data.clients) {
     firme.addRow({
-      nume: c.name, oras: c.city ?? "", domeniu: c.domain, meserie: c.tradeType ?? "", agent: c.agent,
+      nume: c.name, contact: c.contactPerson ?? "", telefon: c.phone ?? "", email: c.email ?? "",
+      cui: c.cui ?? "", regcom: c.regCom ?? "", adresa: c.address ?? "",
+      oras: c.city ?? "", judet: c.county ?? "", domeniu: c.domain, meserie: c.tradeType ?? "", agent: c.agent,
       cadran: FOCUS[c.focus] ?? c.focus,
       prio: c.priority,
       fez: FEZ[c.feasibility] ?? c.feasibility,

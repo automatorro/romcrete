@@ -22,7 +22,8 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
     .order("name", { ascending: true });
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,cui.ilike.%${search}%,city.ilike.%${search}%`);
+    const cols = ["name", "cui", "reg_com", "contact_person", "email", "phone", "city"];
+    query = query.or(cols.map((col) => `${col}.ilike.%${search}%`).join(","));
   }
 
   const { data, error } = await query;
@@ -43,7 +44,7 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
             type="search"
             name="q"
             defaultValue={search}
-            placeholder="Caută după nume, CUI sau oraș"
+            placeholder="Caută după nume, CUI, persoană sau oraș"
             className="input w-64"
           />
           <button type="submit" className="btn btn-secondary">
@@ -94,7 +95,7 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
                   <td className="table-cell font-medium">{client.name}</td>
                   <td className="table-cell text-neutral-500">{client.cui ?? "—"}</td>
                   <td className="table-cell text-neutral-500">
-                    {[client.contact_person, client.phone].filter(Boolean).join(" · ") || "—"}
+                    {[client.contact_person, client.phone, client.email].filter(Boolean).join(" · ") || "—"}
                   </td>
                   <td className="table-cell text-neutral-500">{client.city ?? "—"}</td>
                   <td className="table-cell text-right">

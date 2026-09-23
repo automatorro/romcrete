@@ -77,7 +77,8 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
           <p className="mt-1 font-medium">{client?.name ?? "—"}</p>
           <div className="mt-1 space-y-0.5 text-xs text-neutral-700">
             {client?.cui ? <p>CUI: {client.cui}</p> : null}
-            {client?.address ? (
+            {client?.reg_com ? <p>Nr. Reg. Com.: {client.reg_com}</p> : null}
+            {client && (client.address || client.city || client.county) ? (
               <p>{[client.address, client.city, client.county].filter(Boolean).join(", ")}</p>
             ) : null}
             {client?.contact_person ? <p>Contact: {client.contact_person}</p> : null}

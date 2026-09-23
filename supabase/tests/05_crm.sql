@@ -178,6 +178,26 @@ from public.clients c where c.name = 'Rece uitată de 40 zile';
 select name, needs_recontact as de_reluat_dupa_ce_are_pas
 from public.client_state where name = 'Rece uitată de 40 zile';
 
+\echo '--- 16. agentul completează datele firmei lui și le vede în starea firmei ---'
+reset role; set role authenticated;
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', false);
+update public.clients
+set contact_person = 'Ion Iacob', cui = 'RO123', reg_com = 'J02/1/2020',
+    email = 'ion@iacob.ro', address = 'Str. Mare 1', county = 'Arad'
+where id = (select v from public._t where k='firma1')::uuid;
+do $$
+begin
+  if not exists (
+    select 1 from public.client_state
+    where client_id = (select v from public._t where k='firma1')::uuid
+      and contact_person = 'Ion Iacob' and cui = 'RO123' and reg_com = 'J02/1/2020'
+      and email = 'ion@iacob.ro' and address = 'Str. Mare 1' and county = 'Arad'
+  ) then
+    raise exception 'PROBLEMĂ: datele firmei nu apar în client_state';
+  end if;
+  raise notice 'ok: datele firmei apar în client_state';
+end $$;
+
 reset role;
 drop table public._t;
 \echo '--- toate verificările CRM au trecut ---'

@@ -59,7 +59,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   const [{ data: visitRow }, domains, { data: pumpRows }, { data: quoteRow }] = await Promise.all([
     supabase
       .from("visits")
-      .select("*, clients(id, name, city, domain)")
+      .select("*, clients(id, name, city, domain, contact_person, phone, cui, email)")
       .eq("id", id)
       .maybeSingle(),
     getAllDomains(orgId),
@@ -75,7 +75,16 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   if (!visitRow) notFound();
 
   const visit = visitRow as Visit & {
-    clients: { id: string; name: string; city: string | null; domain: string | null } | null;
+    clients: {
+      id: string;
+      name: string;
+      city: string | null;
+      domain: string | null;
+      contact_person: string | null;
+      phone: string | null;
+      cui: string | null;
+      email: string | null;
+    } | null;
   };
 
   // Domeniul firmei hotărăște ce se întreabă, în ce unitate se socotește și ce
@@ -115,6 +124,19 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       <p className="text-sm text-neutral-500">
         {[visit.clients?.city, domain?.label].filter(Boolean).join(" · ")}
       </p>
+      {visit.clients?.contact_person || visit.clients?.phone ? (
+        <p className="text-sm text-neutral-500">
+          {[visit.clients.contact_person, visit.clients.phone].filter(Boolean).join(" · ")}
+        </p>
+      ) : null}
+      {visit.clients && (!visit.clients.contact_person || !visit.clients.cui || !visit.clients.email) ? (
+        <Link
+          href={`/teren/firma/${visit.clients.id}?date=1`}
+          className="mt-1 inline-block text-xs text-brand-700 hover:underline"
+        >
+          Completează datele firmei (persoană de contact, CUI, email…) →
+        </Link>
+      ) : null}
 
       <p className="hint my-3">
         Nimic nu e obligatoriu și totul se salvează singur. Prima secțiune se completează în

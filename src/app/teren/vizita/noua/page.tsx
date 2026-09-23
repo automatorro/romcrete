@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { startVisit } from "@/app/teren/actions";
+import { CompanyFields } from "@/app/teren/company-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
@@ -19,13 +20,17 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
   const domains = await getDomains(orgId);
   let query = supabase
     .from("client_state")
-    .select("client_id, name, city, last_visit")
+    .select("client_id, name, city, contact_person, last_visit")
     .eq("org_id", orgId)
     .limit(25);
-  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%`);
+  if (search) {
+    query = query.or(
+      `name.ilike.%${search}%,city.ilike.%${search}%,contact_person.ilike.%${search}%,cui.ilike.%${search}%`,
+    );
+  }
 
   const { data } = await query;
-  const rows = (data ?? []) as Pick<ClientState, "client_id" | "name" | "city" | "last_visit">[];
+  const rows = (data ?? []) as Pick<ClientState, "client_id" | "name" | "city" | "contact_person" | "last_visit">[];
   rows.sort((a, b) => (b.last_visit ?? "").localeCompare(a.last_visit ?? ""));
 
   if (firmaNoua) {
@@ -37,27 +42,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
         <h1 className="mt-2 text-xl font-semibold">Firmă / meseriaș nou</h1>
 
         <form action={startVisit} className="card mt-3 space-y-3 p-3.5">
-          <div>
-            <label className="label" htmlFor="name">
-              Nume *
-            </label>
-            <input id="name" name="name" required autoComplete="off" className="input" />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="label" htmlFor="city">
-                Localitate
-              </label>
-              <input id="city" name="city" className="input" />
-            </div>
-            <div className="flex-1">
-              <label className="label" htmlFor="phone">
-                Telefon
-              </label>
-              <input id="phone" name="phone" type="tel" className="input" />
-            </div>
-          </div>
+          <CompanyFields />
 
           <fieldset>
             <legend className="label">În ce domeniu lucrează</legend>
@@ -113,7 +98,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
           type="search"
           name="q"
           defaultValue={search}
-          placeholder="Caută firma sau meseriașul"
+          placeholder="Caută firma, persoana de contact sau CUI-ul"
           autoComplete="off"
           className="input"
         />
@@ -131,7 +116,9 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
               <button type="submit" className="card w-full p-3 text-left">
                 <b className="text-[15px]">{r.name}</b>{" "}
                 <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
-                <p className="text-xs text-neutral-500">{lastVisitLabel(r.last_visit)}</p>
+                <p className="text-xs text-neutral-500">
+                  {[r.contact_person, lastVisitLabel(r.last_visit)].filter(Boolean).join(" · ")}
+                </p>
               </button>
             </form>
           </li>
