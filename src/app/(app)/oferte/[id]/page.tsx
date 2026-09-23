@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
+import { computeTotals, formatCatalogPrice, formatDate, formatMoney } from "@/lib/totals";
 import { QUOTE_STATUS_LABELS, type CatalogItem, type Quote, type QuoteItem, type QuoteStatus } from "@/lib/types";
 
 export const metadata = { title: "Ofertă" };
@@ -132,7 +132,8 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
                   <option value="">Alege produsul…</option>
                   {catalog.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.name} — {formatMoney(item.unit_price)}/{item.unit}
+                      {item.name} — {formatCatalogPrice(item.unit_price, item.price_on_request)}
+                      {item.price_on_request ? "" : `/${item.unit}`}
                     </option>
                   ))}
                 </select>

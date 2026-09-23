@@ -5,7 +5,7 @@ import { CatalogForm } from "@/app/(app)/catalog/catalog-form";
 import { EmptyState } from "@/components/empty-state";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatMoney } from "@/lib/totals";
+import { formatCatalogPrice } from "@/lib/totals";
 import type { CatalogItem } from "@/lib/types";
 
 export const metadata = { title: "Catalog" };
@@ -79,7 +79,7 @@ export default async function CatalogPage() {
                   <td className="table-cell text-neutral-500">{item.category ?? "—"}</td>
                   <td className="table-cell text-neutral-500">{item.unit}</td>
                   <td className="table-cell text-right tabular-nums">
-                    {formatMoney(item.unit_price)}
+                    {formatCatalogPrice(item.unit_price, item.price_on_request)}
                   </td>
                   <td className="table-cell text-right tabular-nums text-neutral-500">
                     {item.vat_rate}%

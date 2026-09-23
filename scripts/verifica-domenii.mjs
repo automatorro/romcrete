@@ -42,9 +42,25 @@ console.log(`Reguli de material citite din cod: ${rules.length}`);
 console.log("\nPompe pe domeniu (categoria + tehnologia):");
 let fail = 0;
 for (const d of domains) {
-  const n = catalog.filter((i) => i.category && !i.category.startsWith("Accesorii") && matchesDomain(d, i)).length;
-  if (n === 0) fail++;
-  console.log(`  ${n === 0 ? "✗" : "✓"} ${d.label.padEnd(42)} ${String(n).padStart(3)} poziții`);
+  const pompe = catalog.filter(
+    (i) => i.category && !i.category.startsWith("Accesorii") && matchesDomain(d, i),
+  );
+  // Ce contează e ce vede agentul, nu ce e în bază: o categorie întreagă marcată
+  // inactivă a lăsat odată domeniul marcajelor fără nicio pompă pe ecran.
+  const vizibile = pompe.filter((i) => i.is_active);
+  const laCerere = vizibile.filter((i) => i.price_on_request).length;
+  if (vizibile.length === 0) fail++;
+  console.log(
+    `  ${vizibile.length === 0 ? "✗" : "✓"} ${d.label.padEnd(42)} ` +
+      `${String(vizibile.length).padStart(3)} vizibile din ${String(pompe.length).padStart(3)}` +
+      (laCerere ? ` · ${laCerere} cu preț la cerere` : ""),
+  );
+}
+
+const ascunse = catalog.filter((i) => !i.is_active).length;
+if (ascunse) {
+  fail++;
+  console.log(`\n  ✗ ${ascunse} poziții rămân ascunse (is_active = false)`);
 }
 
 console.log("\nCategorii sugerate de fiecare material:");

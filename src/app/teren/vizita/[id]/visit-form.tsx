@@ -5,10 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { saveVisit } from "@/app/teren/actions";
 import { computePayback, demandFrom } from "@/lib/amortizare";
 import type { MatchLevel, MaterialSuggestions } from "@/lib/materiale";
-import { formatMoney, formatNumber } from "@/lib/totals";
+import { formatCatalogPrice, formatMoney, formatNumber } from "@/lib/totals";
 import type { Answers, Notes, QuestionGroup, QuestionSection } from "@/lib/teren";
 
-export type PumpOption = { sku: string; name: string; category: string | null; unit_price: number };
+export type PumpOption = {
+  sku: string;
+  name: string;
+  category: string | null;
+  unit_price: number;
+  /** Se configurează la comandă: nu intră în calculul de amortizare. */
+  price_on_request: boolean;
+};
 
 type Props = {
   visitId: string;
@@ -174,6 +181,9 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
   const preturiAlese = form.pumpSkus
     .map((sku) => pumps.find((p) => p.sku === sku)?.unit_price)
     .filter((p): p is number => typeof p === "number" && p > 0);
+  // Câteva pompe — LineLazer, Reactor — se configurează la comandă. Dacă agentul
+  // a ales numai din alea, lipsa calculului nu e uitarea lui și trebuie spus.
+  const toateLaCerere = form.pumpSkus.length > 0 && preturiAlese.length === 0;
 
   const payback = computePayback({
     unitsPerDay: valoareOptiune("supr", form.answers.supr),
@@ -327,6 +337,11 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
                   {formatNumber(payback.months)} {payback.months === 1 ? "lună" : "luni"}
                 </dd>
               </div>
+            ) : toateLaCerere ? (
+              <p className="pt-1 text-xs text-neutral-500">
+                Modelele alese se configurează la comandă, deci n-au preț de listă. Cere prețul
+                la birou și calculul se completează singur.
+              </p>
             ) : (
               <p className="pt-1 text-xs text-neutral-500">
                 Alege un model mai sus ca să vezi în câte luni se plătește.
@@ -411,7 +426,8 @@ function PumpPicker({
               >
                 <span className="font-medium">{p.name}</span>
                 <span className="block text-xs text-neutral-500">
-                  {p.sku} · {formatMoney(p.unit_price)} fără TVA
+                  {p.sku} · {formatCatalogPrice(p.unit_price, p.price_on_request)}
+                  {p.price_on_request ? "" : " fără TVA"}
                 </span>
               </button>
             </li>

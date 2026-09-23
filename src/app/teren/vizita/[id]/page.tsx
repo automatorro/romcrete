@@ -65,7 +65,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
     getAllDomains(orgId),
     supabase
       .from("catalog_items")
-      .select("sku, name, category, tech_type, unit_price, description, materials")
+      .select("sku, name, category, tech_type, unit_price, price_on_request, description, materials")
       .eq("org_id", orgId)
       .not("sku", "is", null)
       .order("name"),

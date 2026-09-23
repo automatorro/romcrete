@@ -79,6 +79,8 @@ export type CatalogItem = {
   unit_price: number;
   vat_rate: number;
   is_active: boolean;
+  /** Se configurează la comandă: unit_price e 0 și nu se afișează ca preț. */
+  price_on_request: boolean;
   /** Materialele compatibile, din fișa produsului sau deduse după consistență. */
   materials: { certain?: string[]; equivalent?: string[] } | null;
   /** Airless, HVLP, Rotor-Stator, Bicomponent — folosit la filtrarea pe domeniu. */

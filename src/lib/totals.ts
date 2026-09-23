@@ -88,3 +88,19 @@ export function formatDate(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ro-RO", { dateStyle: "medium" }).format(date);
 }
+
+/**
+ * Prețul unei poziții din catalog.
+ *
+ * Unele pompe — LineLazer, Reactor, Gusmer — se configurează la comandă și n-au
+ * preț de listă. Un „0,00 lei” afișat în locul lui nu e o cifră, e o minciună
+ * mică pe care agentul o citește pe teren, așa că se spune ce e.
+ */
+export function formatCatalogPrice(
+  unitPrice: unknown,
+  priceOnRequest?: boolean | null,
+  currency = "RON",
+): string {
+  if (priceOnRequest || num(unitPrice) <= 0) return "preț la cerere";
+  return formatMoney(unitPrice, currency);
+}

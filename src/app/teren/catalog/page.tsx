@@ -1,7 +1,7 @@
 import { requireOrg } from "@/lib/auth";
 import { getDomains, matchesDomain } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
-import { formatMoney } from "@/lib/totals";
+import { formatCatalogPrice } from "@/lib/totals";
 import type { CatalogItem } from "@/lib/types";
 
 export const metadata = { title: "Catalog" };
@@ -105,8 +105,10 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
                 </p>
               </div>
               <span className="shrink-0 text-right text-sm font-semibold tabular-nums">
-                {formatMoney(i.unit_price)}
-                <span className="block text-xs font-normal text-neutral-500">/{i.unit}</span>
+                {formatCatalogPrice(i.unit_price, i.price_on_request)}
+                <span className="block text-xs font-normal text-neutral-500">
+                  {i.price_on_request ? "se configurează la comandă" : `/${i.unit}`}
+                </span>
               </span>
             </div>
             {i.description ? (

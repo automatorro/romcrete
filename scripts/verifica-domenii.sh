@@ -28,13 +28,15 @@ done
 
 "${PSQL[@]}" -q -f supabase/tests/00_stub_supabase.sql "${MIGRATION_ARGS[@]}"
 
-# Catalogul se încarcă doar când există o firmă, deci migrația lui se reia acum.
+# Catalogul se încarcă doar când există o firmă, deci migrația lui se reia acum —
+# urmată de corecturile de import, exact cum trebuie să facă orice reîncărcare.
 "${PSQL[@]}" -q \
   -c "insert into public.organizations (name) values ('Verificare');" \
-  -f supabase/migrations/20260922180000_catalog_graco_date.sql
+  -f supabase/migrations/20260922180000_catalog_graco_date.sql \
+  -c "select public.catalog_repara_pozitiile();"
 
 "${PSQL[@]}" -t -A \
-  -c "select json_agg(row_to_json(t)) from (select category, tech_type, description, materials from public.catalog_items) t;" \
+  -c "select json_agg(row_to_json(t)) from (select category, tech_type, description, materials, is_active, price_on_request from public.catalog_items) t;" \
   > "$TMP/catalog.json"
 "${PSQL[@]}" -t -A \
   -c "select json_agg(row_to_json(d)) from (select id, label, pump_categories, tech_types from public.domains order by position) d;" \
