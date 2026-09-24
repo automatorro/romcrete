@@ -120,6 +120,34 @@ export function CatalogForm({
           />
         </div>
 
+        <div className="sm:col-span-2 lg:col-span-3">
+          <label className="label" htmlFor="shop_url">
+            Pagina din magazin
+          </label>
+          <input
+            id="shop_url"
+            name="shop_url"
+            type="url"
+            defaultValue={item?.shop_url ?? ""}
+            placeholder="https://shop.romcrete.ro/catalog/…"
+            className="input"
+          />
+        </div>
+
+        <div className="sm:col-span-2 lg:col-span-3">
+          <label className="label" htmlFor="image_url">
+            Poză pe ofertă
+          </label>
+          <input
+            id="image_url"
+            name="image_url"
+            type="url"
+            defaultValue={item?.image_url ?? ""}
+            placeholder="Goală: se ia poza principală de pe pagina din magazin"
+            className="input"
+          />
+        </div>
+
         <label className="flex items-center gap-2 text-sm text-neutral-700">
           <input
             type="checkbox"
