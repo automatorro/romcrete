@@ -16,6 +16,7 @@ import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
 import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
 import { QUOTE_STATUS_LABELS, type CatalogItem, type Quote, type QuoteItem, type QuoteStatus } from "@/lib/types";
@@ -28,7 +29,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
   const supabase = await createClient();
 
-  const [{ data: quoteData }, { data: itemsData }, { data: clientsData }, { data: catalogData }] =
+  const [{ data: quoteData }, { data: itemsData }, { data: clientsData }, { data: catalogData }, eur] =
     await Promise.all([
       supabase.from("quotes").select("*, visits(id, visit_date)").eq("id", id).maybeSingle(),
       supabase.from("quote_items").select("*").eq("quote_id", id).order("position"),
@@ -40,6 +41,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
         .eq("is_active", true)
         .order("category", { ascending: true, nullsFirst: false })
         .order("name"),
+      getEurRate(),
     ]);
 
   if (!quoteData) notFound();
@@ -176,6 +178,11 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           action={updateQuote.bind(null, quote.id)}
           clients={clientsData ?? []}
           quote={quote}
+          autoRateLabel={
+            eur
+              ? `Gol: ${eur.rate.toFixed(4).replace(".", ",")} (${eur.source}${eur.date ? `, ${formatDate(eur.date)}` : ""})`
+              : "Gol: cursul BNR al zilei (acum indisponibil)"
+          }
         />
       </section>
 

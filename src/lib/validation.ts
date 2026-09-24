@@ -102,6 +102,13 @@ export const quoteSchema = z.object({
   valid_until: optionalDate,
   site_address: optionalText,
   discount_pct: percent(0),
+  eur_rate: z.preprocess(
+    (value) =>
+      value === "" || value === null || value === undefined
+        ? null
+        : String(value).trim().replace(",", "."),
+    z.coerce.number().positive("Cursul EUR trebuie să fie mai mare decât 0").nullable(),
+  ),
   notes: optionalText,
   terms: optionalText,
 });
