@@ -148,7 +148,7 @@ export async function duplicateQuote(formData: FormData) {
 
   const { data: items } = await supabase
     .from("quote_items")
-    .select("position, name, description, unit, quantity, unit_price, vat_rate, discount_pct")
+    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct")
     .eq("quote_id", quoteId)
     .order("position");
 
@@ -179,6 +179,7 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
 
   await supabase.from("quote_items").insert({
     quote_id: quoteId,
+    catalog_item_id: item.id,
     position: await nextPosition(quoteId),
     name: item.name,
     description: item.description,

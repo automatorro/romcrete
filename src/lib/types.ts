@@ -86,6 +86,8 @@ export type CatalogItem = {
   /** Airless, HVLP, Rotor-Stator, Bicomponent — folosit la filtrarea pe domeniu. */
   tech_type: string | null;
   shop_url: string | null;
+  /** Poza de pe ofertă; goală, se ia de pe pagina din magazin. */
+  image_url: string | null;
   details: Record<string, unknown> | null;
   price_with_vat: number | null;
   created_at: string;
@@ -113,6 +115,8 @@ export type Quote = {
 export type QuoteItem = {
   id: string;
   quote_id: string;
+  /** Poziția de catalog din care vine linia; null la liniile libere. */
+  catalog_item_id: string | null;
   position: number;
   name: string;
   description: string | null;

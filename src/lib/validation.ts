@@ -8,6 +8,10 @@ const optionalText = z
   .nullable()
   .default(null);
 
+/** Adresă web opțională: goală devine null, altfel trebuie să fie http(s). */
+const optionalUrl = (message: string) =>
+  optionalText.refine((value) => value === null || /^https?:\/\/\S+$/i.test(value), message);
+
 /** Număr din formular; string gol înseamnă valoarea implicită, nu 0 accidental. */
 const numberField = (fallback: number) =>
   z.preprocess(
@@ -83,6 +87,8 @@ export const catalogItemSchema = z.object({
   name: z.string().trim().min(2, "Denumirea produsului este obligatorie"),
   description: optionalText,
   category: optionalText,
+  shop_url: optionalUrl("Adresa paginii din magazin nu este validă"),
+  image_url: optionalUrl("Adresa pozei nu este validă"),
   unit: z.string().trim().min(1, "Unitatea de măsură este obligatorie"),
   unit_price: numberField(0).pipe(z.number().min(0, "Prețul nu poate fi negativ")),
   vat_rate: percent(21),

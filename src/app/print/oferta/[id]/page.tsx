@@ -5,7 +5,10 @@ import { Logo } from "@/components/logo";
 import { PrintButton } from "@/components/print-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatDate, formatMoney, formatQuantity, lineNet } from "@/lib/totals";
+import { getEurRate, productImage, productSpecs, type CatalogSheet } from "@/lib/oferta-print";
+import {
+  computeTotals, formatDate, formatMoney, formatQuantity, lineNet, lineVat,
+} from "@/lib/totals";
 import type { Client, Quote, QuoteItem } from "@/lib/types";
 
 export const metadata = { title: "Ofertă — tipărire" };
@@ -26,6 +29,46 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
   const items = (itemsData ?? []) as QuoteItem[];
   const totals = computeTotals(items, quote.discount_pct);
   const client = quote.clients;
+
+  // Fișele de produs: poza și caracteristicile vin din catalog, prin legătura liniei.
+  const catalogIds = [...new Set(items.map((i) => i.catalog_item_id).filter((x): x is string => !!x))];
+  const [{ data: catalogData }, eur] = await Promise.all([
+    catalogIds.length
+      ? supabase
+          .from("catalog_items")
+          .select("id, sku, tech_type, materials, details, shop_url, image_url")
+          .in("id", catalogIds)
+      : Promise.resolve({ data: [] }),
+    getEurRate(),
+  ]);
+  const catalog = new Map(((catalogData ?? []) as CatalogSheet[]).map((c) => [c.id, c]));
+  const sheets = await Promise.all(
+    items.map(async (item) => {
+      const source = item.catalog_item_id ? (catalog.get(item.catalog_item_id) ?? null) : null;
+      return { item, image: await productImage(source), specs: productSpecs(source) };
+    }),
+  );
+
+  // A doua monedă: euro pentru ofertele în lei, lei pentru cele în euro.
+  // Valorile convertite sunt informative; baza ofertei rămâne moneda ei.
+  const other =
+    eur && quote.currency === "RON"
+      ? { currency: "EUR", convert: (v: number) => v / eur.rate }
+      : eur && quote.currency === "EUR"
+        ? { currency: "RON", convert: (v: number) => v * eur.rate }
+        : null;
+
+  /** Suma în moneda ofertei, cu echivalentul dedesubt. */
+  const money = (value: number) => (
+    <>
+      <span className="block whitespace-nowrap">{formatMoney(value, quote.currency)}</span>
+      {other ? (
+        <span className="block whitespace-nowrap text-xs text-neutral-500">
+          {formatMoney(other.convert(value), other.currency)}
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 text-neutral-900">
@@ -98,78 +141,158 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
         ) : null}
       </section>
 
-      <table className="mt-8 w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-y border-neutral-300 bg-neutral-100">
-            <th className="px-2 py-2 text-left font-semibold">#</th>
-            <th className="px-2 py-2 text-left font-semibold">Denumire</th>
-            <th className="px-2 py-2 text-left font-semibold">UM</th>
-            <th className="px-2 py-2 text-right font-semibold">Cant.</th>
-            <th className="px-2 py-2 text-right font-semibold">Preț unitar</th>
-            <th className="px-2 py-2 text-right font-semibold">Valoare</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => (
-            <tr key={item.id} className="border-b border-neutral-200 align-top">
-              <td className="px-2 py-2 text-neutral-500">{index + 1}</td>
-              <td className="px-2 py-2">
-                <p className="font-medium">{item.name}</p>
-                {item.description ? (
-                  <p className="text-xs text-neutral-500">{item.description}</p>
-                ) : null}
-                {Number(item.discount_pct) > 0 ? (
-                  <p className="text-xs text-neutral-500">Discount {item.discount_pct}%</p>
-                ) : null}
-              </td>
-              <td className="px-2 py-2">{item.unit}</td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                {formatQuantity(item.quantity)}
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                {formatMoney(item.unit_price, quote.currency)}
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                {formatMoney(lineNet(item), quote.currency)}
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-2 py-6 text-center text-neutral-500">
-                Oferta nu conține produse.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+      {items.length ? (
+        <section className="mt-8">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+            Produse ofertate
+          </p>
+          <div className="mt-2 divide-y divide-neutral-200 border-y border-neutral-200">
+            {sheets.map(({ item, image, specs }, index) => (
+              <article key={item.id} className="flex gap-5 py-5 break-inside-avoid">
+                <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white p-2">
+                  {image ? (
+                    // Poza vine din magazin, de pe alt domeniu; la tipărire trebuie să fie deja în pagină.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={image} alt={item.name} className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <span className="text-center text-xs text-neutral-400">fără poză</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold">
+                    <span className="text-neutral-400">{index + 1}. </span>
+                    {item.name}
+                  </p>
+                  {item.description ? (
+                    <p className="mt-0.5 text-sm text-neutral-600">{item.description}</p>
+                  ) : null}
+                  {specs.length ? (
+                    <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+                      {specs.map((spec) => (
+                        <div key={spec.label} className="contents">
+                          <dt className="text-neutral-500">{spec.label}</dt>
+                          <dd className="text-neutral-900">{spec.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  <p className="mt-3 text-xs text-neutral-500">
+                    Cantitate: {formatQuantity(item.quantity)} {item.unit}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <div className="mt-6 flex justify-end">
-        <dl className="w-full max-w-xs space-y-1 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-neutral-700">Total fără TVA</dt>
-            <dd className="tabular-nums">{formatMoney(totals.linesNet, quote.currency)}</dd>
-          </div>
-          {totals.quoteDiscount > 0 ? (
-            <div className="flex justify-between">
-              <dt className="text-neutral-700">Discount {quote.discount_pct}%</dt>
-              <dd className="tabular-nums">− {formatMoney(totals.quoteDiscount, quote.currency)}</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between">
-            <dt className="text-neutral-700">Bază de impozitare</dt>
-            <dd className="tabular-nums">{formatMoney(totals.net, quote.currency)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-neutral-700">TVA</dt>
-            <dd className="tabular-nums">{formatMoney(totals.vat, quote.currency)}</dd>
-          </div>
-          <div className="flex justify-between border-t-2 border-neutral-900 pt-1 text-base font-bold">
-            <dt>Total de plată</dt>
-            <dd className="tabular-nums">{formatMoney(totals.gross, quote.currency)}</dd>
-          </div>
-        </dl>
-      </div>
+      <section className={items.length ? "mt-8 break-before-page" : "mt-8"}>
+        <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Prețuri</p>
+        <table className="mt-2 w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-y border-neutral-300 bg-neutral-100 align-bottom">
+              <th className="px-2 py-2 text-left font-semibold">#</th>
+              <th className="px-2 py-2 text-left font-semibold">Denumire</th>
+              <th className="px-2 py-2 text-left font-semibold">UM</th>
+              <th className="px-2 py-2 text-right font-semibold">Cant.</th>
+              <th className="px-2 py-2 text-right font-semibold">Preț unitar fără TVA</th>
+              <th className="px-2 py-2 text-right font-semibold">Valoare fără TVA</th>
+              <th className="px-2 py-2 text-right font-semibold">Valoare cu TVA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id} className="border-b border-neutral-200 align-top break-inside-avoid">
+                <td className="px-2 py-2 text-neutral-500">{index + 1}</td>
+                <td className="px-2 py-2">
+                  <p className="font-medium">{item.name}</p>
+                  {Number(item.discount_pct) > 0 ? (
+                    <p className="text-xs text-neutral-500">Discount {item.discount_pct}%</p>
+                  ) : null}
+                </td>
+                <td className="px-2 py-2">{item.unit}</td>
+                <td className="px-2 py-2 text-right tabular-nums">
+                  {formatQuantity(item.quantity)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums">
+                  {money(Number(item.unit_price))}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums">
+                  {money(lineNet(item))}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums">
+                  {money(lineNet(item) + lineVat(item))}
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-2 py-6 text-center text-neutral-500">
+                  Oferta nu conține produse.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+
+        <div className="mt-6 flex justify-end break-inside-avoid">
+          <table className="w-full max-w-sm text-sm">
+            {other ? (
+              <thead>
+                <tr className="text-xs text-neutral-500">
+                  <th />
+                  <th className="pb-1 text-right font-medium">{quote.currency === "RON" ? "lei" : quote.currency}</th>
+                  <th className="pb-1 pl-4 text-right font-medium">{other.currency === "RON" ? "lei" : other.currency}</th>
+                </tr>
+              </thead>
+            ) : null}
+            <tbody className="tabular-nums">
+              {[
+                { label: "Total fără TVA", value: totals.linesNet },
+                ...(totals.quoteDiscount > 0
+                  ? [{ label: `Discount ${quote.discount_pct}%`, value: -totals.quoteDiscount }]
+                  : []),
+                { label: "Bază de impozitare", value: totals.net },
+                { label: "TVA", value: totals.vat },
+              ].map((row) => (
+                <tr key={row.label}>
+                  <td className="py-0.5 text-neutral-700">{row.label}</td>
+                  <td className="py-0.5 text-right whitespace-nowrap">
+                    {formatMoney(row.value, quote.currency)}
+                  </td>
+                  {other ? (
+                    <td className="py-0.5 pl-4 text-right whitespace-nowrap text-neutral-700">
+                      {formatMoney(other.convert(row.value), other.currency)}
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+              <tr className="border-t-2 border-neutral-900 text-base font-bold">
+                <td className="pt-1">Total de plată</td>
+                <td className="pt-1 text-right whitespace-nowrap">
+                  {formatMoney(totals.gross, quote.currency)}
+                </td>
+                {other ? (
+                  <td className="pt-1 pl-4 text-right whitespace-nowrap">
+                    {formatMoney(other.convert(totals.gross), other.currency)}
+                  </td>
+                ) : null}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {eur ? (
+          <p className="mt-3 text-right text-xs text-neutral-500">
+            Curs BNR din {formatDate(eur.date)}: 1 EUR = {eur.rate.toFixed(4).replace(".", ",")} lei.
+            {other ? ` Valorile în ${other.currency === "RON" ? "lei" : "euro"} sunt informative.` : ""}
+          </p>
+        ) : quote.currency === "RON" ? (
+          <p className="no-print mt-3 text-right text-xs text-neutral-500">
+            Cursul BNR nu a putut fi citit acum; oferta apare doar în lei. Reîncarcă pagina mai târziu.
+          </p>
+        ) : null}
+      </section>
 
       {quote.notes ? (
         <section className="mt-8">
