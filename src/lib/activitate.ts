@@ -85,6 +85,13 @@ export type ActivityDataset = {
   quotes: QuoteDetail[];
   clients: {
     name: string;
+    contactPerson: string | null;
+    phone: string | null;
+    email: string | null;
+    cui: string | null;
+    regCom: string | null;
+    address: string | null;
+    county: string | null;
     city: string | null;
     domain: string;
     tradeType: string | null;
@@ -477,6 +484,13 @@ export async function buildActivity(
       .filter((s) => !domainFilter || ((s.domain as string) ?? "constructii") === domainFilter)
       .map((s) => ({
         name: s.name as string,
+        contactPerson: (s.contact_person as string) ?? null,
+        phone: (s.phone as string) ?? null,
+        email: (s.email as string) ?? null,
+        cui: (s.cui as string) ?? null,
+        regCom: (s.reg_com as string) ?? null,
+        address: (s.address as string) ?? null,
+        county: (s.county as string) ?? null,
         city: (s.city as string) ?? null,
         domain: numeDomeniu.get((s.domain as string) ?? "") ?? "—",
         tradeType: (s.trade_type as string) ?? null,

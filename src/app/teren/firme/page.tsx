@@ -35,7 +35,10 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
   const stageGroup = sections.flatMap((s) => s.groups).find((g) => g.id === "etapa");
 
   let query = supabase.from("client_state").select("*").eq("org_id", orgId);
-  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%,phone.ilike.%${search}%`);
+  if (search) {
+    const cols = ["name", "city", "phone", "contact_person", "cui", "reg_com", "email"];
+    query = query.or(cols.map((col) => `${col}.ilike.%${search}%`).join(","));
+  }
   if (stage) query = query.eq("stage", stage);
   if (priority) query = query.eq("priority", priority);
   if (onlyLate) query = query.eq("next_step_late", true);
@@ -86,7 +89,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
           type="search"
           name="q"
           defaultValue={search}
-          placeholder="Caută firmă, localitate, telefon"
+          placeholder="Caută firmă, persoană, CUI, telefon"
           className="input"
         />
       </form>
@@ -168,7 +171,9 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
                 <Link href={`/teren/firma/${r.client_id}`} className="block">
                   <div className="flex flex-wrap items-center gap-2">
                     <b className="text-[15px]">{r.name}</b>
-                    <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
+                    <span className="text-sm text-neutral-500">
+                      {[r.city, r.contact_person].filter(Boolean).join(" · ")}
+                    </span>
                     <span className="flex-1" />
                     <span
                       className={`rounded-full border px-2 py-0.5 text-xs ${

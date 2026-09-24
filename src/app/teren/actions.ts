@@ -7,6 +7,22 @@ import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
 
+/** Datele de identificare ale firmei, așa cum vin din `CompanyFields`. */
+function companyFromForm(formData: FormData) {
+  const text = (key: string) => String(formData.get(key) ?? "").trim() || null;
+  return {
+    name: String(formData.get("name") ?? "").trim(),
+    contact_person: text("contact_person"),
+    phone: text("phone"),
+    email: text("email"),
+    cui: text("cui"),
+    reg_com: text("reg_com"),
+    address: text("address"),
+    city: text("city"),
+    county: text("county"),
+  };
+}
+
 /** Creează firma (dacă e nouă) și deschide o vizită pe ea. */
 export async function startVisit(formData: FormData) {
   const { orgId, user } = await requireOrg();
@@ -15,16 +31,14 @@ export async function startVisit(formData: FormData) {
   let clientId = String(formData.get("client_id") ?? "").trim();
 
   if (!clientId) {
-    const name = String(formData.get("name") ?? "").trim();
-    if (!name) return;
+    const company = companyFromForm(formData);
+    if (!company.name) return;
 
     const { data: created, error } = await supabase
       .from("clients")
       .insert({
         org_id: orgId,
-        name,
-        city: String(formData.get("city") ?? "").trim() || null,
-        phone: String(formData.get("phone") ?? "").trim() || null,
+        ...company,
         trade_type: String(formData.get("trade_type") ?? "").trim() || null,
         // Domeniul hotărăște întrebările din vizită și unitatea de calcul.
         domain: String(formData.get("domain") ?? "").trim() || "constructii",
@@ -47,6 +61,24 @@ export async function startVisit(formData: FormData) {
 
   revalidatePath("/teren");
   redirect(`/teren/vizita/${visit.id}`);
+}
+
+/** Completează sau corectează datele firmei din fișa ei de pe teren. */
+export async function updateCompany(formData: FormData) {
+  await requireOrg();
+  const clientId = String(formData.get("client_id") ?? "");
+  const company = companyFromForm(formData);
+  if (!clientId || !company.name) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update(company).eq("id", clientId);
+
+  if (error) redirect(`/teren/firma/${clientId}?eroare=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/teren");
+  revalidatePath(`/teren/firma/${clientId}`);
+  revalidatePath("/clienti");
+  redirect(`/teren/firma/${clientId}`);
 }
 
 /**

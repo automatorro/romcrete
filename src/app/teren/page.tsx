@@ -155,7 +155,9 @@ export default async function AziPage() {
                 <Link href={`/teren/firma/${r.client_id}`} className="font-medium">
                   {r.name}
                 </Link>
-                <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
+                <span className="text-sm text-neutral-500">
+                  {[r.city, r.contact_person].filter(Boolean).join(" · ")}
+                </span>
                 <span className="flex-1" />
                 {r.next_step_late ? (
                   <span className="text-xs font-semibold text-[var(--color-bad)]">
@@ -207,7 +209,9 @@ export default async function AziPage() {
                 <Link href={`/teren/firma/${r.client_id}`} className="font-medium">
                   {r.name}
                 </Link>
-                <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
+                <span className="text-sm text-neutral-500">
+                  {[r.city, r.contact_person].filter(Boolean).join(" · ")}
+                </span>
                 <span className="flex-1" />
                 {r.is_warm ? (
                   <span className="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs text-brand-700">

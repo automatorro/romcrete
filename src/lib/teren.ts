@@ -95,6 +95,12 @@ export type ClientState = {
   domain: string | null;
   city: string | null;
   phone: string | null;
+  contact_person: string | null;
+  cui: string | null;
+  reg_com: string | null;
+  email: string | null;
+  address: string | null;
+  county: string | null;
   answers: Answers;
   stage: string | null;
   interest: string | null;

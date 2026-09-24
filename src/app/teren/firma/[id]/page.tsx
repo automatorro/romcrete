@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { startVisit } from "@/app/teren/actions";
+import { startVisit, updateCompany } from "@/app/teren/actions";
+import { CompanyFields } from "@/app/teren/company-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains } from "@/lib/domenii";
@@ -18,6 +19,7 @@ export const metadata = { title: "Fișa firmei" };
 
 export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const { id } = await props.params;
+  const { eroare, date } = await props.searchParams;
   const { orgId, organization } = await requireOrg();
 
   const supabase = await createClient();
@@ -58,6 +60,17 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const lipsuri = gaps(state.answers, domain?.unit_short);
   const allGroups = sections.flatMap((s) => s.groups);
 
+  const adresa = [state.address, state.city, state.county].filter(Boolean).join(", ");
+  const dateFirma = [
+    { label: "Persoană de contact", value: state.contact_person },
+    { label: "Telefon", value: state.phone, href: state.phone ? `tel:${state.phone}` : null },
+    { label: "Email", value: state.email, href: state.email ? `mailto:${state.email}` : null, wide: true },
+    { label: "CUI", value: state.cui },
+    { label: "Nr. Reg. Com.", value: state.reg_com },
+    { label: "Adresă", value: adresa || null, wide: true },
+  ];
+  const lipsesc = dateFirma.filter((d) => !d.value).map((d) => d.label.toLowerCase());
+
   return (
     <div>
       <Link href="/teren/firme" className="text-sm text-brand-700 hover:underline">
@@ -90,6 +103,47 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
           Sună {state.phone}
         </a>
       ) : null}
+
+      {typeof eroare === "string" && eroare ? (
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {eroare}
+        </p>
+      ) : null}
+
+      <div className="card mt-3 p-3.5">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+          {dateFirma
+            .filter((d) => d.value)
+            .map((d) => (
+              <div key={d.label} className={"wide" in d ? "col-span-2" : undefined}>
+                <dt className="text-xs text-neutral-500">{d.label}</dt>
+                <dd className="break-words">
+                  {d.href ? (
+                    <a href={d.href} className="text-brand-700 hover:underline">
+                      {d.value}
+                    </a>
+                  ) : (
+                    d.value
+                  )}
+                </dd>
+              </div>
+            ))}
+        </dl>
+        {lipsesc.length ? (
+          <p className="mt-2 text-xs text-neutral-500">Lipsesc: {lipsesc.join(", ")}.</p>
+        ) : null}
+
+        <details className="mt-2" open={date === "1"}>
+          <summary className="cursor-pointer text-sm font-medium text-brand-700">
+            {lipsesc.length ? "Completează datele firmei" : "Modifică datele firmei"}
+          </summary>
+          <form action={updateCompany} className="mt-3 space-y-3 border-t border-neutral-200 pt-3">
+            <input type="hidden" name="client_id" value={state.client_id} />
+            <CompanyFields defaults={state} idPrefix="firma-" />
+            <SubmitButton className="btn btn-primary w-full">Salvează datele</SubmitButton>
+          </form>
+        </details>
+      </div>
 
       <form action={startVisit} className="mt-2">
         <input type="hidden" name="client_id" value={state.client_id} />
