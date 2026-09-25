@@ -33,19 +33,30 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
   if (!claims?.sub) return null;
   const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
 
-  const { data: membership } = await supabase
-    .from("memberships")
-    // Coloanele pe nume: semnătura agentului și ștampila firmei (poze) se citesc
-    // doar când se generează oferta, nu la fiecare pagină.
-    .select(`user_id, org_id, role, full_name, phone, contact_email, target_visits_per_day, target_quotes_per_month, created_at, organizations(${ORG_COLUMNS})`)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const read = (columns: string) =>
+    supabase
+      .from("memberships")
+      .select(columns)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+  // Coloanele pe nume: semnătura agentului și ștampila firmei (poze) se citesc
+  // doar când se generează oferta, nu la fiecare pagină.
+  let { data: membership, error } = await read(
+    `user_id, org_id, role, full_name, phone, contact_email, target_visits_per_day, target_quotes_per_month, created_at, organizations(${ORG_COLUMNS})`,
+  );
+  // O coloană lipsă (migrare încă nerulată) nu scoate pe nimeni din firmă:
+  // se citesc toate coloanele, cum se făcea înainte.
+  if (error) ({ data: membership, error } = await read("*, organizations(*)"));
+  // Altă eroare nu înseamnă „fără firmă”: ar trimite omul la configurare, iar
+  // configurarea înapoi, la nesfârșit. Mai bine o eroare clară.
+  if (error) throw new Error(`Datele contului nu s-au putut citi: ${error.message}`);
 
   return {
     user,
-    membership: (membership as SessionContext["membership"]) ?? null,
+    membership: (membership as unknown as SessionContext["membership"]) ?? null,
   };
 });
 
