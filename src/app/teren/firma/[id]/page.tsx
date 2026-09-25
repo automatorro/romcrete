@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { startVisit, updateCompany } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
 import { ClientHistory } from "@/components/client-history";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains } from "@/lib/domenii";
@@ -84,30 +84,30 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
 
   return (
     <div>
-      <Link href="/teren/firme" className="text-sm text-brand-700 hover:underline">
-        ← Firme
-      </Link>
-
-      <div className="mt-1 flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-semibold">{state.name}</h1>
-        <span
-          className={`rounded-full border px-2 py-0.5 text-xs ${
-            state.focus === "urmareste"
-              ? "border-brand-600 bg-brand-600 text-white"
-              : "border-neutral-200 bg-neutral-100 text-neutral-700"
-          }`}
-        >
-          {FOCUS_LABELS[state.focus]}
-        </span>
-      </div>
-
-      <p className="text-sm text-neutral-500">
-        {[state.city, domain?.label, tradeLabel(state.trade_type)].filter(Boolean).join(" · ")}
-      </p>
-      <p className="text-sm text-neutral-500">
-        {lastVisitLabel(state.last_visit)} · {state.visit_count}{" "}
-        {state.visit_count === 1 ? "vizită" : "vizite"}
-      </p>
+      <PageHeader
+        back={{ href: "/teren/firme", label: "Firme" }}
+        title={state.name}
+        badge={
+          <span
+            className={`rounded-full border px-2 py-0.5 text-xs font-normal ${
+              state.focus === "urmareste"
+                ? "border-brand-600 bg-brand-600 text-white"
+                : "border-neutral-200 bg-neutral-100 text-neutral-700"
+            }`}
+          >
+            {FOCUS_LABELS[state.focus]}
+          </span>
+        }
+        description={
+          <>
+            <p>{[state.city, domain?.label, tradeLabel(state.trade_type)].filter(Boolean).join(" · ")}</p>
+            <p>
+              {lastVisitLabel(state.last_visit)} · {state.visit_count}{" "}
+              {state.visit_count === 1 ? "vizită" : "vizite"}
+            </p>
+          </>
+        }
+      />
 
       {state.phone || state.email ? (
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -132,7 +132,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
       ) : null}
 
       {typeof eroare === "string" && eroare ? (
-        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="notice-error mt-3">
           {eroare}
         </p>
       ) : null}

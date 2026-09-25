@@ -6,24 +6,6 @@
  * seriei. Culoarea stă în marcaj, identitatea în eticheta de lângă el.
  */
 
-export function StatTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="card p-3">
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold tabular-nums">{value}</p>
-      {hint ? <p className="text-xs text-neutral-500">{hint}</p> : null}
-    </div>
-  );
-}
-
 /** Bare orizontale pentru mărimi comparabile: o singură nuanță, valoarea lângă bară. */
 export function BarList({
   rows,

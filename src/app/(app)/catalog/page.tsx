@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { createCatalogItem } from "@/app/(app)/catalog/actions";
 import { CatalogForm } from "@/app/(app)/catalog/catalog-form";
-import { EmptyState } from "@/components/empty-state";
+import { DataList } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatCatalogPrice } from "@/lib/totals";
@@ -24,13 +26,11 @@ export default async function CatalogPage() {
   const items = (data ?? []) as CatalogItem[];
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Catalog</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Produsele și serviciile pe care le poți adăuga pe ofertă cu un click.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <PageHeader
+        title="Catalog"
+        description="Produsele și serviciile pe care le poți adăuga pe ofertă cu un click."
+      />
 
       <details className="card p-4">
         <summary className="cursor-pointer text-sm font-medium text-brand-700">
@@ -52,51 +52,43 @@ export default async function CatalogPage() {
           description="Adaugă primele produse ca să poți construi oferte rapid."
         />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full min-w-[720px]">
-            <thead className="border-b border-neutral-200 bg-neutral-50">
-              <tr>
-                <th className="table-head">Denumire</th>
-                <th className="table-head">Categorie</th>
-                <th className="table-head">UM</th>
-                <th className="table-head text-right">Preț fără TVA</th>
-                <th className="table-head text-right">TVA</th>
-                <th className="table-head" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {items.map((item) => (
-                <tr key={item.id} className={item.is_active ? "hover:bg-neutral-50" : "bg-neutral-50/60 opacity-60"}>
-                  <td className="table-cell">
-                    <span className="font-medium">{item.name}</span>
-                    {item.sku ? (
-                      <span className="ml-2 text-xs text-neutral-500">{item.sku}</span>
-                    ) : null}
-                    {item.is_active ? null : (
-                      <span className="ml-2 text-xs text-neutral-500">(inactiv)</span>
-                    )}
-                  </td>
-                  <td className="table-cell text-neutral-500">{item.category ?? "—"}</td>
-                  <td className="table-cell text-neutral-500">{item.unit}</td>
-                  <td className="table-cell text-right tabular-nums">
-                    {formatCatalogPrice(item.unit_price, item.price_on_request)}
-                  </td>
-                  <td className="table-cell text-right tabular-nums text-neutral-500">
-                    {item.vat_rate}%
-                  </td>
-                  <td className="table-cell text-right">
-                    <Link
-                      href={`/catalog/${item.id}`}
-                      className="font-medium text-brand-700 hover:underline"
-                    >
-                      Editează
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataList
+          rows={items}
+          rowKey={(i) => i.id}
+          muted={(i) => !i.is_active}
+          title={(i) => (
+            <Link href={`/catalog/${i.id}`} className="hover:underline">
+              {i.name}
+              {i.is_active ? null : <span className="ml-2 text-xs font-normal text-neutral-500">(inactiv)</span>}
+            </Link>
+          )}
+          columns={[
+            {
+              header: "Denumire",
+              hideOnMobile: true,
+              cell: (i) => (
+                <>
+                  <span className="font-medium">{i.name}</span>
+                  {i.sku ? <span className="ml-2 text-xs text-neutral-500">{i.sku}</span> : null}
+                  {i.is_active ? null : <span className="ml-2 text-xs text-neutral-500">(inactiv)</span>}
+                </>
+              ),
+            },
+            { header: "Categorie", className: "text-neutral-500", cell: (i) => i.category ?? "—" },
+            { header: "UM", className: "text-neutral-500", cell: (i) => i.unit },
+            {
+              header: "Preț fără TVA",
+              className: "text-right tabular-nums",
+              cell: (i) => formatCatalogPrice(i.unit_price, i.price_on_request),
+            },
+            { header: "TVA", className: "text-right tabular-nums text-neutral-500", cell: (i) => `${i.vat_rate}%` },
+          ]}
+          actions={(i) => (
+            <Link href={`/catalog/${i.id}`} className="btn btn-secondary btn-sm">
+              Editează
+            </Link>
+          )}
+        />
       )}
     </div>
   );

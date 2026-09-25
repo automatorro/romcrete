@@ -1,7 +1,12 @@
 import Link from "next/link";
 
-import { EmptyState } from "@/components/empty-state";
+import { duplicateQuote } from "@/app/(app)/oferte/actions";
 import { StatusBadge } from "@/components/status-badge";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { DataList } from "@/components/ui/data-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatMoney } from "@/lib/totals";
@@ -44,31 +49,35 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
     ]),
   );
 
-  return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Oferte</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Numerotate automat, pe an și pe firmă.
-          </p>
-        </div>
-        <Link href="/oferte/nou" className="btn btn-primary">
-          Ofertă nouă
-        </Link>
-      </header>
+  // Câte oferte are fiecare stare, pentru cifrele de pe filtre.
+  const { data: statusRows } = await supabase.from("quotes").select("status").eq("org_id", orgId);
+  const perStatus = new Map<string, number>();
+  for (const row of statusRows ?? []) perStatus.set(row.status, (perStatus.get(row.status) ?? 0) + 1);
 
-      <nav className="flex flex-wrap gap-2">
-        <FilterLink label="Toate" href="/oferte" active={!activeStatus} />
-        {(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[]).map((value) => (
-          <FilterLink
-            key={value}
-            label={QUOTE_STATUS_LABELS[value]}
-            href={`/oferte?status=${value}`}
-            active={activeStatus === value}
-          />
-        ))}
-      </nav>
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Oferte"
+        description="Numerotate automat, pe an și pe firmă."
+        actions={
+          <Link href="/oferte/nou" className="btn btn-primary">
+            ＋ Ofertă nouă
+          </Link>
+        }
+      />
+
+      <FilterChips
+        label="Filtrează după stare"
+        items={[
+          { label: "Toate", href: "/oferte", active: !activeStatus, count: statusRows?.length ?? 0 },
+          ...(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[]).map((value) => ({
+            label: QUOTE_STATUS_LABELS[value],
+            href: `/oferte?status=${value}`,
+            active: activeStatus === value,
+            count: perStatus.get(value) ?? 0,
+          })),
+        ]}
+      />
 
       {quotes.length === 0 ? (
         <EmptyState
@@ -81,62 +90,57 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
           }
         />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full min-w-[760px]">
-            <thead className="border-b border-neutral-200 bg-neutral-50">
-              <tr>
-                <th className="table-head">Număr</th>
-                <th className="table-head">Client</th>
-                <th className="table-head">Emisă</th>
-                <th className="table-head">Valabilă până</th>
-                <th className="table-head">Stare</th>
-                <th className="table-head text-right">Total cu TVA</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {quotes.map((quote) => (
-                <tr key={quote.id} className="hover:bg-neutral-50">
-                  <td className="table-cell">
-                    <Link
-                      href={`/oferte/${quote.id}`}
-                      className="font-medium text-brand-700 hover:underline"
-                    >
-                      {quote.number}
-                    </Link>
-                    {quote.title ? (
-                      <p className="text-xs text-neutral-500">{quote.title}</p>
-                    ) : null}
-                  </td>
-                  <td className="table-cell">{quote.clients?.name ?? "—"}</td>
-                  <td className="table-cell text-neutral-500">{formatDate(quote.issue_date)}</td>
-                  <td className="table-cell text-neutral-500">{formatDate(quote.valid_until)}</td>
-                  <td className="table-cell">
-                    <StatusBadge status={quote.status} />
-                  </td>
-                  <td className="table-cell text-right font-medium tabular-nums">
-                    {formatMoney(totals.get(quote.id) ?? 0, quote.currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataList
+          rows={quotes}
+          rowKey={(q) => q.id}
+          minWidth={760}
+          title={(q) => (
+            <Link href={`/oferte/${q.id}`} className="text-brand-700 hover:underline">
+              {q.number}
+              <span className="block text-sm font-normal text-neutral-900">{q.clients?.name ?? "—"}</span>
+            </Link>
+          )}
+          columns={[
+            {
+              header: "Număr",
+              hideOnMobile: true,
+              cell: (q) => (
+                <>
+                  <Link href={`/oferte/${q.id}`} className="font-medium text-brand-700 hover:underline">
+                    {q.number}
+                  </Link>
+                  {q.title ? <p className="text-xs text-neutral-500">{q.title}</p> : null}
+                </>
+              ),
+            },
+            { header: "Client", hideOnMobile: true, cell: (q) => q.clients?.name ?? "—" },
+            { header: "Stare", cell: (q) => <StatusBadge status={q.status} /> },
+            {
+              header: "Total cu TVA",
+              className: "text-right font-medium tabular-nums",
+              cell: (q) => formatMoney(totals.get(q.id) ?? 0, q.currency),
+            },
+            { header: "Emisă", className: "text-neutral-500", cell: (q) => formatDate(q.issue_date) },
+            { header: "Valabilă până", className: "text-neutral-500", cell: (q) => formatDate(q.valid_until) },
+          ]}
+          actions={(q) => (
+            <ActionMenu label={`Acțiuni pentru oferta ${q.number}`}>
+              <Link href={`/oferte/${q.id}`} className="menu-item" role="menuitem">
+                Deschide și editează
+              </Link>
+              <Link href={`/print/oferta/${q.id}`} target="_blank" rel="noreferrer" className="menu-item" role="menuitem">
+                Vezi PDF
+              </Link>
+              <form action={duplicateQuote}>
+                <input type="hidden" name="quote_id" value={q.id} />
+                <button type="submit" className="menu-item" role="menuitem">
+                  Duplică
+                </button>
+              </form>
+            </ActionMenu>
+          )}
+        />
       )}
     </div>
-  );
-}
-
-function FilterLink({ label, href, active }: { label: string; href: string; active: boolean }) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-        active
-          ? "border-brand-200 bg-brand-50 text-brand-700"
-          : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
-      }`}
-    >
-      {label}
-    </Link>
   );
 }

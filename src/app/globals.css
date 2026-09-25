@@ -38,8 +38,14 @@ body {
     @apply text-neutral-700 hover:bg-neutral-100;
   }
 
+  /* Roșul e rezervat butoanelor care șterg sau arhivează. */
   .btn-danger {
-    @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
+    @apply bg-bad text-white hover:brightness-90;
+  }
+
+  /* Varianta discretă, pentru ștergeri de pe un rând de listă: roșie, dar fără fond. */
+  .btn-danger-ghost {
+    @apply text-bad hover:bg-neutral-100;
   }
 
   /* Verdele e rezervat butoanelor care confirmă o acțiune: făcut, termină, salvează. */
@@ -47,9 +53,36 @@ body {
     @apply bg-ok text-white hover:brightness-90;
   }
 
+  /* Mărimile: sm pentru rânduri de tabel la birou, lg pentru teren. */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
   /* Pe teren: țintă de atingere de 48px, se apasă din mers. */
   .btn-lg {
     @apply min-h-12 px-4 text-base;
+  }
+
+  /* Mesajele de pe pagină. Eroarea rămâne roșie: e un semnal, nu decor. */
+  .notice {
+    @apply rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-700;
+  }
+
+  .notice-ok {
+    @apply rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800;
+  }
+
+  .notice-error {
+    @apply rounded-lg border border-bad bg-white px-3 py-2 text-sm font-medium text-bad;
+  }
+
+  /* Rândurile din meniul „⋯”: țintă de atingere mare, aliniate la stânga. */
+  .menu-item {
+    @apply flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-900 hover:bg-neutral-100;
+  }
+
+  .menu-item-danger {
+    @apply text-bad;
   }
 
   .table-head {

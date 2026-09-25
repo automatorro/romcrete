@@ -135,14 +135,15 @@ export function QuoteItemsTable({
               </td>
               <td className="px-4 py-3">
                 <div className="flex flex-col items-end gap-2">
-                  <SubmitButton form={`item-${item.id}`} className="btn btn-secondary text-xs">
+                  <SubmitButton form={`item-${item.id}`} className="btn btn-secondary btn-sm">
                     Salvează
                   </SubmitButton>
                   <SubmitButton
                     form={`item-${item.id}`}
                     formAction={remove}
-                    className="btn btn-ghost text-xs text-red-700"
+                    className="btn btn-danger-ghost btn-sm"
                     pendingLabel="Se șterge…"
+                    confirmLabel="Da, șterge"
                     confirm={`Ștergi linia „${item.name}”?`}
                   >
                     Șterge

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getDomains, matchesDomain } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
@@ -46,10 +47,14 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Catalog</h1>
-      <p className="mt-0.5 text-sm text-neutral-500">
-        {items.length} din {all.length} poziții · prețuri fără TVA
-      </p>
+      <PageHeader
+        title="Catalog"
+        description={
+          <>
+            {items.length} din {all.length} poziții · prețuri fără TVA
+          </>
+        }
+      />
 
       <form className="my-3">
         {category ? <input type="hidden" name="cat" value={category} /> : null}

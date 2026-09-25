@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteCatalogItem, updateCatalogItem } from "@/app/(app)/catalog/actions";
 import { CatalogForm } from "@/app/(app)/catalog/catalog-form";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/lib/types";
@@ -22,12 +22,7 @@ export default async function CatalogItemPage(props: PageProps<"/catalog/[id]">)
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/catalog" className="text-sm text-brand-700 hover:underline">
-          ← Tot catalogul
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">{item.name}</h1>
-      </div>
+      <PageHeader back={{ href: "/catalog", label: "Tot catalogul" }} title={item.name} />
 
       <div className="card p-6">
         <CatalogForm
@@ -46,6 +41,7 @@ export default async function CatalogItemPage(props: PageProps<"/catalog/[id]">)
           <SubmitButton
             className="btn btn-danger"
             pendingLabel="Se șterge…"
+            confirmLabel="Da, șterge"
             confirm={`Ștergi „${item.name}” din catalog?`}
           >
             Șterge din catalog
