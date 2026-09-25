@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { addCatalogItemToQuote, addCustomItem, duplicateQuote, updateQuote } from "@/app/(app)/oferte/actions";
+import { addCatalogItemToQuote, addCustomItem, duplicateQuote, setShowTotal, updateQuote } from "@/app/(app)/oferte/actions";
 import { QuoteForm } from "@/app/(app)/oferte/quote-form";
 import { AddCustomItemForm } from "@/app/(app)/oferte/[id]/add-custom-item-form";
 import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
@@ -9,6 +9,7 @@ import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { ArchiveControls } from "@/components/oferta/archive-controls";
 import { SendByEmail } from "@/components/oferta/send-by-email";
 import { StatusPicker } from "@/components/oferta/status-picker";
+import { TotalSummary } from "@/components/oferta/total-summary";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -16,7 +17,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
+import { formatDate } from "@/lib/totals";
 import type { CatalogItem, Quote, QuoteItem } from "@/lib/types";
 
 type Zona = "teren" | "birou";
@@ -56,7 +57,6 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
   };
   const items = (itemsData ?? []) as QuoteItem[];
   const catalog = (catalogData ?? []) as CatalogItem[];
-  const totals = computeTotals(items, quote.discount_pct);
   const teren = zona === "teren";
 
   return (
@@ -79,7 +79,9 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
             )}
             {quote.title ? ` · ${quote.title}` : ""}
             <span className="block">
-              Total cu TVA: <b className="text-neutral-900 tabular-nums">{formatMoney(totals.gross, quote.currency)}</b>
+              {items.length} {items.length === 1 ? "produs" : "produse"}
+              {quote.show_total ? ", cu total la final" : ", fiecare cu prețul lui"}
+              {Number(quote.discount_pct) > 0 ? ` · discount ofertă ${quote.discount_pct}%` : ""}
             </span>
           </>
         }
@@ -149,7 +151,12 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           </p>
         </header>
 
-        <QuoteItemsTable quoteId={quote.id} items={items} currency={quote.currency} />
+        <QuoteItemsTable
+          quoteId={quote.id}
+          items={items}
+          currency={quote.currency}
+          quoteDiscountPct={Number(quote.discount_pct)}
+        />
 
         <div className="space-y-4 border-t border-neutral-200 p-4">
           {catalog.length > 0 ? (
@@ -179,18 +186,31 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           </details>
         </div>
 
-        <dl className="space-y-2 border-t border-neutral-200 bg-neutral-50 px-4 py-4 text-sm">
-          <Row label="Total linii (fără TVA)" value={formatMoney(totals.linesNet, quote.currency)} />
-          {totals.quoteDiscount > 0 ? (
-            <Row
-              label={`Discount ofertă (${quote.discount_pct}%)`}
-              value={`− ${formatMoney(totals.quoteDiscount, quote.currency)}`}
-            />
-          ) : null}
-          <Row label="Bază de impozitare" value={formatMoney(totals.net, quote.currency)} />
-          <Row label="TVA" value={formatMoney(totals.vat, quote.currency)} />
-          <Row label="Total de plată" value={formatMoney(totals.gross, quote.currency)} strong />
-        </dl>
+        {/* Implicit fiecare produs are prețul lui; totalul apare doar când clientul ia tot. */}
+        <div className="space-y-3 border-t border-neutral-200 bg-neutral-50 px-4 py-4">
+          {quote.show_total && items.length ? (
+            <>
+              <p className="text-sm font-semibold">Recapitulare și total (apare și pe PDF)</p>
+              <TotalSummary
+                items={items}
+                quoteDiscountPct={Number(quote.discount_pct)}
+                base={quote.currency}
+                other={null}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-neutral-600">
+              Fiecare produs are prețul lui, ca pe PDF. Dacă clientul ia toate produsele, adaugă totalul la final.
+            </p>
+          )}
+          <form action={setShowTotal} className="flex justify-end">
+            <input type="hidden" name="quote_id" value={quote.id} />
+            <input type="hidden" name="show" value={quote.show_total ? "0" : "1"} />
+            <SubmitButton className="btn btn-secondary min-h-11" pendingLabel="Se salvează…">
+              {quote.show_total ? "Scoate totalul de la final" : "＋ Adaugă totalul la final"}
+            </SubmitButton>
+          </form>
+        </div>
       </section>
 
       {/* Pe teren detaliile stau strânse: se schimbă rar, iar pe telefon ocupă mult. */}
@@ -222,17 +242,6 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           zona={zona}
         />
       )}
-    </div>
-  );
-}
-
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className={strong ? "font-semibold text-neutral-900" : "text-neutral-500"}>{label}</dt>
-      <dd className={`tabular-nums ${strong ? "text-base font-semibold text-neutral-900" : "text-neutral-900"}`}>
-        {value}
-      </dd>
     </div>
   );
 }

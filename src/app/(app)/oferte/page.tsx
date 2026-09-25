@@ -126,7 +126,7 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
             { header: "Client", hideOnMobile: true, cell: (q) => q.clients?.name ?? "—" },
             { header: "Stare", cell: (q) => <StatusBadge status={q.status} /> },
             {
-              header: "Total cu TVA",
+              header: "Valoare ofertată",
               className: "text-right font-medium tabular-nums",
               cell: (q) => formatMoney(totals.get(q.id) ?? 0, q.currency),
             },

@@ -39,6 +39,35 @@ export function lineVat(line: LineLike): number {
 }
 
 /**
+ * Prețul final al unui produs de pe ofertă: după discountul liniei și după
+ * discountul pe ofertă, fără TVA, TVA și cu TVA. Același calcul pe PDF și în
+ * aplicație, ca fiecare produs să aibă peste tot exact același preț.
+ */
+export function lineFinal(line: LineLike, quoteDiscountPct = 0) {
+  const factor = 1 - num(quoteDiscountPct) / 100;
+  const beforeQuoteDiscount = lineNet(line);
+  const net = round2(beforeQuoteDiscount * factor);
+  const vat = round2(lineVat(line) * factor);
+  return { beforeQuoteDiscount, quoteDiscount: round2(beforeQuoteDiscount - net), net, vat, gross: round2(net + vat) };
+}
+
+/**
+ * Totalul de la final, adunat din prețurile finale ale produselor, ca suma să
+ * iasă exact din cifrele tipărite sub fiecare produs.
+ */
+export function sumFinals(lines: LineLike[], quoteDiscountPct = 0) {
+  const finals = lines.map((line) => lineFinal(line, quoteDiscountPct));
+  const add = (key: keyof (typeof finals)[number]) => round2(finals.reduce((s, f) => s + f[key], 0));
+  return {
+    linesNet: add("beforeQuoteDiscount"),
+    quoteDiscount: add("quoteDiscount"),
+    net: add("net"),
+    vat: add("vat"),
+    gross: add("gross"),
+  };
+}
+
+/**
  * Totalurile ofertei. Discountul pe ofertă se aplică proporțional și asupra TVA-ului,
  * ca baza de impozitare și TVA-ul să rămână consistente.
  */

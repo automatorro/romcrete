@@ -1,6 +1,6 @@
 import { deleteQuoteItem, updateQuoteItem } from "@/app/(app)/oferte/actions";
 import { SubmitButton } from "@/components/submit-button";
-import { formatMoney, lineNet } from "@/lib/totals";
+import { formatMoney, lineFinal } from "@/lib/totals";
 import { UNITS, type QuoteItem } from "@/lib/types";
 
 /**
@@ -11,10 +11,13 @@ export function QuoteItemsTable({
   quoteId,
   items,
   currency,
+  quoteDiscountPct = 0,
 }: {
   quoteId: string;
   items: QuoteItem[];
   currency: string;
+  /** Discountul pe ofertă intră în prețul fiecărui produs, ca pe PDF. */
+  quoteDiscountPct?: number;
 }) {
   const update = updateQuoteItem.bind(null, quoteId);
   const remove = deleteQuoteItem.bind(null, quoteId);
@@ -39,7 +42,7 @@ export function QuoteItemsTable({
               <th className="table-head text-right">Preț unitar</th>
               <th className="table-head text-right">Disc. %</th>
               <th className="table-head text-right">TVA %</th>
-              <th className="table-head text-right">Valoare</th>
+              <th className="table-head text-right">Preț produs</th>
               <th className="table-head" />
             </tr>
           </thead>
@@ -72,7 +75,7 @@ export function QuoteItemsTable({
                     name="unit"
                     defaultValue={item.unit}
                     aria-label="Unitate de măsură"
-                    className="input"
+                    className="input min-w-[4.5rem]"
                   >
                     {UNITS.map((unit) => (
                       <option key={unit} value={unit}>
@@ -131,8 +134,8 @@ export function QuoteItemsTable({
                     className="input w-20 text-right tabular-nums"
                   />
                 </td>
-                <td className="px-4 py-3 text-right text-sm font-medium tabular-nums">
-                  {formatMoney(lineNet(item), currency)}
+                <td className="px-4 py-3 text-right text-sm tabular-nums">
+                  <PriceCell item={item} currency={currency} quoteDiscountPct={quoteDiscountPct} />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col items-end gap-2">
@@ -235,10 +238,12 @@ export function QuoteItemsTable({
                   />
                 </Field>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="flex-1 text-sm">
-                  Valoare: <b className="tabular-nums">{formatMoney(lineNet(item), currency)}</b>
-                </span>
+              {/* Prețul pe rândul lui, butoanele dedesubt: pe un ecran îngust nu încap alături. */}
+              <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
+                <span className="mb-0.5 block text-xs text-neutral-500">Preț produs</span>
+                <PriceCell item={item} currency={currency} quoteDiscountPct={quoteDiscountPct} />
+              </p>
+              <div className="flex items-center justify-end gap-2">
                 <SubmitButton
                   form={formId}
                   formAction={remove}
@@ -267,5 +272,21 @@ function Field({ label, wide, children }: { label: string; wide?: boolean; child
       <span className="mb-0.5 block text-xs text-neutral-500">{label}</span>
       {children}
     </label>
+  );
+}
+
+/** Prețul final al produsului: cu TVA, mare; fără TVA și TVA-ul, dedesubt. Ca pe PDF. */
+function PriceCell({ item, currency, quoteDiscountPct }: { item: QuoteItem; currency: string; quoteDiscountPct: number }) {
+  const p = lineFinal(item, quoteDiscountPct);
+  return (
+    <span className="inline-block tabular-nums">
+      <b className="block whitespace-nowrap">{formatMoney(p.gross, currency)}</b>
+      <span className="block text-xs whitespace-nowrap text-neutral-500">
+        {formatMoney(p.net, currency)} + TVA {formatMoney(p.vat, currency)}
+      </span>
+      {p.quoteDiscount > 0 ? (
+        <span className="block text-xs text-neutral-500">cu discountul ofertei de {quoteDiscountPct}%</span>
+      ) : null}
+    </span>
   );
 }
