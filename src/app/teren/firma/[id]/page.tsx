@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 
 import { startVisit, updateCompany } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
+import { ClientHistory } from "@/components/client-history";
 import { SubmitButton } from "@/components/submit-button";
+import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains } from "@/lib/domenii";
+import { getClientHistory } from "@/lib/istoric-firma";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { computePayback, demandFrom } from "@/lib/amortizare";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +23,7 @@ export const metadata = { title: "Fișa firmei" };
 export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const { id } = await props.params;
   const { eroare, date } = await props.searchParams;
-  const { orgId, organization } = await requireOrg();
+  const { orgId, organization, user, role } = await requireOrg();
 
   const supabase = await createClient();
   const [{ data: stateRow }, { data: visitRows }, domains] = await Promise.all([
@@ -60,6 +63,14 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const lipsuri = gaps(state.answers, domain?.unit_short);
   const allGroups = sections.flatMap((s) => s.groups);
 
+  const history = await getClientHistory(
+    state.client_id,
+    orgId,
+    sections,
+    { userId: user.id, isAdmin: role !== "agent" },
+    { visitHref: (v) => `/teren/vizita/${v}`, quoteHref: (q) => `/oferte/${q}` },
+  );
+
   const adresa = [state.address, state.city, state.county].filter(Boolean).join(", ");
   const dateFirma = [
     { label: "Persoană de contact", value: state.contact_person },
@@ -98,10 +109,26 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
         {state.visit_count === 1 ? "vizită" : "vizite"}
       </p>
 
-      {state.phone ? (
-        <a href={`tel:${state.phone}`} className="btn btn-secondary mt-3 w-full">
-          Sună {state.phone}
-        </a>
+      {state.phone || state.email ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {state.phone ? (
+            <a
+              href={`tel:${state.phone}`}
+              className={`btn btn-secondary btn-lg ${state.email ? "" : "col-span-2"}`}
+            >
+              Sună
+            </a>
+          ) : null}
+          {state.email ? (
+            // Se deschide programul de email al calculatorului sau al telefonului (Outlook).
+            <a
+              href={`mailto:${state.email}`}
+              className={`btn btn-secondary btn-lg ${state.phone ? "" : "col-span-2"}`}
+            >
+              Email
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       {typeof eroare === "string" && eroare ? (
@@ -223,45 +250,11 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
         </dl>
       </div>
 
-      <h2 className="mt-5 mb-1 text-base font-semibold">Istoricul vizitelor</h2>
-      {visits.length === 0 ? (
-        <p className="card p-3 text-sm text-neutral-500">Încă nicio vizită înregistrată.</p>
-      ) : (
-        <ul className="space-y-2">
-          {visits.map((v) => {
-            const scrise = Object.entries(v.notes ?? {}).filter(([, t]) => t?.trim());
-            return (
-              <li key={v.id} className="card p-3">
-                <Link href={`/teren/vizita/${v.id}`} className="block">
-                  <div className="flex items-center gap-2">
-                    <b className="text-sm">{formatDate(v.visit_date)}</b>
-                    <span className="flex-1" />
-                    <span className="text-xs text-brand-700">deschide →</span>
-                  </div>
-                  {v.answers?.interes ? (
-                    <p className="mt-1 text-sm">
-                      Interes: {optionLabel(sections, "interes", String(v.answers.interes))}
-                    </p>
-                  ) : null}
-                  {v.pump_skus?.length ? (
-                    <p className="mt-1 text-xs text-neutral-500">
-                      Modele discutate: {v.pump_skus.join(", ")}
-                    </p>
-                  ) : null}
-                  {scrise.map(([gid, text]) => (
-                    <p key={gid} className="mt-1 border-l-2 border-neutral-200 pl-2 text-xs text-neutral-700">
-                      <span className="text-neutral-500">
-                        {allGroups.find((g) => g.id === gid)?.label ?? gid}:{" "}
-                      </span>
-                      {text}
-                    </p>
-                  ))}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <h2 className="mt-5 mb-1 text-base font-semibold">Istoric</h2>
+      <p className="mb-2 text-xs text-neutral-500">
+        Vizite, telefoane, emailuri, oferte și pași mutați, cel mai nou sus.
+      </p>
+      <ClientHistory clientId={state.client_id} items={history} today={todayRo()} />
     </div>
   );
 }

@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
+import { isManualKind } from "@/lib/istoric";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
 
@@ -116,40 +118,137 @@ export async function saveVisit(
   return { ok: true };
 }
 
-/** Bifează pasul următor ca făcut, direct din lista de firme. */
-export async function markStepDone(formData: FormData) {
-  await requireOrg();
-  const visitId = String(formData.get("visit_id") ?? "");
-  if (!visitId) return;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-  const supabase = await createClient();
-  await supabase
-    .from("visits")
-    .update({ next_step_done_at: new Date().toISOString() })
-    .eq("id", visitId);
-
+/** Revalidează ecranele care arată agenda și istoricul unei firme. */
+function refreshClient(clientId: string) {
   revalidatePath("/teren");
   revalidatePath("/teren/firme");
+  revalidatePath(`/teren/firma/${clientId}`);
+  revalidatePath(`/clienti/${clientId}`);
 }
 
 /**
- * Mută pasul următor pe o altă zi: fie amânare, fie „am făcut, revin pe…”.
- * Pasul rămâne deschis, deci firma reapare în agendă exact în ziua aleasă.
+ * Ziua aleasă în panoul de dată: butoanele rapide o trimit direct, „Alege” trimite
+ * „custom” și ziua vine din calendar. `undefined` = alegere invalidă, nu se face nimic.
  */
-export async function rescheduleStep(formData: FormData) {
-  await requireOrg();
-  const visitId = String(formData.get("visit_id") ?? "");
+function pickedDay(formData: FormData): string | null | undefined {
   const date = String(formData.get("date") ?? "");
-  if (!visitId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  if (date === "custom") {
+    const custom = String(formData.get("custom") ?? "");
+    return ISO_DAY.test(custom) ? custom : undefined;
+  }
+  return ISO_DAY.test(date) ? date : null;
+}
+
+/** Vizita care poartă pasul următor, cu tot ce trebuie ca să-l mutăm și să-l notăm. */
+async function stepVisit(visitId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("visits")
+    .select("id, org_id, client_id, next_step_date")
+    .eq("id", visitId)
+    .maybeSingle();
+  return data as { id: string; org_id: string; client_id: string; next_step_date: string | null } | null;
+}
+
+/**
+ * „✓ Făcut”: se notează în istoric ce s-a întâmplat (telefon, email, întâlnire),
+ * apoi pasul se mută pe ziua în care revii sau, fără dată, se închide.
+ */
+export async function completeStep(formData: FormData) {
+  const { user } = await requireOrg();
+  const visit = await stepVisit(String(formData.get("visit_id") ?? ""));
+  if (!visit) return;
+
+  const kind = String(formData.get("kind") ?? "");
+  // Fără dată înseamnă „nu mai revin”; o dată din calendar lipsă nu închide pasul.
+  const next = pickedDay(formData);
+  if (next === undefined) return;
 
   const supabase = await createClient();
+  await supabase.from("client_activities").insert({
+    org_id: visit.org_id,
+    client_id: visit.client_id,
+    agent_id: user.id,
+    kind: isManualKind(kind) ? kind : "nota",
+    body: String(formData.get("body") ?? "").trim() || null,
+    visit_id: visit.id,
+    step_from: visit.next_step_date,
+    step_to: next,
+  });
+
+  await supabase
+    .from("visits")
+    .update(next ? { next_step_date: next, next_step_done_at: null } : { next_step_done_at: new Date().toISOString() })
+    .eq("id", visit.id);
+
+  refreshClient(visit.client_id);
+}
+
+/** „Amână”: pasul rămâne deschis, pe altă zi, iar mutarea rămâne în istoric. */
+export async function postponeStep(formData: FormData) {
+  const { user } = await requireOrg();
+  const visit = await stepVisit(String(formData.get("visit_id") ?? ""));
+  const date = pickedDay(formData);
+  if (!visit || !date) return;
+
+  const supabase = await createClient();
+  await supabase.from("client_activities").insert({
+    org_id: visit.org_id,
+    client_id: visit.client_id,
+    agent_id: user.id,
+    kind: "pas_amanat",
+    body: String(formData.get("body") ?? "").trim() || null,
+    visit_id: visit.id,
+    step_from: visit.next_step_date,
+    step_to: date,
+  });
+
   await supabase
     .from("visits")
     .update({ next_step_date: date, next_step_done_at: null })
-    .eq("id", visitId);
+    .eq("id", visit.id);
 
-  revalidatePath("/teren");
-  revalidatePath("/teren/firme");
+  refreshClient(visit.client_id);
+}
+
+/** Notează în istoricul firmei un telefon, un email, o întâlnire sau o notă. */
+export async function logActivity(formData: FormData) {
+  const { orgId, user } = await requireOrg();
+  const clientId = String(formData.get("client_id") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+  const date = String(formData.get("date") ?? "");
+  if (!clientId || !isManualKind(kind)) return;
+
+  // O zi din trecut se notează la prânz, ca ordinea din istoric să rămână firească.
+  const occurred = ISO_DAY.test(date) && date !== todayRo() ? `${date}T12:00:00Z` : new Date().toISOString();
+
+  const supabase = await createClient();
+  await supabase.from("client_activities").insert({
+    org_id: orgId,
+    client_id: clientId,
+    agent_id: user.id,
+    kind,
+    body: body || null,
+    occurred_at: occurred,
+  });
+
+  refreshClient(clientId);
+}
+
+/** Șterge o notă din istoric. RLS lasă doar autorul sau conducerea. */
+export async function deleteActivity(formData: FormData) {
+  await requireOrg();
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase.from("client_activities").delete().eq("id", id);
+
+  refreshClient(clientId);
 }
 
 /**

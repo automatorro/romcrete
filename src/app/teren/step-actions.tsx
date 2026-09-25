@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 
-import { markStepDone, rescheduleStep, startVisit } from "@/app/teren/actions";
+import { completeStep, postponeStep, startVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { quickDates, shortDay } from "@/lib/agenda";
+import type { ManualKind } from "@/lib/istoric";
 
 type Props = {
   visitId: string;
@@ -13,18 +14,51 @@ type Props = {
   /** Adresa completă, pentru navigație. Lipsă = butonul nu apare. */
   mapQuery: string | null;
   today: string;
+  /** Pasul stabilit în vizită („Îl sun”, „Trimit ofertă”), pentru alegerea implicită. */
+  step: string | null;
   /** Pe lista de firme vizita se pornește din fișă; butonul ar fi în plus. */
   withStartVisit?: boolean;
 };
 
 type Panel = "done" | "move" | null;
 
+const DONE_KINDS: { id: ManualKind; label: string }[] = [
+  { id: "telefon", label: "Am sunat" },
+  { id: "email", label: "Am trimis email" },
+  { id: "intalnire", label: "Ne-am văzut" },
+  { id: "nota", label: "Altceva" },
+];
+
+/**
+ * Enter într-un câmp de text ar trimite formularul cu primul buton, adică
+ * „Mâine”: agentul ar muta pasul fără să fi ales ziua.
+ */
+function noEnterSubmit(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key === "Enter") e.preventDefault();
+}
+
+/** Ce a făcut probabil agentul, după pasul pe care și l-a propus. */
+function kindForStep(step: string | null): ManualKind {
+  if (step === "sun" || step === "owner") return "telefon";
+  if (step === "oferta") return "email";
+  if (step === "revin" || step === "demo") return "intalnire";
+  return "nota";
+}
+
 /**
  * Acțiunile unei sarcini din agendă, cu ținte de atingere mari. „Făcut” nu
- * închide pur și simplu pasul: întreabă când revii, ca firma să nu rămână
- * fără o dată în agendă. Închiderea fără revenire e o alegere explicită.
+ * închide pur și simplu pasul: notează în istoric ce s-a întâmplat și întreabă
+ * când revii, ca firma să nu rămână fără o dată în agendă.
  */
-export function StepActions({ visitId, clientId, phone, mapQuery, today, withStartVisit = true }: Props) {
+export function StepActions({
+  visitId,
+  clientId,
+  phone,
+  mapQuery,
+  today,
+  step,
+  withStartVisit = true,
+}: Props) {
   const [panel, setPanel] = useState<Panel>(null);
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
@@ -72,49 +106,96 @@ export function StepActions({ visitId, clientId, phone, mapQuery, today, withSta
         </button>
       </div>
 
-      {panel ? (
-        <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-          <p className="mb-2 text-sm font-medium">
-            {panel === "done" ? "Bun. Când revii la firmă?" : "Pe ce zi o muți?"}
+      {panel === "done" ? (
+        <form action={completeStep} className="mt-2 space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+          <input type="hidden" name="visit_id" value={visitId} />
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-medium">Ce ai făcut?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {DONE_KINDS.map((k) => (
+                <label
+                  key={k.id}
+                  className="chip justify-center rounded-xl has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white"
+                >
+                  <input
+                    type="radio"
+                    name="kind"
+                    value={k.id}
+                    defaultChecked={k.id === kindForStep(step)}
+                    className="sr-only"
+                  />
+                  {k.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <input
+            type="text"
+            name="body"
+            placeholder="Ce a zis? (opțional, rămâne în istoric)"
+            onKeyDown={noEnterSubmit}
+            className="input min-h-12"
+          />
+          <DatePicks today={today} question="Când revii?" />
+          <SubmitButton
+            className="btn btn-secondary btn-lg w-full"
+            pendingLabel="Se salvează…"
+            name="date"
+            value=""
+          >
+            Nu mai revin deocamdată
+          </SubmitButton>
+          <p className="text-xs text-neutral-500">
+            Fără revenire, firma reapare singură la „De reluat”, după pragul din Setări.
           </p>
-          <DatePicks visitId={visitId} today={today} />
-          {panel === "done" ? (
-            <form action={markStepDone} className="mt-2">
-              <input type="hidden" name="visit_id" value={visitId} />
-              <SubmitButton className="btn btn-secondary btn-lg w-full" pendingLabel="Se închide…">
-                Nu mai revin deocamdată
-              </SubmitButton>
-              <p className="mt-1 text-xs text-neutral-500">
-                Firma reapare singură la „De reluat”, după pragul din Setări.
-              </p>
-            </form>
-          ) : null}
-        </div>
+        </form>
+      ) : null}
+
+      {panel === "move" ? (
+        <form action={postponeStep} className="mt-2 space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+          <input type="hidden" name="visit_id" value={visitId} />
+          <input
+            type="text"
+            name="body"
+            placeholder="De ce? (opțional, rămâne în istoric)"
+            onKeyDown={noEnterSubmit}
+            className="input min-h-12"
+          />
+          <DatePicks today={today} question="Pe ce zi o muți?" />
+        </form>
       ) : null}
     </div>
   );
 }
 
-/** Datele rapide plus o dată aleasă de mână; toate mută pasul pe ziua aleasă. */
-function DatePicks({ visitId, today }: { visitId: string; today: string }) {
+/**
+ * Datele rapide plus o dată aleasă de mână, în formularul părinte. Butonul
+ * trimite ziua în `date`; „Alege” trimite „custom”, iar ziua vine din calendar.
+ */
+function DatePicks({ today, question }: { today: string; question: string }) {
   return (
-    <>
-      <form action={rescheduleStep} className="grid grid-cols-2 gap-2">
-        <input type="hidden" name="visit_id" value={visitId} />
+    <div>
+      <p className="mb-1.5 text-sm font-medium">{question}</p>
+      <div className="grid grid-cols-2 gap-2">
         {quickDates(today).map((q) => (
-          <button key={q.label} type="submit" name="date" value={q.date} className="btn btn-secondary btn-lg flex-col gap-0 py-1.5">
+          <SubmitButton
+            key={q.label}
+            name="date"
+            value={q.date}
+            pendingLabel="…"
+            className="btn btn-secondary btn-lg flex-col gap-0 py-1.5"
+          >
             <span>{q.label}</span>
             <span className="text-xs font-normal text-neutral-500">{shortDay(q.date)}</span>
-          </button>
+          </SubmitButton>
         ))}
-      </form>
-      <form action={rescheduleStep} className="mt-2 flex gap-2">
-        <input type="hidden" name="visit_id" value={visitId} />
-        <input type="date" name="date" min={today} required className="input min-h-12 flex-1" aria-label="Altă dată" />
-        <SubmitButton className="btn btn-primary btn-lg" pendingLabel="…">
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input type="date" name="custom" min={today} className="input min-h-12 flex-1" aria-label="Altă dată" />
+        <SubmitButton className="btn btn-primary btn-lg" pendingLabel="…" name="date" value="custom">
           Alege
         </SubmitButton>
-      </form>
-    </>
+      </div>
+    </div>
   );
 }

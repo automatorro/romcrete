@@ -215,6 +215,7 @@ export default async function AziPage(props: PageProps<"/teren">) {
               phone={t.phone}
               mapQuery={adresa || null}
               today={astazi}
+              step={t.next_step}
             />
           </li>
         );

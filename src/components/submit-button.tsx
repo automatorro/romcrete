@@ -12,6 +12,9 @@ type Props = {
   form?: string;
   /** Trimite același formular către alt Server Action. */
   formAction?: (formData: FormData) => void | Promise<void>;
+  /** Butoane diferite ale aceluiași formular trimit valori diferite pe același nume. */
+  name?: string;
+  value?: string;
 };
 
 export function SubmitButton({
@@ -21,6 +24,8 @@ export function SubmitButton({
   confirm,
   form,
   formAction,
+  name,
+  value,
 }: Props) {
   // `pending` este raportat doar pentru butoanele aflate în interiorul formularului.
   const { pending } = useFormStatus();
@@ -30,6 +35,8 @@ export function SubmitButton({
       type="submit"
       form={form}
       formAction={formAction}
+      name={name}
+      value={value}
       className={className}
       disabled={pending}
       onClick={(event) => {

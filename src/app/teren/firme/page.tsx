@@ -227,6 +227,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
                         phone={null}
                         mapQuery={null}
                         today={today}
+                        step={r.next_step}
                         withStartVisit={false}
                       />
                     ) : null}
