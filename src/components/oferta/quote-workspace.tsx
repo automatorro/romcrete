@@ -7,6 +7,7 @@ import { AddCustomItemForm } from "@/app/(app)/oferte/[id]/add-custom-item-form"
 import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
 import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { ArchiveControls } from "@/components/oferta/archive-controls";
+import { ProductSheetsPanel } from "@/components/oferta/product-sheets-panel";
 import { PhotosPanel } from "@/components/oferta/photos-panel";
 import { SendByEmail } from "@/components/oferta/send-by-email";
 import { SendByWhatsApp } from "@/components/oferta/send-by-whatsapp";
@@ -92,6 +93,10 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
             <Link href={`/print/oferta/${quote.id}`} target="_blank" rel="noreferrer" className="btn btn-secondary">
               Vezi PDF
             </Link>
+            {/* Word-ul are același conținut ca PDF-ul și se poate modifica înainte de trimitere. */}
+            <a href={`/print/oferta/${quote.id}/word`} className="btn btn-secondary">
+              Descarcă Word
+            </a>
             <ActionMenu label={`Acțiuni pentru oferta ${quote.number}`}>
               <form action={duplicateQuote}>
                 <input type="hidden" name="quote_id" value={quote.id} />
@@ -223,6 +228,8 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           </form>
         </div>
       </section>
+
+      <ProductSheetsPanel quoteId={quote.id} items={items} />
 
       {/* Pe teren detaliile stau strânse: se schimbă rar, iar pe telefon ocupă mult. */}
       <details className="card group p-4 md:p-6" open={!teren}>

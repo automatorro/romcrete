@@ -10,6 +10,13 @@ export type SessionContext = {
   membership: (Membership & { organizations: Organization | null }) | null;
 };
 
+const ORG_COLUMNS = [
+  "id", "name", "cui", "reg_com", "address", "city", "county", "email", "phone", "iban", "bank",
+  "vat_rate", "quote_terms", "join_domains", "target_visits_per_day", "target_quotes_per_month",
+  "recontact_days_warm", "recontact_days_cold", "productivity_factor", "working_days_per_month",
+  "report_recipients", "websites", "created_at",
+].join(", ");
+
 /**
  * Stratul prin care trec toate paginile private: cine este utilizatorul și
  * din ce organizație face parte. `cache` îl execută o singură dată per cerere.
@@ -28,7 +35,9 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("*, organizations(*)")
+    // Coloanele pe nume: semnătura agentului și ștampila firmei (poze) se citesc
+    // doar când se generează oferta, nu la fiecare pagină.
+    .select(`user_id, org_id, role, full_name, phone, contact_email, target_visits_per_day, target_quotes_per_month, created_at, organizations(${ORG_COLUMNS})`)
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)

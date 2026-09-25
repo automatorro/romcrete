@@ -177,19 +177,33 @@ export function OrganizationForm({ organization }: { organization: Organization 
         </div>
 
         <div className="sm:col-span-2">
+          <label className="label" htmlFor="websites">
+            Site-uri (în subsolul ofertei)
+          </label>
+          <input
+            id="websites"
+            name="websites"
+            defaultValue={organization.websites ?? ""}
+            placeholder="www.romcrete-echipamente.ro   www.shop.romcrete.ro"
+            className="input"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
           <label className="label" htmlFor="quote_terms">
-            Condiții comerciale implicite
+            Condiții și termene de plată standard
           </label>
           <textarea
             id="quote_terms"
             name="quote_terms"
-            rows={3}
+            rows={5}
             defaultValue={organization.quote_terms ?? ""}
-            placeholder="Plata în 15 zile de la livrare. Prețurile nu includ transportul."
+            placeholder={"Disponibilitate: pe stoc, livrare în 48–72h de la plata avansului\nGaranție echipamente: 24 luni\nPlată: 80% înainte de livrare, 20% în maxim 30 de zile\nModalitate de plată: Ordin de plată (OP)\nLivrare: Gratuită pe teritoriul României"}
             className="input"
           />
           <p className="mt-1 text-xs text-neutral-500">
-            Se completează automat pe fiecare ofertă nouă.
+            Câte una pe rând, de forma „Garanție echipamente: 24 luni”. Se pun pe prima ofertă a unui client nou;
+            ofertele următoare ale clientului preiau condițiile din ultima lui ofertă.
           </p>
         </div>
       </div>

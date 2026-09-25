@@ -220,3 +220,17 @@ body {
     @apply border-b border-neutral-200;
   }
 }
+
+/* ------------------------------------------------ oferta după modelul Romcrete */
+.oferta {
+  font-family: var(--font-oferta), "Open Sans", Arial, sans-serif;
+}
+.oferta-titlu {
+  font-family: var(--font-oferta-titlu), Impact, "Arial Narrow", sans-serif;
+  color: #00b0f0;
+  letter-spacing: 0.02em;
+}
+.oferta-caseta {
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.18);
+}

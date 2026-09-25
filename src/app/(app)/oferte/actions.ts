@@ -4,11 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
+import { termsForClient } from "@/lib/conditii";
+import { pickSheet } from "@/lib/fisa-produs";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/lib/types";
 import {
   parseForm,
   quoteItemSchema,
+  productSheetSchema,
   quoteSchema,
   quoteStatusSchema,
   type ActionState,
@@ -67,7 +70,8 @@ export async function createQuote(_prev: ActionState, formData: FormData): Promi
       org_id: orgId,
       number,
       created_by: user.id,
-      terms: parsed.data.terms ?? organization.quote_terms,
+      // Fără condiții scrise, se iau cele ale clientului din ultima lui ofertă.
+      terms: parsed.data.terms ?? (await termsForClient(supabase, parsed.data.client_id, organization.quote_terms)),
     })
     .select("id")
     .single();
@@ -250,7 +254,7 @@ export async function duplicateQuote(formData: FormData) {
 
   const { data: items } = await supabase
     .from("quote_items")
-    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct, is_service")
+    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct, is_service, intro, package_contents, specs_text, benefits, recommendations, applications")
     .eq("quote_id", quoteId)
     .order("position");
 
@@ -290,6 +294,8 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
     unit_price: item.unit_price,
     vat_rate: item.vat_rate,
     is_service: item.is_service ?? false,
+    // Fișa produsului din catalog; pe ofertă se poate schimba doar pentru clientul ei.
+    ...pickSheet(item),
   });
 
   refreshQuote(quoteId);
@@ -398,4 +404,42 @@ export async function markLineService(formData: FormData) {
   const supabase = await createClient();
   await supabase.from("quote_items").update({ is_service: formData.get("service") !== "0" }).eq("id", itemId);
   if (quoteId) refreshQuote(quoteId);
+}
+
+/** Fișa unui produs pe oferta aceasta: textele schimbate rămân doar aici, nu în catalog. */
+export async function updateQuoteItemSheet(quoteId: string, formData: FormData) {
+  await requireOrg();
+  const itemId = String(formData.get("item_id") ?? "");
+  const parsed = parseForm(productSheetSchema, formData);
+  if (!itemId || !parsed.ok) return;
+
+  const supabase = await createClient();
+  await supabase.from("quote_items").update(parsed.data).eq("id", itemId).eq("quote_id", quoteId);
+  refreshQuote(quoteId);
+}
+
+/** Reia fișa produsului din catalog, renunțând la ce s-a schimbat pe ofertă. */
+export async function resetQuoteItemSheet(quoteId: string, formData: FormData) {
+  await requireOrg();
+  const itemId = String(formData.get("item_id") ?? "");
+  if (!itemId) return;
+
+  const supabase = await createClient();
+  const { data: line } = await supabase
+    .from("quote_items")
+    .select("catalog_item_id")
+    .eq("id", itemId)
+    .eq("quote_id", quoteId)
+    .maybeSingle();
+  if (!line?.catalog_item_id) return;
+
+  const { data: source } = await supabase
+    .from("catalog_items")
+    .select("intro, package_contents, specs_text, benefits, recommendations, applications")
+    .eq("id", line.catalog_item_id)
+    .maybeSingle();
+  if (!source) return;
+
+  await supabase.from("quote_items").update(pickSheet(source)).eq("id", itemId);
+  refreshQuote(quoteId);
 }

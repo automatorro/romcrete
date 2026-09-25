@@ -38,6 +38,8 @@ export type Organization = {
   working_days_per_month: number;
   /** Adresele la care se trimit de obicei rapoartele. */
   report_recipients: string[];
+  /** Site-urile firmei, în subsolul ofertei. */
+  websites: string | null;
   created_at: string;
 };
 
@@ -46,6 +48,9 @@ export type Membership = {
   org_id: string;
   role: MemberRole;
   full_name: string | null;
+  /** Datele agentului tipărite pe ofertele lui. */
+  phone: string | null;
+  contact_email: string | null;
   created_at: string;
 };
 
@@ -94,6 +99,14 @@ export type CatalogItem = {
   price_with_vat: number | null;
   /** Serviciu (transport, instruire): apare pe ofertă fără poză. */
   is_service: boolean;
+  /** Fișa produsului pe ofertă: câte un rând pe idee. */
+  intro: string | null;
+  package_contents: string | null;
+  /** „Parametru | Valoare” sau „Parametru | Valoare | Observații”, câte unul pe rând; gol = din catalog și magazin. */
+  specs_text: string | null;
+  benefits: string | null;
+  recommendations: string | null;
+  applications: string | null;
   created_at: string;
 };
 
@@ -138,6 +151,14 @@ export type QuoteItem = {
   discount_pct: number;
   /** Serviciu: nu cere poză pe ofertă. */
   is_service: boolean;
+  /** Fișa produsului pe ofertă: câte un rând pe idee. */
+  intro: string | null;
+  package_contents: string | null;
+  /** „Parametru | Valoare” sau „Parametru | Valoare | Observații”, câte unul pe rând; gol = din catalog și magazin. */
+  specs_text: string | null;
+  benefits: string | null;
+  recommendations: string | null;
+  applications: string | null;
   created_at: string;
 };
 
