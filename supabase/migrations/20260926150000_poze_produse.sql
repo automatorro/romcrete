@@ -1,8 +1,11 @@
 -- Pozele produselor, păstrate în baza de date. Oferta nu pleacă fără poze, deci
 -- nu poate depinde de magazin în momentul tipăririi: poza se descarcă o dată
 -- (sau se încarcă de mână) și de atunci intră în PDF din baza de date.
+--
+-- Scriptul se poate rula de mai multe ori fără erori (de exemplu după o rulare
+-- întreruptă): tabelele, politicile și funcția se creează doar dacă lipsesc.
 
-create table public.catalog_images (
+create table if not exists public.catalog_images (
   catalog_item_id uuid primary key references public.catalog_items (id) on delete cascade,
   org_id          uuid not null references public.organizations (id) on delete cascade,
   mime            text not null check (mime like 'image/%'),
@@ -18,18 +21,18 @@ comment on table public.catalog_images is
 
 alter table public.catalog_images enable row level security;
 
+drop policy if exists "poze catalog: membrii citesc" on public.catalog_images;
 create policy "poze catalog: membrii citesc" on public.catalog_images
   for select using (public.is_member(org_id));
 
 -- Conducerea poate înlocui sau șterge poze; restul intră prin funcția de mai jos.
+drop policy if exists "poze catalog: conducerea modifică" on public.catalog_images;
 create policy "poze catalog: conducerea modifică" on public.catalog_images
   for all using (public.is_org_admin(org_id)) with check (public.is_org_admin(org_id));
 
-/**
- * Salvează poza unui produs din catalog. Orice membru poate pune poza unui
- * produs care nu are încă una (descărcată automat la prima ofertă sau încărcată
- * de agent); o poză existentă o înlocuiește doar conducerea.
- */
+-- Salvează poza unui produs din catalog. Orice membru poate pune poza unui
+-- produs care nu are încă una (descărcată automat la prima ofertă sau încărcată
+-- de agent); o poză existentă o înlocuiește doar conducerea.
 create or replace function public.save_catalog_image(
   p_item uuid, p_mime text, p_data text, p_source text, p_source_url text default null
 )
@@ -61,7 +64,7 @@ end;
 $$;
 
 -- Poza unei linii libere (ce nu e în catalog), pusă de mână pe ofertă.
-create table public.quote_item_images (
+create table if not exists public.quote_item_images (
   quote_item_id uuid primary key references public.quote_items (id) on delete cascade,
   mime          text not null check (mime like 'image/%'),
   data_b64      text not null,
@@ -74,6 +77,7 @@ comment on table public.quote_item_images is
 alter table public.quote_item_images enable row level security;
 
 -- Ca liniile ofertei: prin ofertă, după regulile ei.
+drop policy if exists "poze linii: acces prin ofertă" on public.quote_item_images;
 create policy "poze linii: acces prin ofertă" on public.quote_item_images
   for all using (
     exists (
