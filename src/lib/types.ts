@@ -92,6 +92,8 @@ export type CatalogItem = {
   image_url: string | null;
   details: Record<string, unknown> | null;
   price_with_vat: number | null;
+  /** Serviciu (transport, instruire): apare pe ofertă fără poză. */
+  is_service: boolean;
   created_at: string;
 };
 
@@ -134,6 +136,8 @@ export type QuoteItem = {
   unit_price: number;
   vat_rate: number;
   discount_pct: number;
+  /** Serviciu: nu cere poză pe ofertă. */
+  is_service: boolean;
   created_at: string;
 };
 

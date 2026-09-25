@@ -250,7 +250,7 @@ export async function duplicateQuote(formData: FormData) {
 
   const { data: items } = await supabase
     .from("quote_items")
-    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct")
+    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct, is_service")
     .eq("quote_id", quoteId)
     .order("position");
 
@@ -289,6 +289,7 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
     quantity: Number(formData.get("quantity") ?? 1) || 1,
     unit_price: item.unit_price,
     vat_rate: item.vat_rate,
+    is_service: item.is_service ?? false,
   });
 
   refreshQuote(quoteId);
@@ -308,6 +309,8 @@ export async function addCustomItem(
   const supabase = await createClient();
   const { error } = await supabase.from("quote_items").insert({
     ...parsed.data,
+    // Separat de schema liniei: editarea unei linii din tabel nu trebuie să-l reseteze.
+    is_service: formData.get("is_service") === "on",
     quote_id: quoteId,
     position: await nextPosition(quoteId),
   });
@@ -384,4 +387,15 @@ export async function uploadProductPhoto(input: {
 
   if (input.quoteId) refreshQuote(input.quoteId);
   return { ok: true };
+}
+
+/** „E serviciu”: linia nu mai cere poză pe ofertă (transport, instruire, punere în funcțiune). */
+export async function markLineService(formData: FormData) {
+  await requireOrg();
+  const itemId = String(formData.get("item_id") ?? "");
+  const quoteId = String(formData.get("quote_id") ?? "");
+  if (!itemId) return;
+  const supabase = await createClient();
+  await supabase.from("quote_items").update({ is_service: formData.get("service") !== "0" }).eq("id", itemId);
+  if (quoteId) refreshQuote(quoteId);
 }

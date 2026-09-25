@@ -1,4 +1,6 @@
+import { markLineService } from "@/app/(app)/oferte/actions";
 import { PhotoUpload } from "@/components/oferta/photo-upload";
+import { SubmitButton } from "@/components/submit-button";
 import { photoStatus } from "@/lib/poze";
 import { createClient } from "@/lib/supabase/server";
 import type { QuoteItem } from "@/lib/types";
@@ -32,17 +34,27 @@ export async function PhotosPanel({ quoteId, items }: { quoteId: string; items: 
       </h2>
       <p className="mt-0.5 text-sm text-neutral-600">
         Fiecare produs de pe ofertă intră în PDF cu poza lui. Pune poza din telefon (cameră sau galerie) ori de pe
-        calculator.
+        calculator. Serviciile (transport, instruire, punere în funcțiune) nu au nevoie de poză.
       </p>
       <ul className="mt-3 divide-y divide-neutral-200">
         {missing.map(({ item }) => (
           <li key={item.id} className="flex flex-wrap items-center gap-3 py-2.5">
             <span className="min-w-0 flex-1 font-medium">{item.name}</span>
-            <PhotoUpload
-              target={item.catalog_item_id ? "catalog" : "linie"}
-              id={item.catalog_item_id ?? item.id}
-              quoteId={quoteId}
-            />
+            <div className="flex flex-wrap items-start gap-2">
+              <PhotoUpload
+                target={item.catalog_item_id ? "catalog" : "linie"}
+                id={item.catalog_item_id ?? item.id}
+                quoteId={quoteId}
+              />
+              {/* Transportul sau instruirea n-au poză: marcate ca serviciu, nu mai blochează oferta. */}
+              <form action={markLineService}>
+                <input type="hidden" name="item_id" value={item.id} />
+                <input type="hidden" name="quote_id" value={quoteId} />
+                <SubmitButton className="btn btn-secondary min-h-11" pendingLabel="Se salvează…">
+                  E serviciu, fără poză
+                </SubmitButton>
+              </form>
+            </div>
           </li>
         ))}
       </ul>

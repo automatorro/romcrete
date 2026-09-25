@@ -345,7 +345,7 @@ export async function createQuoteFromVisit(formData: FormData) {
   if (skus.length) {
     const { data: items } = await supabase
       .from("catalog_items")
-      .select("id, sku, name, description, unit, unit_price, vat_rate")
+      .select("id, sku, name, description, unit, unit_price, vat_rate, is_service")
       .eq("org_id", orgId)
       .in("sku", skus);
 
@@ -365,6 +365,7 @@ export async function createQuoteFromVisit(formData: FormData) {
           quantity: 1,
           unit_price: item.unit_price,
           vat_rate: item.vat_rate,
+          is_service: Boolean(item.is_service),
         };
       })
       .filter((l) => l !== null);

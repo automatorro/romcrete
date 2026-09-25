@@ -90,12 +90,17 @@ export async function loadQuoteSheets(db: Db, items: QuoteItem[]): Promise<{ she
     items.map(async (item): Promise<QuoteSheet> => {
       const cat = item.catalog_item_id ? (catalog.get(item.catalog_item_id) ?? null) : null;
       const { image: shopImageUrl, specs } = await productSheet(cat);
-      const image = cat ? await catalogPhoto(db, cat, shopImageUrl) : await linePhoto(db, item.id);
+      // Serviciile (transport, instruire) nu au poză și nu o cer; o poză pusă de mână tot apare.
+      const image = item.is_service
+        ? await linePhoto(db, item.id)
+        : cat
+          ? await catalogPhoto(db, cat, shopImageUrl)
+          : await linePhoto(db, item.id);
       return { item, image, specs };
     }),
   );
 
-  return { sheets, missing: sheets.filter((s) => !s.image).map((s) => s.item.name) };
+  return { sheets, missing: sheets.filter((s) => !s.image && !s.item.is_service).map((s) => s.item.name) };
 }
 
 /**
@@ -122,7 +127,9 @@ export async function photoStatus(db: Db, items: QuoteItem[]) {
 
   return items.map((item) => ({
     item,
-    status: item.catalog_item_id
+    status: item.is_service
+      ? ("serviciu" as const)
+      : item.catalog_item_id
       ? hasSaved.has(item.catalog_item_id)
         ? ("ok" as const)
         : source.get(item.catalog_item_id)

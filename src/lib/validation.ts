@@ -93,6 +93,7 @@ export const catalogItemSchema = z.object({
   unit_price: numberField(0).pipe(z.number().min(0, "Prețul nu poate fi negativ")),
   vat_rate: percent(21),
   is_active: z.preprocess((value) => value === "on" || value === true || value === "true", z.boolean()),
+  is_service: z.preprocess((value) => value === "on" || value === true || value === "true", z.boolean()),
 });
 
 export const quoteSchema = z.object({
