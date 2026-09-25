@@ -44,9 +44,10 @@ export async function proxy(request: NextRequest) {
 
   // Apelul trebuie făcut înainte de a genera răspunsul, ca token-ul reîmprospătat
   // să apuce să fie scris în cookie-uri.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims reîmprospătează sesiunea când a expirat și verifică semnătura
+  // token-ului local, fără să întrebe serverul de autentificare la fiecare click.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const { pathname } = request.nextUrl;
 
