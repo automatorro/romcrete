@@ -171,10 +171,19 @@ export async function deleteQuote(formData: FormData) {
 }
 
 /**
- * Înainte să se deschidă Outlook: trimiterea se notează în istoricul firmei,
- * iar o ciornă devine „Trimisă”. Emailul propriu-zis pleacă din Outlook.
+ * Înainte să se deschidă Outlook sau WhatsApp: trimiterea se notează în
+ * istoricul firmei, iar o ciornă devine „Trimisă”. Mesajul pleacă din Outlook
+ * sau din WhatsApp, nu din aplicație.
  */
 export async function markQuoteEmailed(quoteId: string) {
+  return markQuoteSent(quoteId, "email");
+}
+
+export async function markQuoteWhatsApp(quoteId: string) {
+  return markQuoteSent(quoteId, "whatsapp");
+}
+
+async function markQuoteSent(quoteId: string, channel: "email" | "whatsapp") {
   const { user } = await requireOrg();
   const supabase = await createClient();
   const { data: quote } = await supabase
@@ -192,8 +201,8 @@ export async function markQuoteEmailed(quoteId: string) {
       org_id: quote.org_id,
       client_id: quote.client_id,
       agent_id: user.id,
-      kind: "email",
-      body: `Oferta ${quote.number} trimisă pe email.`,
+      kind: channel,
+      body: `Oferta ${quote.number} trimisă pe ${channel === "email" ? "email" : "WhatsApp"}.`,
       quote_id: quote.id,
     });
     revalidatePath(`/teren/firma/${quote.client_id}`);

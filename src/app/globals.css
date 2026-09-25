@@ -114,6 +114,13 @@ body {
     background: #fff;
   }
 
+  /* Înălțimea minimă de ecran (h-full / min-h-full) ar împinge o pagină goală la final. */
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
   /* Pe hârtie marginile le dă @page; foaia ocupă exact zona tipăribilă. */
   .a4-sheet {
     width: auto;

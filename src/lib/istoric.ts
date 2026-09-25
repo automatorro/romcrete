@@ -4,6 +4,7 @@
 export const MANUAL_KINDS = [
   { id: "telefon", label: "Telefon" },
   { id: "email", label: "Email" },
+  { id: "whatsapp", label: "WhatsApp" },
   { id: "intalnire", label: "Ne-am văzut" },
   { id: "nota", label: "Notă" },
 ] as const;
@@ -24,6 +25,7 @@ export const HISTORY_LABELS: Record<HistoryKind, string> = {
   vizita: "Vizită",
   telefon: "Telefon",
   email: "Email",
+  whatsapp: "WhatsApp",
   intalnire: "Întâlnire",
   nota: "Notă",
   pas_amanat: "Pas amânat",

@@ -35,6 +35,12 @@ select (select v from public._i where k='org')::uuid, (select v from public._i w
        'telefon', 'A zis să revin după ce termină șantierul', current_date, current_date + 7;
 select kind, body, agent_id = auth.uid() as scris_de_ea from public.client_activities;
 
+\echo '--- 1b. și o ofertă trimisă pe WhatsApp ---'
+insert into public.client_activities (org_id, client_id, kind, body)
+select (select v from public._i where k='org')::uuid, (select v from public._i where k='firma')::uuid,
+       'whatsapp', 'Oferta trimisă pe WhatsApp.';
+delete from public.client_activities where kind = 'whatsapp';
+
 \echo '--- 2. nu poate scrie în numele altcuiva ---'
 do $$ begin
   insert into public.client_activities (org_id, client_id, agent_id, kind)

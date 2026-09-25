@@ -47,12 +47,8 @@ export function SendByEmail({
 
   return (
     <div className="space-y-2">
-      <a
-        href={`/print/oferta/${quoteId}`}
-        target="_blank"
-        rel="noreferrer"
-        className="btn btn-secondary btn-lg w-full justify-start"
-      >
+      {/* PDF-ul se generează pe server și se descarcă direct, gata de atașat. */}
+      <a href={`/print/oferta/${quoteId}/pdf`} className="btn btn-secondary btn-lg w-full justify-start">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold">
           1
         </span>

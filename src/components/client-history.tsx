@@ -8,13 +8,14 @@ import { SubmitButton } from "@/components/submit-button";
 import { shortDay } from "@/lib/agenda";
 import { HISTORY_LABELS, MANUAL_KINDS, type HistoryItem, type HistoryKind } from "@/lib/istoric";
 
-type Filter = "toate" | "vizite" | "telefoane" | "emailuri" | "oferte" | "note";
+type Filter = "toate" | "vizite" | "telefoane" | "emailuri" | "whatsapp" | "oferte" | "note";
 
 const FILTERS: { id: Filter; label: string; kinds: HistoryKind[] }[] = [
   { id: "toate", label: "Toate", kinds: [] },
   { id: "vizite", label: "Vizite", kinds: ["vizita", "intalnire"] },
   { id: "telefoane", label: "Telefoane", kinds: ["telefon"] },
   { id: "emailuri", label: "Emailuri", kinds: ["email"] },
+  { id: "whatsapp", label: "WhatsApp", kinds: ["whatsapp"] },
   { id: "oferte", label: "Oferte", kinds: ["oferta_creata", "oferta_stare"] },
   { id: "note", label: "Note și pași", kinds: ["nota", "pas_amanat", "pas_inchis"] },
 ];
