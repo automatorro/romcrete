@@ -1,6 +1,6 @@
 import { deleteQuoteItem, updateQuoteItem } from "@/app/(app)/oferte/actions";
 import { SubmitButton } from "@/components/submit-button";
-import { formatMoney, lineFinal } from "@/lib/totals";
+import { LivePrice } from "@/app/(app)/oferte/[id]/live-price";
 import { UNITS, type QuoteItem } from "@/lib/types";
 
 /**
@@ -135,7 +135,14 @@ export function QuoteItemsTable({
                   />
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
-                  <PriceCell item={item} currency={currency} quoteDiscountPct={quoteDiscountPct} />
+                  <LivePrice
+                    key={lineKey(item)}
+                    formId={`item-${item.id}`}
+                    line={item}
+                    currency={currency}
+                    quoteDiscountPct={quoteDiscountPct}
+                    save={update}
+                  />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col items-end gap-2">
@@ -241,7 +248,14 @@ export function QuoteItemsTable({
               {/* Prețul pe rândul lui, butoanele dedesubt: pe un ecran îngust nu încap alături. */}
               <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
                 <span className="mb-0.5 block text-xs text-neutral-500">Preț produs</span>
-                <PriceCell item={item} currency={currency} quoteDiscountPct={quoteDiscountPct} />
+                <LivePrice
+                  key={lineKey(item)}
+                  formId={formId}
+                  line={item}
+                  currency={currency}
+                  quoteDiscountPct={quoteDiscountPct}
+                  save={update}
+                />
               </p>
               <div className="flex items-center justify-end gap-2">
                 <SubmitButton
@@ -275,18 +289,7 @@ function Field({ label, wide, children }: { label: string; wide?: boolean; child
   );
 }
 
-/** Prețul final al produsului: cu TVA, mare; fără TVA și TVA-ul, dedesubt. Ca pe PDF. */
-function PriceCell({ item, currency, quoteDiscountPct }: { item: QuoteItem; currency: string; quoteDiscountPct: number }) {
-  const p = lineFinal(item, quoteDiscountPct);
-  return (
-    <span className="inline-block tabular-nums">
-      <b className="block whitespace-nowrap">{formatMoney(p.gross, currency)}</b>
-      <span className="block text-xs whitespace-nowrap text-neutral-500">
-        {formatMoney(p.net, currency)} + TVA {formatMoney(p.vat, currency)}
-      </span>
-      {p.quoteDiscount > 0 ? (
-        <span className="block text-xs text-neutral-500">cu discountul ofertei de {quoteDiscountPct}%</span>
-      ) : null}
-    </span>
-  );
+/** După salvare linia vine cu valorile noi, iar prețul afișat pornește de la ele. */
+function lineKey(item: QuoteItem) {
+  return [item.id, item.quantity, item.unit_price, item.discount_pct, item.vat_rate].join(":");
 }
