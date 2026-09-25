@@ -52,6 +52,22 @@ export function lineFinal(line: LineLike, quoteDiscountPct = 0) {
 }
 
 /**
+ * Totalul de la final, adunat din prețurile finale ale produselor, ca suma să
+ * iasă exact din cifrele tipărite sub fiecare produs.
+ */
+export function sumFinals(lines: LineLike[], quoteDiscountPct = 0) {
+  const finals = lines.map((line) => lineFinal(line, quoteDiscountPct));
+  const add = (key: keyof (typeof finals)[number]) => round2(finals.reduce((s, f) => s + f[key], 0));
+  return {
+    linesNet: add("beforeQuoteDiscount"),
+    quoteDiscount: add("quoteDiscount"),
+    net: add("net"),
+    vat: add("vat"),
+    gross: add("gross"),
+  };
+}
+
+/**
  * Totalurile ofertei. Discountul pe ofertă se aplică proporțional și asupra TVA-ului,
  * ca baza de impozitare și TVA-ul să rămână consistente.
  */

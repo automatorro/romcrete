@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Logo } from "@/components/logo";
 import { ProductBlock } from "@/components/oferta/product-block";
+import { TotalSummary } from "@/components/oferta/total-summary";
 import { PrintButton } from "@/components/print-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -175,6 +176,21 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
                 other={other}
               />
             ))}
+
+            {/* La cerere: clientul ia toate produsele, deci oferta le adună la final. */}
+            {quote.show_total && items.length ? (
+              <div className="mt-8 border-t-2 border-neutral-900 pt-4 break-inside-avoid">
+                <p className={SECTION_TITLE}>Recapitulare și total</p>
+                <div className="mt-2">
+                  <TotalSummary
+                    items={items}
+                    quoteDiscountPct={Number(quote.discount_pct)}
+                    base={base}
+                    other={other}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {other && sheets.length ? (
               <p className="mt-4 text-right text-[11px] text-neutral-500">

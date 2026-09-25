@@ -114,6 +114,8 @@ export type Quote = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** La cerere: recapitulare și total de plată la finalul ofertei. Implicit nu. */
+  show_total: boolean;
   /** Oferta arhivată nu apare în liste și nu se numără în rapoarte; se poate restaura. */
   archived_at: string | null;
   archived_by: string | null;

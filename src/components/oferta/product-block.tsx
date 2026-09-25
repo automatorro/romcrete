@@ -51,15 +51,18 @@ export function ProductBlock({
     // foarte multe caracteristici se rupe, dar tabelul de preț își poartă numele.
     <div className={`border-t border-neutral-300 break-inside-avoid ${index ? "mt-8 pt-6" : "mt-3 pt-4"}`}>
       <div className="flex gap-5 break-inside-avoid">
-        <div className="flex h-[48mm] w-[48mm] shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white p-2">
-          {image ? (
-            // Poza vine din magazin, de pe alt domeniu; la tipărire trebuie să fie deja în pagină.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt={item.name} className="max-h-full max-w-full object-contain" />
-          ) : (
-            <span className="text-center text-[11px] text-neutral-500">fără poză</span>
-          )}
-        </div>
+        {/* Un accesoriu fără poză și fără fișă nu primește un pătrat gol: ar lăsa goluri în ofertă. */}
+        {image || specs.length ? (
+          <div className="flex h-[48mm] w-[48mm] shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white p-2">
+            {image ? (
+              // Poza vine din magazin, de pe alt domeniu; la tipărire trebuie să fie deja în pagină.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={image} alt={item.name} className="max-h-full max-w-full object-contain" />
+            ) : (
+              <span className="text-center text-[11px] text-neutral-500">fără poză</span>
+            )}
+          </div>
+        ) : null}
 
         <div className="min-w-0 flex-1">
           <p className="text-[15px] leading-tight font-semibold">

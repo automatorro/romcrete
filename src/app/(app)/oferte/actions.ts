@@ -112,6 +112,17 @@ export async function setQuoteStatus(formData: FormData) {
   revalidatePath("/oferte");
 }
 
+/** Pornește sau oprește totalul de la finalul ofertei (când clientul ia toate produsele). */
+export async function setShowTotal(formData: FormData) {
+  await requireOrg();
+  const quoteId = String(formData.get("quote_id") ?? "");
+  if (!quoteId) return;
+
+  const supabase = await createClient();
+  await supabase.from("quotes").update({ show_total: formData.get("show") === "1" }).eq("id", quoteId);
+  refreshQuote(quoteId);
+}
+
 /**
  * „Șterge” pentru agent: oferta intră în arhivă. Nu mai apare în liste și nu se
  * numără în rapoarte, dar se poate restaura oricând.
@@ -217,6 +228,7 @@ export async function duplicateQuote(formData: FormData) {
       valid_until: source.valid_until,
       currency: source.currency,
       discount_pct: source.discount_pct,
+      show_total: source.show_total ?? false,
       site_address: source.site_address,
       notes: source.notes,
       terms: source.terms,
