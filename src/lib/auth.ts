@@ -19,11 +19,12 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
   if (!supabaseConfigured) return null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
+  // getClaims verifică token-ul local, cu cheia publică a proiectului, fără un
+  // drum în plus la Supabase la fiecare pagină (proxy-ul l-a reîmprospătat deja).
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
 
   const { data: membership } = await supabase
     .from("memberships")
@@ -34,7 +35,7 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     .maybeSingle();
 
   return {
-    user: { id: user.id, email: user.email ?? null },
+    user,
     membership: (membership as SessionContext["membership"]) ?? null,
   };
 });

@@ -25,24 +25,24 @@ async function readText(url: string, revalidate: number, timeoutMs = 6000) {
 const validRate = (rate: number) => Number.isFinite(rate) && rate > 1 && rate < 100;
 
 /** BNR: cursul oficial, publicat în zilele lucrătoare în jurul orei 13. */
-async function fromBnr(): Promise<EurRate | null> {
-  const xml = await readText("https://www.bnr.ro/nbrfxrates.xml", 3600);
+async function fromBnr(timeoutMs: number): Promise<EurRate | null> {
+  const xml = await readText("https://www.bnr.ro/nbrfxrates.xml", 3600, timeoutMs);
   const date = xml.match(/<Cube\s+date\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/i)?.[1] ?? null;
   const rate = Number(xml.match(/<Rate\s+currency\s*=\s*["']EUR["'][^>]*>\s*([\d.]+)\s*</i)?.[1]);
   return validRate(rate) ? { rate, date, source: "BNR" } : null;
 }
 
 /** BCE: aceeași zi, rezervă când serverul BNR nu răspunde. */
-async function fromEcb(): Promise<EurRate | null> {
-  const xml = await readText("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", 3600);
+async function fromEcb(timeoutMs: number): Promise<EurRate | null> {
+  const xml = await readText("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", 3600, timeoutMs);
   const date = xml.match(/time\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/i)?.[1] ?? null;
   const rate = Number(xml.match(/currency\s*=\s*["']RON["']\s+rate\s*=\s*["']([\d.]+)["']/i)?.[1]);
   return validRate(rate) ? { rate, date, source: "BCE" } : null;
 }
 
 /** Frankfurter publică tot cursul BCE, dintr-un serviciu separat. */
-async function fromFrankfurter(): Promise<EurRate | null> {
-  const json = JSON.parse(await readText("https://api.frankfurter.app/latest?from=EUR&to=RON", 3600)) as {
+async function fromFrankfurter(timeoutMs: number): Promise<EurRate | null> {
+  const json = JSON.parse(await readText("https://api.frankfurter.app/latest?from=EUR&to=RON", 3600, timeoutMs)) as {
     date?: string;
     rates?: { RON?: number };
   };
@@ -50,20 +50,25 @@ async function fromFrankfurter(): Promise<EurRate | null> {
   return validRate(rate) ? { rate, date: json.date ?? null, source: "BCE" } : null;
 }
 
+// Ultimul răspuns, ținut în memoria serverului: un curs găsit rămâne o oră, iar
+// o căutare eșuată nu se reia 5 minute, ca paginile să nu aștepte la fiecare
+// deschidere după servere care nu răspund.
+let lastRate: { value: EurRate | null; until: number } | null = null;
+
 /**
  * Cursul EUR al zilei: BNR, iar dacă nu răspunde, cursul BCE. Întoarce null
  * doar dacă nu răspunde niciuna — atunci oferta cere curs manual, nu inventează.
+ * Sursele se întreabă deodată, deci pagina așteaptă cel mult o dată (4 s), nu
+ * câte 6 s pentru fiecare sursă pe rând.
  */
 export async function getEurRate(): Promise<EurRate | null> {
-  for (const source of [fromBnr, fromEcb, fromFrankfurter]) {
-    try {
-      const found = await source();
-      if (found) return found;
-    } catch {
-      // următoarea sursă
-    }
-  }
-  return null;
+  if (lastRate && lastRate.until > Date.now()) return lastRate.value;
+
+  const results = await Promise.allSettled([fromBnr(4000), fromEcb(4000), fromFrankfurter(4000)]);
+  const value = results.map((r) => (r.status === "fulfilled" ? r.value : null)).find((r) => r !== null) ?? null;
+
+  lastRate = { value, until: Date.now() + (value ? 3600_000 : 300_000) };
+  return value;
 }
 
 // ---------------------------------------------------- pagina din magazin

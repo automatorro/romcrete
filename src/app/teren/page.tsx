@@ -65,7 +65,8 @@ export default async function AziPage(props: PageProps<"/teren">) {
   const { orgId, organization, user, role } = await requireOrg();
   const { cine, incheiat } = await props.searchParams;
   const supabase = await createClient();
-  const sections = await getQuestionCatalogue(orgId);
+  // Întrebările se citesc în paralel cu restul, nu înaintea lor.
+  const sectionsPromise = getQuestionCatalogue(orgId);
 
   // Conducerea vede fie agenda ei, fie pe a echipei; agentul, doar pe a lui.
   const conducere = role !== "agent";
@@ -78,8 +79,9 @@ export default async function AziPage(props: PageProps<"/teren">) {
   luni.setDate(luni.getDate() - ((now.getDay() + 6) % 7));
   const inceputSaptamana = luni.toISOString().slice(0, 10);
 
-  const [{ data: membership }, { count: viziteAzi }, { count: viziteSapt }, { count: oferteLuna }, { data: stateRows }] =
+  const [sections, { data: membership }, { count: viziteAzi }, { count: viziteSapt }, { count: oferteLuna }, { data: stateRows }] =
     await Promise.all([
+      sectionsPromise,
       supabase
         .from("memberships")
         .select("target_visits_per_day, target_quotes_per_month")
