@@ -36,6 +36,8 @@ export type Organization = {
   recontact_days_cold: number;
   productivity_factor: number;
   working_days_per_month: number;
+  /** Adresele la care se trimit de obicei rapoartele. */
+  report_recipients: string[];
   created_at: string;
 };
 
@@ -112,6 +114,9 @@ export type Quote = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Oferta arhivată nu apare în liste și nu se numără în rapoarte; se poate restaura. */
+  archived_at: string | null;
+  archived_by: string | null;
 };
 
 export type QuoteItem = {

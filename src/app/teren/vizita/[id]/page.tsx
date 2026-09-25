@@ -32,7 +32,7 @@ function QuoteBridge({
         <span className="flex-1">
           Din vizita asta a ieșit oferta <b>{quote.number}</b>.
         </span>
-        <Link href={`/oferte/${quote.id}`} className="btn btn-secondary text-sm">
+        <Link href={`/teren/oferta/${quote.id}`} className="btn btn-secondary min-h-11">
           Deschide oferta
         </Link>
       </div>
@@ -47,7 +47,7 @@ function QuoteBridge({
       <span className="flex-1 text-sm">
         {models} {models === 1 ? "model discutat" : "modele discutate"} — le pot trece direct pe ofertă.
       </span>
-      <SubmitButton className="btn btn-primary text-sm" pendingLabel="Se pregătește…">
+      <SubmitButton className="btn btn-primary min-h-11" pendingLabel="Se pregătește…">
         Ofertă din vizită
       </SubmitButton>
     </form>
@@ -72,7 +72,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       .eq("org_id", orgId)
       .not("sku", "is", null)
       .order("name"),
-    supabase.from("quotes").select("id, number").eq("visit_id", id).maybeSingle(),
+    supabase.from("quotes").select("id, number").eq("visit_id", id).is("archived_at", null).limit(1).maybeSingle(),
   ]);
 
   if (!visitRow) notFound();

@@ -116,7 +116,7 @@ function AddButton({ id }: { id: string }) {
       name="catalog_item_id"
       value={id}
       disabled={pending}
-      className="btn btn-secondary shrink-0 text-xs"
+      className="btn btn-secondary min-h-10 shrink-0 px-3 text-sm"
     >
       {mine ? "Se adaugă…" : "Adaugă"}
     </button>

@@ -93,7 +93,7 @@ export async function buildReport(
         .from("memberships")
         .select("user_id, full_name, target_visits_per_day")
         .eq("org_id", orgId),
-      supabase.from("quotes").select("id, status, visit_id").eq("org_id", orgId),
+      supabase.from("quotes").select("id, status, visit_id").eq("org_id", orgId).is("archived_at", null),
       supabase.from("catalog_items").select("sku, name").eq("org_id", orgId).not("sku", "is", null),
     ]);
 

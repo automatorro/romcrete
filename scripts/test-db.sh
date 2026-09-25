@@ -31,4 +31,4 @@ done
   -f supabase/tests/01_grants.sql
 
 # 03 și 04 se rulează pe proiectul Supabase real, nu local.
-"${PSQL[@]}" -f supabase/tests/02_smoke.sql -f supabase/tests/05_crm.sql -f supabase/tests/06_domenii.sql -f supabase/tests/07_istoric.sql
+"${PSQL[@]}" -f supabase/tests/02_smoke.sql -f supabase/tests/05_crm.sql -f supabase/tests/06_domenii.sql -f supabase/tests/07_istoric.sql -f supabase/tests/08_arhiva_oferte.sql -f supabase/tests/09_rapoarte.sql

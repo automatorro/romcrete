@@ -196,7 +196,7 @@ export function OrganizationForm({ organization }: { organization: Organization 
 
       <FormMessage state={state} />
 
-      <SubmitButton>Salvează datele firmei</SubmitButton>
+      <SubmitButton className="btn btn-ok">Salvează datele firmei</SubmitButton>
     </form>
   );
 }

@@ -79,7 +79,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
             </div>
           </fieldset>
 
-          <SubmitButton className="btn btn-primary w-full" pendingLabel="Se deschide…">
+          <SubmitButton className="btn btn-primary btn-lg w-full" pendingLabel="Se deschide…">
             Începe vizita
           </SubmitButton>
         </form>
@@ -102,7 +102,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
         />
       </form>
 
-      <Link href="/teren/vizita/noua?nou=1" className="btn btn-primary w-full">
+      <Link href="/teren/vizita/noua?nou=1" className="btn btn-primary btn-lg w-full">
         ＋ Firmă / meseriaș nou
       </Link>
 

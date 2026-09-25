@@ -86,6 +86,8 @@ do $$ begin
 end $$;
 
 \echo '--- 6. oferta ștearsă rămâne în istoric cu numărul ei ---'
+-- Ștergerea definitivă se face din arhivă (vezi 08_arhiva_oferte.sql).
+update public.quotes set archived_at = now() where number = 'IST-1';
 delete from public.quotes where number = 'IST-1';
 select kind, quote_id is null as oferta_stearsa, meta ->> 'number' as numar
 from public.client_activities where kind like 'oferta_%' order by occurred_at, kind;

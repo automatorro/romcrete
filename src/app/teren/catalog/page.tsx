@@ -48,6 +48,7 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
   return (
     <div>
       <PageHeader
+        back={{ href: "/teren/mai-mult", label: "Mai mult" }}
         title="Catalog"
         description={
           <>

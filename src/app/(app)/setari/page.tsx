@@ -1,3 +1,4 @@
+import { DestinatariForm } from "@/app/(app)/setari/destinatari-form";
 import { DomeniiForm, type DomainRow } from "@/app/(app)/setari/domenii-form";
 import { OrganizationForm } from "@/app/(app)/setari/organization-form";
 import { PraguriForm } from "@/app/(app)/setari/praguri-form";
@@ -75,6 +76,17 @@ export default async function SettingsPage() {
       <div className="card p-6">
         <OrganizationForm organization={organization} />
       </div>
+
+      <section>
+        <h2 className="text-lg font-semibold tracking-tight">Destinatarii rapoartelor</h2>
+        <p className="mt-1 mb-3 text-sm text-neutral-500">
+          Cui se trimit de obicei rapoartele zilnice, săptămânale, lunare și trimestriale. Se
+          completează singuri la fiecare raport nou și se pot schimba pe raport.
+        </p>
+        <div className="card p-6">
+          <DestinatariForm recipients={organization.report_recipients ?? []} />
+        </div>
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold tracking-tight">Ținte personale</h2>
