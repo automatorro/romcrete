@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { markStepDone } from "@/app/teren/actions";
-import { SubmitButton } from "@/components/submit-button";
+import { StepActions } from "@/app/teren/step-actions";
+import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getAllDomains, getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue } from "@/lib/questions";
@@ -58,7 +58,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
   });
 
   const late = rows.filter((r) => r.next_step_late).length;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayRo();
   const due = rows.filter((r) => r.next_step_date === today).length;
 
   const chipHref = (patch: Record<string, string | null>) => {
@@ -208,22 +208,29 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
                 </Link>
 
                 {hasStep ? (
-                  <div
-                    className={`mt-1.5 flex items-center gap-2 text-sm ${
-                      r.next_step_late ? "font-semibold text-[var(--color-bad)]" : ""
-                    }`}
-                  >
-                    <span>
-                      → {stepLabel}
-                      {r.next_step_date ? ` · ${formatDate(r.next_step_date)}` : ""}
-                    </span>
-                    <form action={markStepDone}>
-                      <input type="hidden" name="visit_id" value={r.next_step_visit_id ?? ""} />
-                      <SubmitButton className="btn btn-secondary text-xs" pendingLabel="…">
-                        ✓ făcut
-                      </SubmitButton>
-                    </form>
-                  </div>
+                  <details className="mt-1.5">
+                    <summary
+                      className={`flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm ${
+                        r.next_step_late ? "font-semibold text-[var(--color-bad)]" : ""
+                      }`}
+                    >
+                      <span className="flex-1">
+                        → {stepLabel}
+                        {r.next_step_date ? ` · ${formatDate(r.next_step_date)}` : ""}
+                      </span>
+                      <span className="text-xs font-medium text-brand-700">Rezolvă ▾</span>
+                    </summary>
+                    {r.next_step_visit_id ? (
+                      <StepActions
+                        visitId={r.next_step_visit_id}
+                        clientId={r.client_id}
+                        phone={null}
+                        mapQuery={null}
+                        today={today}
+                        withStartVisit={false}
+                      />
+                    ) : null}
+                  </details>
                 ) : null}
 
                 <p className="mt-1 text-xs text-neutral-500">

@@ -129,6 +129,56 @@ export async function markStepDone(formData: FormData) {
     .eq("id", visitId);
 
   revalidatePath("/teren");
+  revalidatePath("/teren/firme");
+}
+
+/**
+ * Mută pasul următor pe o altă zi: fie amânare, fie „am făcut, revin pe…”.
+ * Pasul rămâne deschis, deci firma reapare în agendă exact în ziua aleasă.
+ */
+export async function rescheduleStep(formData: FormData) {
+  await requireOrg();
+  const visitId = String(formData.get("visit_id") ?? "");
+  const date = String(formData.get("date") ?? "");
+  if (!visitId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("visits")
+    .update({ next_step_date: date, next_step_done_at: null })
+    .eq("id", visitId);
+
+  revalidatePath("/teren");
+  revalidatePath("/teren/firme");
+}
+
+/**
+ * Încheie vizita. Formularul a verificat deja că există pasul următor și data
+ * lui; aici se închid pașii rămași deschiși din vizitele anterioare la aceeași
+ * firmă, ca agenda și raportul să nu-i mai numere ca restanți.
+ */
+export async function finishVisit(visitId: string) {
+  await requireOrg();
+  const supabase = await createClient();
+
+  const { data: visit } = await supabase
+    .from("visits")
+    .select("id, client_id")
+    .eq("id", visitId)
+    .maybeSingle();
+  if (!visit) return;
+
+  await supabase
+    .from("visits")
+    .update({ next_step_done_at: new Date().toISOString() })
+    .eq("client_id", visit.client_id)
+    .neq("id", visit.id)
+    .is("next_step_done_at", null);
+
+  revalidatePath("/teren");
+  revalidatePath("/teren/firme");
+  revalidatePath(`/teren/firma/${visit.client_id}`);
+  redirect(`/teren?incheiat=${visit.id}`);
 }
 
 export async function deleteVisit(formData: FormData) {

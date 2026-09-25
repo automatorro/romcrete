@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createQuoteFromVisit, deleteVisit } from "@/app/teren/actions";
 import { VisitForm, type PumpOption } from "@/app/teren/vizita/[id]/visit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains, matchesDomain } from "@/lib/domenii";
 import { buildMaterialSuggestions } from "@/lib/materiale";
@@ -139,8 +140,8 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       ) : null}
 
       <p className="hint my-3">
-        Nimic nu e obligatoriu și totul se salvează singur. Prima secțiune se completează în
-        20 de secunde; restul poți să-l completezi în mașină.
+        Totul se salvează singur. Obligatoriu e doar pasul următor, cu data lui, ca să poți
+        încheia vizita. Prima secțiune se completează în 20 de secunde; restul, în mașină.
       </p>
 
       <QuoteBridge visitId={visit.id} models={visit.pump_skus?.length ?? 0} quote={quoteRow} />
@@ -158,6 +159,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
           unitShort: domain?.unit_short ?? "mp",
           unitLabel: domain?.unit_label ?? "metri pătrați",
         }}
+        today={todayRo()}
         initial={{
           answers: visit.answers ?? {},
           notes: visit.notes ?? {},

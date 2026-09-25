@@ -42,6 +42,16 @@ body {
     @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
   }
 
+  /* Verdele e rezervat butoanelor care confirmă o acțiune: făcut, termină, salvează. */
+  .btn-ok {
+    @apply bg-ok text-white hover:brightness-90;
+  }
+
+  /* Pe teren: țintă de atingere de 48px, se apasă din mers. */
+  .btn-lg {
+    @apply min-h-12 px-4 text-base;
+  }
+
   .table-head {
     @apply px-4 py-3 text-left text-xs font-semibold tracking-wide text-neutral-500 uppercase;
   }
