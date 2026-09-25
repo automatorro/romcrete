@@ -410,7 +410,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
       {/* Loc sub ultimul card, ca bara de jos să nu-l acopere. */}
       <div className="h-20" aria-hidden />
 
-      <div className="fixed inset-x-0 bottom-[57px] z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
+      <div className="above-teren-nav fixed inset-x-0 z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
         <div className="mx-auto flex max-w-[760px] items-center gap-3">
           <span
             className={`flex-1 text-sm ${

@@ -80,7 +80,9 @@ const CUM_FUNCTIONEAZA: [string, string][] = [
 export default function GhidPage() {
   return (
     <div>
-      <PageHeader title="Ghid" description="Cum se face o vizită bună și ce înseamnă fiecare întrebare." />
+      <PageHeader
+        back={{ href: "/teren/mai-mult", label: "Mai mult" }}
+        title="Ghid" description="Cum se face o vizită bună și ce înseamnă fiecare întrebare." />
 
       <p className="hint my-3">
         Ecranul de vizită e făcut pentru zgomot și grabă: doar atingeri și totul se salvează
