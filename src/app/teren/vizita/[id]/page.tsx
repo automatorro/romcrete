@@ -32,7 +32,7 @@ function QuoteBridge({
         <span className="flex-1">
           Din vizita asta a ieșit oferta <b>{quote.number}</b>.
         </span>
-        <Link href={`/oferte/${quote.id}`} className="btn btn-secondary text-sm">
+        <Link href={`/teren/oferta/${quote.id}`} className="btn btn-secondary text-sm">
           Deschide oferta
         </Link>
       </div>
@@ -72,7 +72,7 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       .eq("org_id", orgId)
       .not("sku", "is", null)
       .order("name"),
-    supabase.from("quotes").select("id, number").eq("visit_id", id).maybeSingle(),
+    supabase.from("quotes").select("id, number").eq("visit_id", id).is("archived_at", null).limit(1).maybeSingle(),
   ]);
 
   if (!visitRow) notFound();

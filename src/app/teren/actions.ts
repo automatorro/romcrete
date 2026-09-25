@@ -305,13 +305,16 @@ export async function createQuoteFromVisit(formData: FormData) {
 
   const supabase = await createClient();
 
-  // O vizită produce o singură ofertă: a doua apăsare o deschide pe prima.
+  // O vizită produce o singură ofertă activă: a doua apăsare o deschide pe prima.
+  // Dacă oferta a fost arhivată, se face una nouă.
   const { data: existing } = await supabase
     .from("quotes")
     .select("id")
     .eq("visit_id", visitId)
+    .is("archived_at", null)
+    .limit(1)
     .maybeSingle();
-  if (existing) redirect(`/oferte/${existing.id}`);
+  if (existing) redirect(`/teren/oferta/${existing.id}`);
 
   const { data: visit } = await supabase
     .from("visits")
@@ -371,5 +374,5 @@ export async function createQuoteFromVisit(formData: FormData) {
 
   revalidatePath("/oferte");
   revalidatePath(`/teren/vizita/${visitId}`);
-  redirect(`/oferte/${quote.id}`);
+  redirect(`/teren/oferta/${quote.id}`);
 }

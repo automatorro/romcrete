@@ -14,6 +14,21 @@ import {
   type ActionState,
 } from "@/lib/validation";
 
+/** Oferta se vede și la birou, și pe teren: după o modificare se reîmprospătează ambele. */
+function refreshQuote(quoteId: string) {
+  revalidatePath(`/oferte/${quoteId}`);
+  revalidatePath(`/teren/oferta/${quoteId}`);
+  revalidatePath("/oferte");
+  revalidatePath("/teren/oferte");
+}
+
+/** Formularele de pe teren trimit `zona=teren`, ca redirecționarea să rămână în interfața de telefon. */
+function zone(formData: FormData) {
+  return formData.get("zona") === "teren"
+    ? { list: "/teren/oferte", one: (id: string) => `/teren/oferta/${id}` }
+    : { list: "/oferte", one: (id: string) => `/oferte/${id}` };
+}
+
 /** Poziția următoare din ofertă, ca liniile să rămână în ordinea adăugării. */
 async function nextPosition(quoteId: string) {
   const supabase = await createClient();
@@ -78,7 +93,7 @@ export async function updateQuote(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
   revalidatePath("/oferte");
   return { success: "Oferta a fost salvată." };
 }
@@ -93,21 +108,87 @@ export async function setQuoteStatus(formData: FormData) {
   const supabase = await createClient();
   await supabase.from("quotes").update({ status: status.data }).eq("id", quoteId);
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
   revalidatePath("/oferte");
 }
 
-export async function deleteQuote(formData: FormData) {
-  await requireOrg();
-
+/**
+ * „Șterge” pentru agent: oferta intră în arhivă. Nu mai apare în liste și nu se
+ * numără în rapoarte, dar se poate restaura oricând.
+ */
+export async function archiveQuote(formData: FormData) {
+  const { user } = await requireOrg();
   const quoteId = String(formData.get("quote_id") ?? "");
   if (!quoteId) return;
 
   const supabase = await createClient();
-  await supabase.from("quotes").delete().eq("id", quoteId);
+  await supabase
+    .from("quotes")
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
+    .eq("id", quoteId);
 
-  revalidatePath("/oferte");
-  redirect("/oferte");
+  refreshQuote(quoteId);
+  redirect(zone(formData).list);
+}
+
+export async function restoreQuote(formData: FormData) {
+  await requireOrg();
+  const quoteId = String(formData.get("quote_id") ?? "");
+  if (!quoteId) return;
+
+  const supabase = await createClient();
+  await supabase.from("quotes").update({ archived_at: null, archived_by: null }).eq("id", quoteId);
+
+  refreshQuote(quoteId);
+  redirect(zone(formData).one(quoteId));
+}
+
+/**
+ * Ștergerea definitivă: doar conducerea și doar din arhivă. Baza de date
+ * verifică același lucru, deci un agent care ajunge aici nu șterge nimic.
+ */
+export async function deleteQuote(formData: FormData) {
+  const { role } = await requireOrg();
+  const quoteId = String(formData.get("quote_id") ?? "");
+  if (!quoteId || role === "agent") return;
+
+  const supabase = await createClient();
+  await supabase.from("quotes").delete().eq("id", quoteId).not("archived_at", "is", null);
+
+  refreshQuote(quoteId);
+  redirect(`${zone(formData).list}?status=arhiva`);
+}
+
+/**
+ * Înainte să se deschidă Outlook: trimiterea se notează în istoricul firmei,
+ * iar o ciornă devine „Trimisă”. Emailul propriu-zis pleacă din Outlook.
+ */
+export async function markQuoteEmailed(quoteId: string) {
+  const { user } = await requireOrg();
+  const supabase = await createClient();
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("id, org_id, client_id, number, status")
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (!quote) return;
+
+  if (quote.status === "draft") {
+    await supabase.from("quotes").update({ status: "sent" }).eq("id", quote.id);
+  }
+  if (quote.client_id) {
+    await supabase.from("client_activities").insert({
+      org_id: quote.org_id,
+      client_id: quote.client_id,
+      agent_id: user.id,
+      kind: "email",
+      body: `Oferta ${quote.number} trimisă pe email.`,
+      quote_id: quote.id,
+    });
+    revalidatePath(`/teren/firma/${quote.client_id}`);
+    revalidatePath(`/clienti/${quote.client_id}`);
+  }
+  refreshQuote(quote.id);
 }
 
 /** Copiază o ofertă existentă, cu tot cu linii, sub un număr nou. */
@@ -156,8 +237,8 @@ export async function duplicateQuote(formData: FormData) {
     await supabase.from("quote_items").insert(items.map((item) => ({ ...item, quote_id: copy.id })));
   }
 
-  revalidatePath("/oferte");
-  redirect(`/oferte/${copy.id}`);
+  refreshQuote(copy.id);
+  redirect(zone(formData).one(copy.id));
 }
 
 /** Adaugă pe ofertă un produs din catalog, copiindu-i prețul de la momentul adăugării. */
@@ -189,7 +270,7 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
     vat_rate: item.vat_rate,
   });
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
 }
 
 /** Linie liberă, pentru ce nu există în catalog. */
@@ -212,7 +293,7 @@ export async function addCustomItem(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
   return { success: "Linia a fost adăugată." };
 }
 
@@ -228,7 +309,7 @@ export async function updateQuoteItem(quoteId: string, formData: FormData) {
   const supabase = await createClient();
   await supabase.from("quote_items").update(parsed.data).eq("id", itemId);
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
 }
 
 export async function deleteQuoteItem(quoteId: string, formData: FormData) {
@@ -240,5 +321,5 @@ export async function deleteQuoteItem(quoteId: string, formData: FormData) {
   const supabase = await createClient();
   await supabase.from("quote_items").delete().eq("id", itemId);
 
-  revalidatePath(`/oferte/${quoteId}`);
+  refreshQuote(quoteId);
 }

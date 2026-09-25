@@ -23,6 +23,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
   const conducere = role !== "agent";
   const echipa = conducere && cine === "echipa";
   const activeStatus = typeof status === "string" && status in QUOTE_STATUS_LABELS ? (status as QuoteStatus) : "";
+  const arhiva = status === "arhiva";
 
   const supabase = await createClient();
   let query = supabase
@@ -34,8 +35,11 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
   if (!echipa) query = query.eq("created_by", user.id);
 
   const { data } = await query;
-  const all = (data ?? []) as Row[];
-  const quotes = activeStatus ? all.filter((q) => q.status === activeStatus) : all;
+  const rows = (data ?? []) as Row[];
+  // Arhivatele stau doar în filtrul lor; în rest se lucrează cu ofertele active.
+  const all = rows.filter((q) => !q.archived_at);
+  const archived = rows.filter((q) => q.archived_at);
+  const quotes = arhiva ? archived : activeStatus ? all.filter((q) => q.status === activeStatus) : all;
 
   const { data: totalsData } = await supabase
     .from("quote_totals")
@@ -47,7 +51,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
 
   const href = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ status: activeStatus, cine: echipa ? "echipa" : "", ...patch }))
+    for (const [k, v] of Object.entries({ status: arhiva ? "arhiva" : activeStatus, cine: echipa ? "echipa" : "", ...patch }))
       if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/teren/oferte?${s}` : "/teren/oferte";
@@ -75,7 +79,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
       <FilterChips
         label="Filtrează după stare"
         items={[
-          { label: "Toate", href: href({ status: null }), active: !activeStatus, count: all.length },
+          { label: "Toate", href: href({ status: null }), active: !activeStatus && !arhiva, count: all.length },
           ...(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[])
             .filter((s) => count(s) > 0 || s === activeStatus)
             .map((s) => ({
@@ -84,13 +88,16 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
               active: activeStatus === s,
               count: count(s),
             })),
+          ...(archived.length || arhiva
+            ? [{ label: "Arhivă", href: href({ status: "arhiva" }), active: arhiva, count: archived.length }]
+            : []),
         ]}
       />
 
       {quotes.length === 0 ? (
         <div className="mt-3">
           <EmptyState
-            title={all.length ? "Nicio ofertă în starea aleasă" : "Încă nicio ofertă"}
+            title={arhiva ? "Arhiva e goală" : all.length ? "Nicio ofertă în starea aleasă" : "Încă nicio ofertă"}
             description="Ofertele pornesc dintr-o vizită: după ce bifezi modelele discutate, apasă „Ofertă din vizită”."
           />
         </div>
@@ -98,7 +105,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
         <ul className="mt-3 space-y-2">
           {quotes.map((q) => (
             <li key={q.id}>
-              <Link href={`/oferte/${q.id}`} className="card block p-3 active:bg-neutral-50">
+              <Link href={`/teren/oferta/${q.id}`} className="card block p-3 active:bg-neutral-50">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-semibold text-brand-700">{q.number}</p>

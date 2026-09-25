@@ -68,7 +68,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
     orgId,
     sections,
     { userId: user.id, isAdmin: role !== "agent" },
-    { visitHref: (v) => `/teren/vizita/${v}`, quoteHref: (q) => `/oferte/${q}` },
+    { visitHref: (v) => `/teren/vizita/${v}`, quoteHref: (q) => `/teren/oferta/${q}` },
   );
 
   const adresa = [state.address, state.city, state.county].filter(Boolean).join(", ");

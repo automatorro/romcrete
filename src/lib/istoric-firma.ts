@@ -15,7 +15,7 @@ type ActivityRow = {
   step_to: string | null;
   quote_id: string | null;
   visit_id: string | null;
-  meta: { number?: string; status?: QuoteStatus; from?: QuoteStatus };
+  meta: { number?: string; status?: QuoteStatus; from?: QuoteStatus; event?: "arhivata" | "restaurata" };
 };
 
 type VisitRow = {
@@ -95,8 +95,9 @@ export async function getClientHistory(
     if (r.kind === "oferta_creata" || r.kind === "oferta_stare") {
       const number = r.meta?.number ?? "";
       const status = r.meta?.status ? QUOTE_STATUS_LABELS[r.meta.status] : "";
-      title =
-        r.kind === "oferta_creata"
+      title = r.meta?.event
+        ? `Ofertă ${number} ${r.meta.event === "arhivata" ? "arhivată" : "restaurată din arhivă"}`
+        : r.kind === "oferta_creata"
           ? `Ofertă ${number} creată`
           : `Ofertă ${number}: ${status.toLowerCase()}`;
       if (!r.quote_id) lines.push("Oferta a fost ștearsă între timp.");

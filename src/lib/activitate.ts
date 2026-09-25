@@ -256,6 +256,7 @@ export async function buildActivity(
       .from("quotes")
       .select("id, number, issue_date, status, client_id, created_by, visit_id")
       .eq("org_id", orgId)
+      .is("archived_at", null)
       .gte("issue_date", prevFrom)
       .lte("issue_date", to),
     supabase.from("client_state").select("*").eq("org_id", orgId),
