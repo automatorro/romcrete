@@ -1,6 +1,7 @@
-import Link from "next/link";
-
-import { BarList, Funnel, StatTile, WorkModeShare } from "@/app/(app)/raport/charts";
+import { BarList, Funnel, WorkModeShare } from "@/app/(app)/raport/charts";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatTile } from "@/components/ui/stat-tile";
 import { requireOrg } from "@/lib/auth";
 import { buildReport, type Period } from "@/lib/raport";
 import { formatDate, formatMoney } from "@/lib/totals";
@@ -51,49 +52,40 @@ export default async function RaportPage(props: PageProps<"/raport">) {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Raport de teren</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {period === "all" ? "Toată perioada" : `Ultimele ${period} zile`}
-          {agent ? ` · ${agentName(agent)}` : " · toți agenții"}
-          {domeniu ? ` · ${domainName(domeniu)}` : " · toate domeniile"}
-        </p>
-      </header>
+      <PageHeader
+        title="Raport de teren"
+        description={
+          <>
+            {period === "all" ? "Toată perioada" : `Ultimele ${period} zile`}
+            {agent ? ` · ${agentName(agent)}` : " · toți agenții"}
+            {domeniu ? ` · ${domainName(domeniu)}` : " · toate domeniile"}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {PERIOADE.map(([v, l]) => (
-          <Link key={v} href={chipHref({ per: v })} className={`chip chip-s ${period === v ? "chip-on" : ""}`}>
-            {l}
-          </Link>
-        ))}
-        <span className="mx-2 h-5 w-px bg-neutral-200" />
-        <Link href={chipHref({ ag: null })} className={`chip chip-s ${agent ? "" : "chip-on"}`}>
-          Toți agenții
-        </Link>
-        {r.members.map((m) => (
-          <Link
-            key={m.user_id}
-            href={chipHref({ ag: m.user_id })}
-            className={`chip chip-s ${agent === m.user_id ? "chip-on" : ""}`}
-          >
-            {m.full_name ?? "Fără nume"}
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={chipHref({ dom: null })} className={`chip chip-s ${domeniu ? "" : "chip-on"}`}>
-          Toate domeniile
-        </Link>
-        {r.domains.map((d) => (
-          <Link
-            key={d.id}
-            href={chipHref({ dom: d.id })}
-            className={`chip chip-s ${domeniu === d.id ? "chip-on" : ""}`}
-          >
-            {d.short_label}
-          </Link>
-        ))}
+      <div className="card space-y-3 p-3">
+        <FilterChips
+          label="Perioada"
+          items={PERIOADE.map(([v, l]) => ({ label: l, href: chipHref({ per: v }), active: period === v }))}
+        />
+        <FilterChips
+          label="Agentul"
+          items={[
+            { label: "Toți agenții", href: chipHref({ ag: null }), active: !agent },
+            ...r.members.map((m) => ({
+              label: m.full_name ?? "Fără nume",
+              href: chipHref({ ag: m.user_id }),
+              active: agent === m.user_id,
+            })),
+          ]}
+        />
+        <FilterChips
+          label="Domeniul"
+          items={[
+            { label: "Toate domeniile", href: chipHref({ dom: null }), active: !domeniu },
+            ...r.domains.map((d) => ({ label: d.short_label, href: chipHref({ dom: d.id }), active: domeniu === d.id })),
+          ]}
+        />
       </div>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -311,17 +303,12 @@ export default async function RaportPage(props: PageProps<"/raport">) {
           pentru pivoturi proprii.
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-neutral-700">Evoluția, defalcată</span>
-          {GRANULARITATI.map(([v, l]) => (
-            <Link
-              key={v}
-              href={chipHref({ gran: v })}
-              className={`chip chip-s ${granularitate === v ? "chip-on" : ""}`}
-            >
-              {l}
-            </Link>
-          ))}
+        <div className="mt-3">
+          <p className="mb-1.5 text-sm text-neutral-700">Evoluția, defalcată</p>
+          <FilterChips
+            label="Granularitatea evoluției"
+            items={GRANULARITATI.map(([v, l]) => ({ label: l, href: chipHref({ gran: v }), active: granularitate === v }))}
+          />
         </div>
 
         <a

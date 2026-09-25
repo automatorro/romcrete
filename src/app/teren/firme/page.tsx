@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StepActions } from "@/app/teren/step-actions";
+import { PageHeader } from "@/components/ui/page-header";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getAllDomains, getDomains } from "@/lib/domenii";
@@ -75,11 +76,15 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Firme și meseriași</h1>
-      <p className="mt-0.5 text-sm text-neutral-500">
-        {rows.length} {rows.length === 1 ? "firmă" : "firme"} · {late}{" "}
-        {late === 1 ? "pas restant" : "pași restanți"} · {due} scadent{due === 1 ? "" : "e"} azi
-      </p>
+      <PageHeader
+        title="Firme și meseriași"
+        description={
+          <>
+            {rows.length} {rows.length === 1 ? "firmă" : "firme"} · {late}{" "}
+            {late === 1 ? "pas restant" : "pași restanți"} · {due} scadent{due === 1 ? "" : "e"} azi
+          </>
+        }
+      />
 
       <form className="my-3">
         {stage ? <input type="hidden" name="etapa" value={stage} /> : null}

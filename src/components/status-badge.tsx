@@ -1,18 +1,28 @@
 import { QUOTE_STATUS_LABELS, type QuoteStatus } from "@/lib/types";
 
+/**
+ * Starea ofertei, doar în paleta Romcrete. Culoarea nu poartă singură sensul:
+ * acceptată e plină, trimisă e deschisă, iar respinsă și expirată au semn.
+ */
 const STYLES: Record<QuoteStatus, string> = {
-  draft: "bg-neutral-100 text-neutral-700 border-neutral-200",
-  sent: "bg-blue-50 text-blue-700 border-blue-200",
-  accepted: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  expired: "bg-amber-50 text-amber-700 border-amber-200",
+  draft: "border-neutral-200 bg-neutral-100 text-neutral-700",
+  sent: "border-brand-200 bg-brand-50 text-brand-700",
+  accepted: "border-brand-600 bg-brand-600 text-white",
+  rejected: "border-neutral-400 bg-white text-neutral-700",
+  expired: "border-dashed border-neutral-400 bg-white text-neutral-500",
+};
+
+const MARKS: Partial<Record<QuoteStatus, string>> = {
+  accepted: "✓ ",
+  rejected: "✕ ",
 };
 
 export function StatusBadge({ status }: { status: QuoteStatus }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
+      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
     >
+      {MARKS[status] ?? ""}
       {QUOTE_STATUS_LABELS[status]}
     </span>
   );

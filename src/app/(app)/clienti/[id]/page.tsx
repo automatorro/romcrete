@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteClientRecord, updateClientRecord } from "@/app/(app)/clienti/actions";
@@ -6,6 +5,7 @@ import { ClientForm } from "@/app/(app)/clienti/client-form";
 import { ClientHistory } from "@/components/client-history";
 import { SubmitButton } from "@/components/submit-button";
 import { todayRo } from "@/lib/agenda";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains } from "@/lib/domenii";
 import { getClientHistory } from "@/lib/istoric-firma";
@@ -37,17 +37,10 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/clienti" className="text-sm text-brand-700 hover:underline">
-          ← Toți clienții
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">
-          {client.name}
-        </h1>
-      </div>
+      <PageHeader back={{ href: "/clienti", label: "Toți clienții" }} title={client.name} />
 
       {typeof eroare === "string" && eroare ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="notice-error">
           {eroare}
         </p>
       ) : null}
@@ -72,6 +65,7 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
           <SubmitButton
             className="btn btn-danger"
             pendingLabel="Se șterge…"
+            confirmLabel="Da, șterge"
             confirm={`Ștergi clientul „${client.name}”?`}
           >
             Șterge clientul

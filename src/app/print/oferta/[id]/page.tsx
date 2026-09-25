@@ -94,7 +94,7 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
       </div>
 
       {!eur ? (
-        <p className="no-print mx-auto mb-4 max-w-[210mm] rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <p className="no-print mx-auto mb-4 max-w-[210mm] notice">
           Cursul EUR nu a putut fi citit acum (BNR și BCE nu au răspuns), așa că prețurile apar doar
           în lei. Completează „Curs EUR pe ofertă” în detaliile ofertei ca să apară și în euro.
         </p>

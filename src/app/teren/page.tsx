@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { StepActions } from "@/app/teren/step-actions";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { PageHeader } from "@/components/ui/page-header";
 import { addDays, addWorkingDays, daysBetween, shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
@@ -231,24 +233,21 @@ export default async function AziPage(props: PageProps<"/teren">) {
 
   return (
     <div>
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">Azi</h1>
-          <p className="mt-0.5 text-sm text-neutral-500">
-            {new Intl.DateTimeFormat("ro-RO", { weekday: "long", day: "numeric", month: "long" }).format(now)}
-          </p>
-        </div>
-        {conducere ? (
-          <div className="flex gap-1" role="group" aria-label="Agenda cui">
-            <Link href="/teren" className={`chip chip-s ${echipa ? "" : "chip-on"}`}>
-              Ale mele
-            </Link>
-            <Link href="/teren?cine=echipa" className={`chip chip-s ${echipa ? "chip-on" : ""}`}>
-              Echipa
-            </Link>
-          </div>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Azi"
+        description={new Intl.DateTimeFormat("ro-RO", { weekday: "long", day: "numeric", month: "long" }).format(now)}
+        actions={
+          conducere ? (
+            <FilterChips
+              label="Agenda cui"
+              items={[
+                { label: "Ale mele", href: "/teren", active: !echipa },
+                { label: "Echipa", href: "/teren?cine=echipa", active: echipa },
+              ]}
+            />
+          ) : undefined
+        }
+      />
 
       {incheiatInfo ? (
         <p className="mt-3 rounded-xl border border-neutral-200 bg-white p-3 text-sm">

@@ -15,6 +15,7 @@ import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
 import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
@@ -53,35 +54,30 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/oferte" className="text-sm text-brand-700 hover:underline">
-            ← Toate ofertele
-          </Link>
-          <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight text-neutral-900">
-            {quote.number}
-            <StatusBadge status={quote.status} />
-          </h1>
-          {quote.title ? <p className="mt-1 text-sm text-neutral-500">{quote.title}</p> : null}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/print/oferta/${quote.id}`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-primary"
-          >
-            Vezi PDF
-          </Link>
-          <form action={duplicateQuote}>
-            <input type="hidden" name="quote_id" value={quote.id} />
-            <SubmitButton className="btn btn-secondary" pendingLabel="Se copiază…">
-              Duplică
-            </SubmitButton>
-          </form>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: "/oferte", label: "Toate ofertele" }}
+        title={quote.number}
+        badge={<StatusBadge status={quote.status} />}
+        description={quote.title || undefined}
+        actions={
+          <>
+            <Link
+              href={`/print/oferta/${quote.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary"
+            >
+              Vezi PDF
+            </Link>
+            <form action={duplicateQuote}>
+              <input type="hidden" name="quote_id" value={quote.id} />
+              <SubmitButton className="btn btn-secondary" pendingLabel="Se copiază…">
+                Duplică
+              </SubmitButton>
+            </form>
+          </>
+        }
+      />
 
       {quote.visits ? (
         <p className="text-sm text-neutral-500">
@@ -195,6 +191,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           <SubmitButton
             className="btn btn-danger"
             pendingLabel="Se șterge…"
+            confirmLabel="Da, șterge"
             confirm={`Ștergi oferta ${quote.number}?`}
           >
             Șterge oferta

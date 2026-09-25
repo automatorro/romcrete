@@ -3,6 +3,7 @@ import Link from "next/link";
 import { startVisit } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
@@ -36,10 +37,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
   if (firmaNoua) {
     return (
       <div>
-        <Link href="/teren/vizita/noua" className="text-sm text-brand-700 hover:underline">
-          ← Înapoi
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold">Firmă / meseriaș nou</h1>
+        <PageHeader back={{ href: "/teren/vizita/noua", label: "Înapoi" }} title="Firmă / meseriaș nou" />
 
         <form action={startVisit} className="card mt-3 space-y-3 p-3.5">
           <CompanyFields />
@@ -91,7 +89,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Cu cine ai vorbit?</h1>
+      <PageHeader title="Cu cine ai vorbit?" />
 
       <form className="my-3">
         <input

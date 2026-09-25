@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { createQuote } from "@/app/(app)/oferte/actions";
 import { QuoteForm } from "@/app/(app)/oferte/quote-form";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,15 +23,11 @@ export default async function NewQuotePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/oferte" className="text-sm text-brand-700 hover:underline">
-          ← Toate ofertele
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900">Ofertă nouă</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Numărul ofertei se generează automat la salvare. Produsele le adaugi la pasul următor.
-        </p>
-      </div>
+      <PageHeader
+        back={{ href: "/oferte", label: "Toate ofertele" }}
+        title="Ofertă nouă"
+        description="Numărul ofertei se generează automat la salvare. Produsele le adaugi la pasul următor."
+      />
 
       {clients.length === 0 ? (
         <EmptyState

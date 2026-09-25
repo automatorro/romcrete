@@ -5,6 +5,7 @@ import { TinteAgentiForm, type AgentTarget } from "@/app/(app)/setari/tinte-agen
 import { createClient } from "@/lib/supabase/server";
 import { getAllDomains } from "@/lib/domenii";
 import { getQuestionCatalogue } from "@/lib/questions";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 
 export const metadata = { title: "Setări firmă" };
@@ -66,12 +67,10 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Setări firmă</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Datele apar în antetul fiecărei oferte tipărite. Rolul tău: {role}.
-        </p>
-      </header>
+      <PageHeader
+        title="Setări firmă"
+        description={<>Datele apar în antetul fiecărei oferte tipărite. Rolul tău: {role}.</>}
+      />
 
       <div className="card p-6">
         <OrganizationForm organization={organization} />

@@ -1,3 +1,5 @@
+import { PageHeader } from "@/components/ui/page-header";
+
 export const metadata = { title: "Ghid" };
 
 const CONVERSATIE: [string, string][] = [
@@ -78,12 +80,12 @@ const CUM_FUNCTIONEAZA: [string, string][] = [
 export default function GhidPage() {
   return (
     <div>
-      <h1 className="text-xl font-semibold">Ghid</h1>
+      <PageHeader title="Ghid" description="Cum se face o vizită bună și ce înseamnă fiecare întrebare." />
 
       <p className="hint my-3">
-        Ecranul de vizită e făcut pentru zgomot și grabă: doar atingeri, nimic obligatoriu, totul
-        se salvează singur. Prima secțiune se completează în 20 de secunde. Restul poți să-l
-        completezi în mașină.
+        Ecranul de vizită e făcut pentru zgomot și grabă: doar atingeri și totul se salvează
+        singur. Obligatoriu e doar pasul următor, cu data lui, ca să poți încheia vizita. Prima
+        secțiune se completează în 20 de secunde. Restul poți să-l completezi în mașină.
       </p>
 
       <h2 className="mt-5 mb-1 text-base font-semibold">Conversația, nu interogatoriul</h2>

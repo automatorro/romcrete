@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { createQuoteFromVisit, deleteVisit } from "@/app/teren/actions";
 import { VisitForm, type PumpOption } from "@/app/teren/vizita/[id]/visit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains, matchesDomain } from "@/lib/domenii";
@@ -103,33 +105,44 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
 
   return (
     <div>
-      <div className="flex items-center gap-2">
-        <Link href="/teren/firme" className="text-sm text-brand-700 hover:underline">
-          ← Firme
-        </Link>
-        <span className="flex-1" />
-        <form action={deleteVisit}>
-          <input type="hidden" name="visit_id" value={visit.id} />
-          <input type="hidden" name="client_id" value={visit.client_id} />
-          <SubmitButton
-            className="btn btn-ghost text-xs text-[var(--color-bad)]"
-            pendingLabel="…"
-            confirm="Ștergi vizita? Ce ai completat se pierde."
-          >
-            Șterge vizita
-          </SubmitButton>
-        </form>
-      </div>
+      <PageHeader
+        back={
+          visit.clients
+            ? { href: `/teren/firma/${visit.clients.id}`, label: "Fișa firmei" }
+            : { href: "/teren/firme", label: "Firme" }
+        }
+        title={visit.clients?.name ?? "Vizită"}
+        description={
+          <>
+            <p>{[visit.clients?.city, domain?.label].filter(Boolean).join(" · ")}</p>
+            {visit.clients?.contact_person || visit.clients?.phone ? (
+              <p>{[visit.clients.contact_person, visit.clients.phone].filter(Boolean).join(" · ")}</p>
+            ) : null}
+          </>
+        }
+        actions={
+          <ActionMenu label="Acțiuni pentru vizită">
+            {visit.clients ? (
+              <Link href={`/teren/firma/${visit.clients.id}?date=1`} className="menu-item" role="menuitem">
+                Datele firmei
+              </Link>
+            ) : null}
+            <form action={deleteVisit}>
+              <input type="hidden" name="visit_id" value={visit.id} />
+              <input type="hidden" name="client_id" value={visit.client_id} />
+              <SubmitButton
+                className="menu-item menu-item-danger btn-danger-ghost"
+                pendingLabel="Se șterge…"
+                confirmLabel="Da, șterge"
+                confirm="Ștergi vizita? Ce ai completat se pierde."
+              >
+                Șterge vizita
+              </SubmitButton>
+            </form>
+          </ActionMenu>
+        }
+      />
 
-      <h1 className="mt-1 text-xl font-semibold">{visit.clients?.name ?? "Vizită"}</h1>
-      <p className="text-sm text-neutral-500">
-        {[visit.clients?.city, domain?.label].filter(Boolean).join(" · ")}
-      </p>
-      {visit.clients?.contact_person || visit.clients?.phone ? (
-        <p className="text-sm text-neutral-500">
-          {[visit.clients.contact_person, visit.clients.phone].filter(Boolean).join(" · ")}
-        </p>
-      ) : null}
       {visit.clients && (!visit.clients.contact_person || !visit.clients.cui || !visit.clients.email) ? (
         <Link
           href={`/teren/firma/${visit.clients.id}?date=1`}
