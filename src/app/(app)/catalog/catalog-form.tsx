@@ -161,7 +161,7 @@ export function CatalogForm({
 
       <FormMessage state={state} />
 
-      <SubmitButton>{submitLabel}</SubmitButton>
+      <SubmitButton className="btn btn-ok">{submitLabel}</SubmitButton>
     </form>
   );
 }

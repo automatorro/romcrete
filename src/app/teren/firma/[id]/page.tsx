@@ -167,14 +167,14 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
           <form action={updateCompany} className="mt-3 space-y-3 border-t border-neutral-200 pt-3">
             <input type="hidden" name="client_id" value={state.client_id} />
             <CompanyFields defaults={state} idPrefix="firma-" />
-            <SubmitButton className="btn btn-primary w-full">Salvează datele</SubmitButton>
+            <SubmitButton className="btn btn-ok btn-lg w-full">Salvează datele</SubmitButton>
           </form>
         </details>
       </div>
 
       <form action={startVisit} className="mt-2">
         <input type="hidden" name="client_id" value={state.client_id} />
-        <SubmitButton className="btn btn-primary w-full" pendingLabel="Se deschide…">
+        <SubmitButton className="btn btn-primary btn-lg w-full" pendingLabel="Se deschide…">
           ＋ Vizită nouă aici
         </SubmitButton>
       </form>

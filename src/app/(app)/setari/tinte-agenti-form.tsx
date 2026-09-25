@@ -71,7 +71,7 @@ export function TinteAgentiForm({ agents }: { agents: AgentTarget[] }) {
       </div>
 
       <FormMessage state={state} />
-      <SubmitButton>Salvează țintele</SubmitButton>
+      <SubmitButton className="btn btn-ok">Salvează țintele</SubmitButton>
     </form>
   );
 }

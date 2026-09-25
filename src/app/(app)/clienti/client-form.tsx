@@ -66,7 +66,7 @@ export function ClientForm({ action, client, submitLabel = "Salvează", resetOnS
 
       <FormMessage state={state} />
 
-      <SubmitButton>{submitLabel}</SubmitButton>
+      <SubmitButton className="btn btn-ok">{submitLabel}</SubmitButton>
     </form>
   );
 }

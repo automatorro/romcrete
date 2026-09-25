@@ -55,7 +55,7 @@ function Group({ title, items }: { title: string; items: Item[] }) {
                 <span className="block font-medium">{i.label}</span>
                 <span className="block text-xs text-neutral-500">{i.hint}</span>
               </span>
-              <span aria-hidden className="text-neutral-400">
+              <span aria-hidden className="text-neutral-500">
                 ›
               </span>
             </Link>

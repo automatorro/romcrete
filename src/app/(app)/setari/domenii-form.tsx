@@ -66,7 +66,7 @@ export function DomeniiForm({ domains }: { domains: DomainRow[] }) {
       </p>
 
       <FormMessage state={state} />
-      <SubmitButton>Salvează domeniile</SubmitButton>
+      <SubmitButton className="btn btn-ok">Salvează domeniile</SubmitButton>
     </form>
   );
 }

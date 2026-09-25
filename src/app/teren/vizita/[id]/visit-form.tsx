@@ -419,7 +419,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           >
             {STATUS_TEXT[status]}
           </span>
-          <button type="button" onClick={flush} className="btn btn-secondary">
+          <button type="button" onClick={flush} className="btn btn-secondary min-h-12">
             Salvează
           </button>
           <button

@@ -154,8 +154,9 @@ body {
     @apply border-dotted text-neutral-500;
   }
 
+  /* Filtrele: mai mici decât chip-urile din vizită, dar tot ușor de nimerit cu degetul. */
   .chip-s {
-    @apply min-h-8 px-2.5 py-1 text-[13px];
+    @apply min-h-10 px-3 py-1 text-[13px];
   }
 
   /* Înălțimea barei de jos; bara de salvare a vizitei stă imediat deasupra ei. */

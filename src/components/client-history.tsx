@@ -143,7 +143,7 @@ export function ClientHistory({
                   <input type="hidden" name="id" value={item.id} />
                   <input type="hidden" name="client_id" value={clientId} />
                   <SubmitButton
-                    className="btn btn-danger-ghost btn-sm"
+                    className="btn btn-danger-ghost btn-sm min-h-10"
                     pendingLabel="Se șterge…"
                     confirmLabel="Da, șterge"
                     confirm="Ștergi nota din istoric?"

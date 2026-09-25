@@ -51,7 +51,7 @@ export function PraguriForm({ groups }: { groups: Group[] }) {
       ))}
 
       <FormMessage state={state} />
-      <SubmitButton>Salvează pragurile</SubmitButton>
+      <SubmitButton className="btn btn-ok">Salvează pragurile</SubmitButton>
     </form>
   );
 }

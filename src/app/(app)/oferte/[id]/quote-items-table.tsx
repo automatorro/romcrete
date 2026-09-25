@@ -242,14 +242,14 @@ export function QuoteItemsTable({
                 <SubmitButton
                   form={formId}
                   formAction={remove}
-                  className="btn btn-danger-ghost"
+                  className="btn btn-danger-ghost min-h-11"
                   pendingLabel="Se șterge…"
                   confirmLabel="Da, șterge"
                   confirm={`Ștergi linia „${item.name}”?`}
                 >
                   Șterge
                 </SubmitButton>
-                <SubmitButton form={formId} className="btn btn-secondary">
+                <SubmitButton form={formId} className="btn btn-secondary min-h-11">
                   Salvează
                 </SubmitButton>
               </div>
