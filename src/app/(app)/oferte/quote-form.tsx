@@ -13,6 +13,8 @@ type Props = {
   quote?: Quote;
   defaultTerms?: string | null;
   submitLabel?: string;
+  /** Cursul automat de azi, arătat ca sugestie în câmpul de curs. */
+  autoRateLabel?: string | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -29,6 +31,7 @@ export function QuoteForm({
   quote,
   defaultTerms,
   submitLabel = "Salvează oferta",
+  autoRateLabel,
 }: Props) {
   const [state, formAction] = useActionState(action, null);
 
@@ -123,6 +126,24 @@ export function QuoteForm({
             defaultValue={quote?.discount_pct ?? 0}
             className="input"
           />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="eur_rate">
+            Curs EUR pe ofertă (lei)
+          </label>
+          <input
+            id="eur_rate"
+            name="eur_rate"
+            inputMode="decimal"
+            defaultValue={quote?.eur_rate ?? ""}
+            placeholder={autoRateLabel ?? "Gol: cursul BNR al zilei"}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Gol: prețurile în euro se calculează la cursul BNR al zilei. Completat: oferta
+            rămâne la acest curs oricând o retipărești.
+          </p>
         </div>
 
         <div className="sm:col-span-2">

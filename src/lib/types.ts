@@ -103,6 +103,8 @@ export type Quote = {
   issue_date: string;
   valid_until: string | null;
   currency: string;
+  /** Lei pentru 1 EUR pe oferta tipărită; null = cursul BNR al zilei. */
+  eur_rate: number | null;
   discount_pct: number;
   site_address: string | null;
   notes: string | null;

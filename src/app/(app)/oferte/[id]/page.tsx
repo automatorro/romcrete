@@ -11,12 +11,14 @@ import {
 } from "@/app/(app)/oferte/actions";
 import { QuoteForm } from "@/app/(app)/oferte/quote-form";
 import { AddCustomItemForm } from "@/app/(app)/oferte/[id]/add-custom-item-form";
+import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
 import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOrg } from "@/lib/auth";
+import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatCatalogPrice, formatDate, formatMoney } from "@/lib/totals";
+import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
 import { QUOTE_STATUS_LABELS, type CatalogItem, type Quote, type QuoteItem, type QuoteStatus } from "@/lib/types";
 
 export const metadata = { title: "Ofertă" };
@@ -27,7 +29,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
   const supabase = await createClient();
 
-  const [{ data: quoteData }, { data: itemsData }, { data: clientsData }, { data: catalogData }] =
+  const [{ data: quoteData }, { data: itemsData }, { data: clientsData }, { data: catalogData }, eur] =
     await Promise.all([
       supabase.from("quotes").select("*, visits(id, visit_date)").eq("id", id).maybeSingle(),
       supabase.from("quote_items").select("*").eq("quote_id", id).order("position"),
@@ -39,6 +41,7 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
         .eq("is_active", true)
         .order("category", { ascending: true, nullsFirst: false })
         .order("name"),
+      getEurRate(),
     ]);
 
   if (!quoteData) notFound();
@@ -120,40 +123,18 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
 
         <div className="space-y-4 border-t border-neutral-200 p-4">
           {catalog.length > 0 ? (
-            <form
+            <CatalogPicker
               action={addCatalogItemToQuote.bind(null, quote.id)}
-              className="flex flex-wrap items-end gap-3"
-            >
-              <div className="min-w-64 flex-1">
-                <label className="label" htmlFor="catalog_item_id">
-                  Adaugă din catalog
-                </label>
-                <select id="catalog_item_id" name="catalog_item_id" required className="input">
-                  <option value="">Alege produsul…</option>
-                  {catalog.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} — {formatCatalogPrice(item.unit_price, item.price_on_request)}
-                      {item.price_on_request ? "" : `/${item.unit}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="quantity">
-                  Cantitate
-                </label>
-                <input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  defaultValue={1}
-                  className="input w-28 text-right tabular-nums"
-                />
-              </div>
-              <SubmitButton pendingLabel="Se adaugă…">Adaugă</SubmitButton>
-            </form>
+              items={catalog.map((item) => ({
+                id: item.id,
+                name: item.name,
+                sku: item.sku,
+                category: item.category,
+                unit: item.unit,
+                unit_price: item.unit_price,
+                price_on_request: item.price_on_request,
+              }))}
+            />
           ) : (
             <p className="text-sm text-neutral-500">
               Catalogul este gol.{" "}
@@ -197,6 +178,11 @@ export default async function QuotePage(props: PageProps<"/oferte/[id]">) {
           action={updateQuote.bind(null, quote.id)}
           clients={clientsData ?? []}
           quote={quote}
+          autoRateLabel={
+            eur
+              ? `Gol: ${eur.rate.toFixed(4).replace(".", ",")} (${eur.source}${eur.date ? `, ${formatDate(eur.date)}` : ""})`
+              : "Gol: cursul BNR al zilei (acum indisponibil)"
+          }
         />
       </section>
 
