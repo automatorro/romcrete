@@ -7,7 +7,8 @@ import { TotalSummary } from "@/components/oferta/total-summary";
 import { PrintButton } from "@/components/print-button";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getEurRate, productSheet, type CatalogSheet, type EurRate } from "@/lib/oferta-print";
+import { getEurRate, type EurRate } from "@/lib/oferta-print";
+import { loadQuoteSheets } from "@/lib/poze";
 import { formatDate } from "@/lib/totals";
 import type { Client, Quote, QuoteItem } from "@/lib/types";
 
@@ -31,28 +32,14 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
   const items = (itemsData ?? []) as QuoteItem[];
   const client = quote.clients;
 
-  // Fișele de produs: catalogul dă codul și datele verificate, pagina din
-  // magazin poza și restul caracteristicilor tehnice.
-  const catalogIds = [...new Set(items.map((i) => i.catalog_item_id).filter((x): x is string => !!x))];
+  // Fișele de produs, cu poza pusă direct în pagină: PDF-ul nu depinde de
+  // magazin în momentul tipăririi. Fără poze, oferta nu se tipărește.
   const manualRate = Number(quote.eur_rate) > 0 ? Number(quote.eur_rate) : null;
-  const [{ data: catalogData }, autoRate] = await Promise.all([
-    catalogIds.length
-      ? supabase
-          .from("catalog_items")
-          .select("id, sku, tech_type, materials, details, shop_url, image_url")
-          .in("id", catalogIds)
-      : Promise.resolve({ data: [] }),
+  const [{ sheets, missing }, autoRate] = await Promise.all([
+    loadQuoteSheets(supabase, items),
     manualRate ? Promise.resolve(null) : getEurRate(),
   ]);
   const eur: EurRate | null = manualRate ? { rate: manualRate, date: null, source: "ofertă" } : autoRate;
-
-  const catalog = new Map(((catalogData ?? []) as CatalogSheet[]).map((c) => [c.id, c]));
-  const sheets = await Promise.all(
-    items.map(async (item) => ({
-      item,
-      ...(await productSheet(item.catalog_item_id ? (catalog.get(item.catalog_item_id) ?? null) : null)),
-    })),
-  );
 
   // Oferta e în lei (RON); euro e echivalentul la curs. O ofertă în euro primește lei.
   const inEur = quote.currency === "EUR";
@@ -86,7 +73,16 @@ export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id
         </p>
       ) : null}
 
-      <div className="overflow-x-auto print:overflow-visible">
+      {missing.length ? (
+        <div role="alert" className="notice-error mx-auto mb-4 max-w-[210mm]">
+          <p>Oferta nu se poate trimite: lipsește poza pentru {missing.join(", ")}.</p>
+          <p className="mt-1 font-normal">
+            Pune poza din pagina ofertei („Poze lipsă”), apoi revino aici. Până atunci oferta nu se tipărește.
+          </p>
+        </div>
+      ) : null}
+
+      <div className={`overflow-x-auto print:overflow-visible ${missing.length ? "print:hidden" : ""}`}>
         <article className="a4-sheet mx-auto bg-white text-[13px] leading-snug text-neutral-900 shadow-lg">
           {/* ------------------------------------------------ antet: cele două firme */}
           <header className="flex items-start justify-between gap-6 border-b-2 border-neutral-900 pb-5">

@@ -29,13 +29,21 @@ export function SendByWhatsApp({
   const [state, setState] = useState<State>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [fallback, setFallback] = useState(false);
+  const [missing, setMissing] = useState("");
 
   const text = `Bună ziua, vă trimit oferta ${number}${clientName ? ` pentru ${clientName}` : ""}. Pentru orice întrebare, vă stau la dispoziție.\n${orgName}`;
 
   const prepare = async () => {
     setState("preparing");
+    setMissing("");
     try {
       const res = await fetch(`/print/oferta/${quoteId}/pdf`);
+      // Fără poze oferta nu pleacă: serverul spune ce produse n-au poză.
+      if (res.status === 422) {
+        setMissing(decodeURIComponent(res.headers.get("x-poze-lipsa") ?? "").split(" | ").join(", "));
+        setState("error");
+        return;
+      }
       // Cu sesiunea expirată serverul întoarce pagina de login, nu un PDF: nu o trimitem clientului.
       if (!res.ok || !res.headers.get("content-type")?.includes("application/pdf")) {
         throw new Error(String(res.status));
@@ -96,7 +104,9 @@ export function SendByWhatsApp({
 
       <p className="text-xs text-neutral-500" role={state === "error" ? "alert" : undefined}>
         {state === "error"
-          ? "PDF-ul nu s-a putut pregăti. Verifică semnalul (sau reintră în cont) și încearcă din nou."
+          ? missing
+            ? `Oferta nu pleacă fără poze: lipsește poza pentru ${missing}. Pune-o mai sus, la „Poze lipsă”.`
+            : "PDF-ul nu s-a putut pregăti. Verifică semnalul (sau reintră în cont) și încearcă din nou."
           : state === "ready"
             ? "PDF-ul e gata. Apasă mai sus, alege WhatsApp, apoi clientul din lista ta; oferta e deja atașată."
             : state === "sent"
