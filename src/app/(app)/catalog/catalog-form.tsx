@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { FormMessage } from "@/components/form-message";
+import { SheetFields } from "@/components/oferta/sheet-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { UNITS, type CatalogItem } from "@/lib/types";
 import type { ActionState } from "@/lib/validation";
@@ -168,6 +169,17 @@ export function CatalogForm({
           Serviciu (transport, instruire…): apare pe ofertă fără poză
         </label>
       </div>
+
+      {/* Textele scrise aici intră în fiecare ofertă nouă; pe ofertă se pot schimba doar pentru clientul ei. */}
+      <details className="rounded-lg border border-neutral-200 p-4" open={Boolean(item?.intro || item?.benefits)}>
+        <summary className="cursor-pointer text-sm font-semibold">Fișa produsului pe ofertă</summary>
+        <p className="mt-1 text-xs text-neutral-500">
+          Intră singură în fiecare ofertă nouă cu acest produs. Pe ofertă se poate schimba doar pentru clientul acela.
+        </p>
+        <div className="mt-3">
+          <SheetFields values={item} />
+        </div>
+      </details>
 
       <FormMessage state={state} />
 

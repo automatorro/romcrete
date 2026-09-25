@@ -69,7 +69,8 @@ async function linePhoto(db: Db, quoteItemId: string): Promise<string | null> {
   return data ? dataUri(data.mime as string, data.data_b64 as string) : null;
 }
 
-export type QuoteSheet = { item: QuoteItem; image: string | null; specs: Spec[] };
+/** `sku` e codul produsului din catalog (Part N pe ofertă); null la liniile libere. */
+export type QuoteSheet = { item: QuoteItem; image: string | null; specs: Spec[]; sku: string | null };
 
 /**
  * Fișele tuturor produselor de pe ofertă, cu poza pusă direct în pagină
@@ -96,7 +97,7 @@ export async function loadQuoteSheets(db: Db, items: QuoteItem[]): Promise<{ she
         : cat
           ? await catalogPhoto(db, cat, shopImageUrl)
           : await linePhoto(db, item.id);
-      return { item, image, specs };
+      return { item, image, specs, sku: cat?.sku ?? null };
     }),
   );
 

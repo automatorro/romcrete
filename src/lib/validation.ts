@@ -45,6 +45,7 @@ export const organizationSchema = z.object({
   bank: optionalText,
   vat_rate: percent(21),
   quote_terms: optionalText,
+  websites: optionalText,
   productivity_factor: numberField(2.5).pipe(
     z.number().gt(1, "Randamentul trebuie să fie mai mare decât 1").max(10, "Valoare nerealistă"),
   ),
@@ -82,6 +83,23 @@ export const clientSchema = z.object({
   notes: optionalText,
 });
 
+/** Datele agentului tipărite pe ofertele lui. */
+export const offerProfileSchema = z.object({
+  full_name: z.string().trim().min(3, "Scrie numele așa cum apare pe ofertă (de exemplu „dl. Radu Lupan”)"),
+  phone: optionalText,
+  contact_email: optionalText.pipe(z.email("Adresa de email nu este validă").nullable()),
+});
+
+/** Textele fișei produsului; aceleași în catalog și pe ofertă. */
+export const productSheetSchema = z.object({
+  intro: optionalText,
+  package_contents: optionalText,
+  specs_text: optionalText,
+  benefits: optionalText,
+  recommendations: optionalText,
+  applications: optionalText,
+});
+
 export const catalogItemSchema = z.object({
   sku: optionalText,
   name: z.string().trim().min(2, "Denumirea produsului este obligatorie"),
@@ -94,6 +112,7 @@ export const catalogItemSchema = z.object({
   vat_rate: percent(21),
   is_active: z.preprocess((value) => value === "on" || value === true || value === "true", z.boolean()),
   is_service: z.preprocess((value) => value === "on" || value === true || value === "true", z.boolean()),
+  ...productSheetSchema.shape,
 });
 
 export const quoteSchema = z.object({

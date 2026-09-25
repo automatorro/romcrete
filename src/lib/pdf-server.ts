@@ -9,7 +9,12 @@ import puppeteer from "puppeteer-core";
  * Pe server (Vercel) Chrome vine din @sparticuz/chromium; local se poate
  * folosi alt Chrome, dat în CHROMIUM_PATH.
  */
-export async function renderPdf(url: string, cookies: { name: string; value: string }[]): Promise<Uint8Array> {
+export async function renderPdf(
+  url: string,
+  cookies: { name: string; value: string }[],
+  /** Subsolul repetat pe fiecare pagină (HTML cu stiluri inline); are nevoie de loc în marginea de jos. */
+  options: { footerHtml?: string; marginBottom?: string } = {},
+): Promise<Uint8Array> {
   const local = process.env.CHROMIUM_PATH;
   const browser = await puppeteer.launch({
     executablePath: local || (await chromium.executablePath()),
@@ -40,6 +45,17 @@ export async function renderPdf(url: string, cookies: { name: string; value: str
       );
     });
 
+    if (options.footerHtml) {
+      // Marginile vin din @page-ul paginii; Chrome desenează subsolul în marginea de jos.
+      return await page.pdf({
+        format: "A4",
+        printBackground: true,
+        preferCSSPageSize: true,
+        displayHeaderFooter: true,
+        headerTemplate: "<span></span>",
+        footerTemplate: options.footerHtml,
+      });
+    }
     return await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
   } finally {
     await browser.close();

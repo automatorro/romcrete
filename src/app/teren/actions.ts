@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
+import { termsForClient } from "@/lib/conditii";
+import { pickSheet } from "@/lib/fisa-produs";
 import { isManualKind } from "@/lib/istoric";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
@@ -334,7 +336,7 @@ export async function createQuoteFromVisit(formData: FormData) {
       visit_id: visit.id,
       number,
       status: "draft",
-      terms: organization.quote_terms,
+      terms: await termsForClient(supabase, visit.client_id, organization.quote_terms),
       created_by: user.id,
     })
     .select("id")
@@ -345,7 +347,7 @@ export async function createQuoteFromVisit(formData: FormData) {
   if (skus.length) {
     const { data: items } = await supabase
       .from("catalog_items")
-      .select("id, sku, name, description, unit, unit_price, vat_rate, is_service")
+      .select("id, sku, name, description, unit, unit_price, vat_rate, is_service, intro, package_contents, specs_text, benefits, recommendations, applications")
       .eq("org_id", orgId)
       .in("sku", skus);
 
@@ -366,6 +368,7 @@ export async function createQuoteFromVisit(formData: FormData) {
           unit_price: item.unit_price,
           vat_rate: item.vat_rate,
           is_service: Boolean(item.is_service),
+          ...pickSheet(item),
         };
       })
       .filter((l) => l !== null);

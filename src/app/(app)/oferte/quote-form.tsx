@@ -161,16 +161,24 @@ export function QuoteForm({
 
         <div className="sm:col-span-2">
           <label className="label" htmlFor="terms">
-            Condiții comerciale
+            Condiții și termene de plată
           </label>
           <textarea
             id="terms"
             name="terms"
-            rows={3}
+            rows={5}
             defaultValue={quote?.terms ?? defaultTerms ?? ""}
-            placeholder="Plata în 15 zile de la livrare. Prețurile nu includ transportul."
+            placeholder={
+              quote
+                ? "Garanție echipamente: 24 luni"
+                : "Goale: se preiau din ultima ofertă a acestui client; pentru un client nou, condițiile standard din Setări."
+            }
             className="input"
           />
+          <p className="mt-1 text-xs text-neutral-500">
+            Câte una pe rând, de forma „Garanție echipamente: 24 luni”. Fiecare client are condițiile lui: oferta
+            următoare pentru el le preia de aici.
+          </p>
         </div>
       </div>
 

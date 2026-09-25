@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth";
+import { companyFooter } from "@/lib/oferta-document";
+import { escapeHtml, missingPhotos, offerFileName } from "@/lib/oferta-http";
 import { renderPdf } from "@/lib/pdf-server";
 import { loadQuoteSheets } from "@/lib/poze";
 import { createClient } from "@/lib/supabase/server";
@@ -16,7 +18,7 @@ export const maxDuration = 60;
  * poată fi atașată direct pe WhatsApp sau descărcată dintr-o apăsare.
  */
 export async function GET(request: NextRequest, ctx: RouteContext<"/print/oferta/[id]/pdf">) {
-  await requireOrg();
+  const { organization } = await requireOrg();
   const { id } = await ctx.params;
 
   const supabase = await createClient();
@@ -29,27 +31,12 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/print/oferta
   // Oferta nu pleacă fără poze: le descarcă și le păstrează acum, iar dacă tot
   // lipsește vreuna, refuză PDF-ul și spune care.
   const { missing } = await loadQuoteSheets(supabase, (items ?? []) as QuoteItem[]);
-  if (missing.length) {
-    const message = `Oferta ${quote.number} nu se poate trimite: lipsește poza pentru ${missing.join(", ")}.`;
-    return new Response(
-      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
-        `<body style="font-family:system-ui;padding:24px;max-width:560px;margin:auto">` +
-        `<h1 style="font-size:20px">Lipsesc poze</h1><p>${escapeHtml(message)}</p>` +
-        `<p>Pune poza din pagina ofertei, la „Poze lipsă”, apoi încearcă din nou.</p>` +
-        `<p><a href="/oferte/${id}">Înapoi la ofertă</a></p></body>`,
-      {
-        status: 422,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "x-poze-lipsa": encodeURIComponent(missing.join(" | ")),
-          "cache-control": "no-store",
-        },
-      },
-    );
-  }
+  if (missing.length) return missingPhotos(quote.number as string, id, missing);
 
-  const pdf = await renderPdf(`${request.nextUrl.origin}/print/oferta/${id}`, request.cookies.getAll());
-  const file = `Oferta-${String(quote.number).replace(/[^\w.-]+/g, "-")}.pdf`;
+  const pdf = await renderPdf(`${request.nextUrl.origin}/print/oferta/${id}?pdf=1`, request.cookies.getAll(), {
+    footerHtml: footerTemplate(companyFooter(organization)),
+  });
+  const file = offerFileName(quote.number as string, "pdf");
 
   return new Response(Buffer.from(pdf), {
     headers: {
@@ -60,5 +47,20 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/print/oferta
   });
 }
 
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+
+/**
+ * Subsolul fiecărei pagini, ca în oferta model: datele firmei și numărul
+ * paginii. Chrome îl desenează separat de pagină, deci stilurile sunt inline.
+ */
+function footerTemplate(footer: { title: string; lines: string[] }) {
+  const line = (text: string) => `<div>${escapeHtml(text)}</div>`;
+  return (
+    `<div style="width:100%;margin:0 12mm;padding-top:2mm;border-top:0.5pt solid #9ca3af;` +
+    `font-family:'Open Sans',Arial,sans-serif;font-size:7.5pt;line-height:1.35;color:#404040;text-align:center;` +
+    `-webkit-print-color-adjust:exact">` +
+    `<div style="font-weight:700;color:#111">${escapeHtml(footer.title)}</div>` +
+    footer.lines.map(line).join("") +
+    `<div style="margin-top:1mm;color:#737373">Pagina <span class="pageNumber"></span> din <span class="totalPages"></span></div>` +
+    `</div>`
+  );
+}

@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata = { title: "Ofertă nouă" };
 
 export default async function NewQuotePage() {
-  const { orgId, organization } = await requireOrg();
+  const { orgId } = await requireOrg();
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -44,7 +44,6 @@ export default async function NewQuotePage() {
           <QuoteForm
             action={createQuote}
             clients={clients}
-            defaultTerms={organization.quote_terms}
             submitLabel="Creează oferta"
           />
         </div>

@@ -1,3 +1,4 @@
+import { OfferProfileCard } from "@/components/cont/offer-profile-card";
 import { DestinatariForm } from "@/app/(app)/setari/destinatari-form";
 import { DomeniiForm, type DomainRow } from "@/app/(app)/setari/domenii-form";
 import { OrganizationForm } from "@/app/(app)/setari/organization-form";
@@ -76,6 +77,8 @@ export default async function SettingsPage() {
       <div className="card p-6">
         <OrganizationForm organization={organization} />
       </div>
+
+      <OfferProfileCard />
 
       <section>
         <h2 className="text-lg font-semibold tracking-tight">Destinatarii rapoartelor</h2>
