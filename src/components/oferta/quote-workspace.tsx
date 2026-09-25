@@ -7,7 +7,9 @@ import { AddCustomItemForm } from "@/app/(app)/oferte/[id]/add-custom-item-form"
 import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
 import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { ArchiveControls } from "@/components/oferta/archive-controls";
+import { PhotosPanel } from "@/components/oferta/photos-panel";
 import { SendByEmail } from "@/components/oferta/send-by-email";
+import { SendByWhatsApp } from "@/components/oferta/send-by-whatsapp";
 import { StatusPicker } from "@/components/oferta/status-picker";
 import { TotalSummary } from "@/components/oferta/total-summary";
 import { StatusBadge } from "@/components/status-badge";
@@ -127,6 +129,8 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
         />
       ) : null}
 
+      <PhotosPanel quoteId={quote.id} items={items} />
+
       <section className="card space-y-4 p-4">
         <div>
           <h2 className="mb-2 text-base font-semibold">Trimite clientului</h2>
@@ -135,6 +139,13 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
             number={quote.number}
             clientName={quote.clients?.name ?? null}
             clientEmail={quote.clients?.email ?? null}
+            orgName={organization.name}
+          />
+          <p className="my-3 text-center text-xs font-medium text-neutral-500">sau</p>
+          <SendByWhatsApp
+            quoteId={quote.id}
+            number={quote.number}
+            clientName={quote.clients?.name ?? null}
             orgName={organization.name}
           />
         </div>

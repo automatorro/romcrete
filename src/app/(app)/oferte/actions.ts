@@ -171,10 +171,19 @@ export async function deleteQuote(formData: FormData) {
 }
 
 /**
- * Înainte să se deschidă Outlook: trimiterea se notează în istoricul firmei,
- * iar o ciornă devine „Trimisă”. Emailul propriu-zis pleacă din Outlook.
+ * Înainte să se deschidă Outlook sau WhatsApp: trimiterea se notează în
+ * istoricul firmei, iar o ciornă devine „Trimisă”. Mesajul pleacă din Outlook
+ * sau din WhatsApp, nu din aplicație.
  */
 export async function markQuoteEmailed(quoteId: string) {
+  return markQuoteSent(quoteId, "email");
+}
+
+export async function markQuoteWhatsApp(quoteId: string) {
+  return markQuoteSent(quoteId, "whatsapp");
+}
+
+async function markQuoteSent(quoteId: string, channel: "email" | "whatsapp") {
   const { user } = await requireOrg();
   const supabase = await createClient();
   const { data: quote } = await supabase
@@ -192,8 +201,8 @@ export async function markQuoteEmailed(quoteId: string) {
       org_id: quote.org_id,
       client_id: quote.client_id,
       agent_id: user.id,
-      kind: "email",
-      body: `Oferta ${quote.number} trimisă pe email.`,
+      kind: channel,
+      body: `Oferta ${quote.number} trimisă pe ${channel === "email" ? "email" : "WhatsApp"}.`,
       quote_id: quote.id,
     });
     revalidatePath(`/teren/firma/${quote.client_id}`);
@@ -241,7 +250,7 @@ export async function duplicateQuote(formData: FormData) {
 
   const { data: items } = await supabase
     .from("quote_items")
-    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct")
+    .select("catalog_item_id, position, name, description, unit, quantity, unit_price, vat_rate, discount_pct, is_service")
     .eq("quote_id", quoteId)
     .order("position");
 
@@ -280,6 +289,7 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
     quantity: Number(formData.get("quantity") ?? 1) || 1,
     unit_price: item.unit_price,
     vat_rate: item.vat_rate,
+    is_service: item.is_service ?? false,
   });
 
   refreshQuote(quoteId);
@@ -299,6 +309,8 @@ export async function addCustomItem(
   const supabase = await createClient();
   const { error } = await supabase.from("quote_items").insert({
     ...parsed.data,
+    // Separat de schema liniei: editarea unei linii din tabel nu trebuie să-l reseteze.
+    is_service: formData.get("is_service") === "on",
     quote_id: quoteId,
     position: await nextPosition(quoteId),
   });
@@ -334,4 +346,56 @@ export async function deleteQuoteItem(quoteId: string, formData: FormData) {
   await supabase.from("quote_items").delete().eq("id", itemId);
 
   refreshQuote(quoteId);
+}
+
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/**
+ * Pune poza unui produs: a produsului din catalog (pentru toate ofertele) sau
+ * a unei linii libere de pe o ofertă. Poza vine deja micșorată din telefon.
+ */
+export async function uploadProductPhoto(input: {
+  target: "catalog" | "linie";
+  id: string;
+  quoteId?: string;
+  mime: string;
+  b64: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireOrg();
+  if (!PHOTO_TYPES.includes(input.mime)) return { ok: false, error: "Poza trebuie să fie JPG, PNG sau WEBP." };
+  if (!input.b64 || input.b64.length > 1_400_000 || !/^[A-Za-z0-9+/=]+$/.test(input.b64)) {
+    return { ok: false, error: "Poza e prea mare sau nu s-a putut citi. Încearcă alta." };
+  }
+
+  const supabase = await createClient();
+  if (input.target === "catalog") {
+    const { error } = await supabase.rpc("save_catalog_image", {
+      p_item: input.id,
+      p_mime: input.mime,
+      p_data: input.b64,
+      p_source: "incarcat",
+      p_source_url: null,
+    });
+    if (error) return { ok: false, error: error.message };
+    revalidatePath(`/catalog/${input.id}`);
+  } else {
+    const { error } = await supabase
+      .from("quote_item_images")
+      .upsert({ quote_item_id: input.id, mime: input.mime, data_b64: input.b64, updated_at: new Date().toISOString() });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  if (input.quoteId) refreshQuote(input.quoteId);
+  return { ok: true };
+}
+
+/** „E serviciu”: linia nu mai cere poză pe ofertă (transport, instruire, punere în funcțiune). */
+export async function markLineService(formData: FormData) {
+  await requireOrg();
+  const itemId = String(formData.get("item_id") ?? "");
+  const quoteId = String(formData.get("quote_id") ?? "");
+  if (!itemId) return;
+  const supabase = await createClient();
+  await supabase.from("quote_items").update({ is_service: formData.get("service") !== "0" }).eq("id", itemId);
+  if (quoteId) refreshQuote(quoteId);
 }

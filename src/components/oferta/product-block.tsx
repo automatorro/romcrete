@@ -51,8 +51,8 @@ export function ProductBlock({
     // foarte multe caracteristici se rupe, dar tabelul de preț își poartă numele.
     <div className={`border-t border-neutral-300 break-inside-avoid ${index ? "mt-8 pt-6" : "mt-3 pt-4"}`}>
       <div className="flex gap-5 break-inside-avoid">
-        {/* Un accesoriu fără poză și fără fișă nu primește un pătrat gol: ar lăsa goluri în ofertă. */}
-        {image || specs.length ? (
+        {/* Un serviciu sau o linie fără poză și fără fișă nu primește un pătrat gol. */}
+        {image || (specs.length && !item.is_service) ? (
           <div className="flex h-[48mm] w-[48mm] shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white p-2">
             {image ? (
               // Poza vine din magazin, de pe alt domeniu; la tipărire trebuie să fie deja în pagină.

@@ -47,7 +47,7 @@ export async function buildReportSnapshot(
       .from("client_activities")
       .select("kind, agent_id, occurred_at, clients(domain)")
       .eq("org_id", orgId)
-      .in("kind", ["telefon", "email"])
+      .in("kind", ["telefon", "email", "whatsapp"])
       .gte("occurred_at", `${p.prevFrom}T00:00:00Z`)
       .lt("occurred_at", `${addDays(p.to, 1)}T00:00:00Z`),
   ]);
@@ -89,6 +89,13 @@ export async function buildReportSnapshot(
       label: "Telefoane",
       value: countContacts("telefon", p.from, p.to),
       prev: countContacts("telefon", p.prevFrom, p.prevTo),
+      format: "int",
+    },
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      value: countContacts("whatsapp", p.from, p.to),
+      prev: countContacts("whatsapp", p.prevFrom, p.prevTo),
       format: "int",
     },
     {
@@ -147,6 +154,7 @@ export async function buildReportSnapshot(
       firmeNoi: a.metrics.firmeNoi,
       telefoane: countContacts("telefon", p.from, p.to, a.agentId),
       emailuri: countContacts("email", p.from, p.to, a.agentId),
+      whatsapp: countContacts("whatsapp", p.from, p.to, a.agentId),
       oferte: a.metrics.oferteEmise,
       valoare: a.metrics.valoareOferte,
       acceptate: a.metrics.oferteAcceptate,

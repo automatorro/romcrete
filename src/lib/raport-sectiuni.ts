@@ -60,6 +60,8 @@ export type ReportSnapshot = {
     firmeNoi: number;
     telefoane: number;
     emailuri: number;
+    /** Lipsește la rapoartele salvate înainte să existe WhatsApp în istoric. */
+    whatsapp?: number;
     oferte: number;
     valoare: number;
     acceptate: number;

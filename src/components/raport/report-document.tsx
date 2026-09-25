@@ -144,6 +144,7 @@ export function ReportDocument({
                   <th className="py-1.5 pr-2 text-right">Firme noi</th>
                   <th className="py-1.5 pr-2 text-right">Tel.</th>
                   <th className="py-1.5 pr-2 text-right">Email</th>
+                  <th className="py-1.5 pr-2 text-right">WA</th>
                   <th className="py-1.5 pr-2 text-right">Oferte</th>
                   <th className="py-1.5 pr-2 text-right">Valoare</th>
                   <th className="py-1.5 text-right">Accept.</th>
@@ -160,6 +161,7 @@ export function ReportDocument({
                     <td className="py-1.5 pr-2 text-right tabular-nums">{a.firmeNoi}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{a.telefoane}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{a.emailuri}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">{a.whatsapp ?? 0}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{a.oferte}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(a.valoare)}</td>
                     <td className="py-1.5 text-right tabular-nums">{a.acceptate}</td>

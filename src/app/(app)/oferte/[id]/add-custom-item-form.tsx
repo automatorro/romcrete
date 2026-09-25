@@ -107,6 +107,11 @@ export function AddCustomItemForm({
           </label>
           <input id="custom-description" name="description" className="input" />
         </div>
+
+        <label className="flex min-h-11 items-center gap-2 text-sm text-neutral-700 sm:col-span-2 lg:col-span-5">
+          <input type="checkbox" name="is_service" className="h-5 w-5 accent-[var(--color-brand-600)]" />
+          Serviciu (transport, instruire, punere în funcțiune): apare pe ofertă fără poză
+        </label>
       </div>
 
       <FormMessage state={state} />
