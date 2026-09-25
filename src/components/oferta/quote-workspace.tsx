@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
-import { computeTotals, formatDate, formatMoney } from "@/lib/totals";
+import { formatDate } from "@/lib/totals";
 import type { CatalogItem, Quote, QuoteItem } from "@/lib/types";
 
 type Zona = "teren" | "birou";
@@ -56,7 +56,6 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
   };
   const items = (itemsData ?? []) as QuoteItem[];
   const catalog = (catalogData ?? []) as CatalogItem[];
-  const totals = computeTotals(items, quote.discount_pct);
   const teren = zona === "teren";
 
   return (
@@ -79,7 +78,8 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
             )}
             {quote.title ? ` · ${quote.title}` : ""}
             <span className="block">
-              Total cu TVA: <b className="text-neutral-900 tabular-nums">{formatMoney(totals.gross, quote.currency)}</b>
+              {items.length} {items.length === 1 ? "produs" : "produse"}, fiecare cu prețul lui
+              {Number(quote.discount_pct) > 0 ? ` · discount ofertă ${quote.discount_pct}%` : ""}
             </span>
           </>
         }
@@ -149,7 +149,12 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           </p>
         </header>
 
-        <QuoteItemsTable quoteId={quote.id} items={items} currency={quote.currency} />
+        <QuoteItemsTable
+          quoteId={quote.id}
+          items={items}
+          currency={quote.currency}
+          quoteDiscountPct={Number(quote.discount_pct)}
+        />
 
         <div className="space-y-4 border-t border-neutral-200 p-4">
           {catalog.length > 0 ? (
@@ -179,18 +184,10 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           </details>
         </div>
 
-        <dl className="space-y-2 border-t border-neutral-200 bg-neutral-50 px-4 py-4 text-sm">
-          <Row label="Total linii (fără TVA)" value={formatMoney(totals.linesNet, quote.currency)} />
-          {totals.quoteDiscount > 0 ? (
-            <Row
-              label={`Discount ofertă (${quote.discount_pct}%)`}
-              value={`− ${formatMoney(totals.quoteDiscount, quote.currency)}`}
-            />
-          ) : null}
-          <Row label="Bază de impozitare" value={formatMoney(totals.net, quote.currency)} />
-          <Row label="TVA" value={formatMoney(totals.vat, quote.currency)} />
-          <Row label="Total de plată" value={formatMoney(totals.gross, quote.currency)} strong />
-        </dl>
+        {/* Fără total general: clientul primește prețul fiecărui produs, nu o sumă a lor. */}
+        <p className="border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+          Fiecare produs are prețul lui, ca pe PDF. Oferta nu adună produsele într-un total de plată.
+        </p>
       </section>
 
       {/* Pe teren detaliile stau strânse: se schimbă rar, iar pe telefon ocupă mult. */}
@@ -222,17 +219,6 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
           zona={zona}
         />
       )}
-    </div>
-  );
-}
-
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className={strong ? "font-semibold text-neutral-900" : "text-neutral-500"}>{label}</dt>
-      <dd className={`tabular-nums ${strong ? "text-base font-semibold text-neutral-900" : "text-neutral-900"}`}>
-        {value}
-      </dd>
     </div>
   );
 }

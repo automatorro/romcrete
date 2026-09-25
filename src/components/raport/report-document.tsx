@@ -252,7 +252,7 @@ export function ReportDocument({
                 <th className="py-1.5 pr-2">Număr</th>
                 <th className="py-1.5 pr-2">Client</th>
                 <th className="py-1.5 pr-2">Stare</th>
-                <th className="py-1.5 text-right">Total cu TVA</th>
+                <th className="py-1.5 text-right">Valoare cu TVA</th>
               </tr>
             </thead>
             <tbody>

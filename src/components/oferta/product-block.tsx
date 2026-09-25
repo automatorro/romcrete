@@ -1,5 +1,5 @@
 import type { Spec } from "@/lib/oferta-print";
-import { formatMoney, formatQuantity, lineNet, lineVat } from "@/lib/totals";
+import { formatMoney, formatQuantity, lineFinal } from "@/lib/totals";
 import type { QuoteItem } from "@/lib/types";
 
 const label = (currency: string) => (currency === "RON" ? "lei" : "EUR");
@@ -27,10 +27,7 @@ export function ProductBlock({
   other: { currency: string; convert: (v: number) => number } | null;
 }) {
   // Discountul pe ofertă se aplică fiecărui produs, ca prețul de sub el să fie cel final.
-  const factor = 1 - quoteDiscountPct / 100;
-  const beforeQuoteDiscount = lineNet(item);
-  const net = beforeQuoteDiscount * factor;
-  const vat = lineVat(item) * factor;
+  const { beforeQuoteDiscount, quoteDiscount, net, vat, gross } = lineFinal(item, quoteDiscountPct);
   const lineDiscount = Number(item.discount_pct) > 0;
 
   const rows: { label: string; value: number; strong?: boolean }[] = [
@@ -43,10 +40,10 @@ export function ProductBlock({
           },
         ]
       : []),
-    ...(factor < 1 ? [{ label: `Discount ofertă ${quoteDiscountPct}%`, value: net - beforeQuoteDiscount }] : []),
+    ...(quoteDiscount > 0 ? [{ label: `Discount ofertă ${quoteDiscountPct}%`, value: -quoteDiscount }] : []),
     { label: "Valoare fără TVA", value: net },
     { label: `TVA ${item.vat_rate}%`, value: vat },
-    { label: "Preț total cu TVA", value: net + vat, strong: true },
+    { label: "Preț total cu TVA", value: gross, strong: true },
   ];
 
   return (

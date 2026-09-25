@@ -121,8 +121,9 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
                     {formatDate(q.issue_date)}
                     {q.valid_until ? ` · valabilă până ${formatDate(q.valid_until)}` : ""}
                   </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatMoney(totals.get(q.id) ?? 0, q.currency)}
+                  <span className="text-right tabular-nums">
+                    <span className="block text-[11px] text-neutral-500">valoare ofertată</span>
+                    <b>{formatMoney(totals.get(q.id) ?? 0, q.currency)}</b>
                   </span>
                 </div>
               </Link>
