@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { saveVisit } from "@/app/teren/actions";
+import { finishVisit, saveVisit } from "@/app/teren/actions";
+import { STEP_WITHOUT_DATE, quickDates, shortDay } from "@/lib/agenda";
 import { computePayback, demandFrom } from "@/lib/amortizare";
 import type { MatchLevel, MaterialSuggestions } from "@/lib/materiale";
 import { formatCatalogPrice, formatMoney, formatNumber } from "@/lib/totals";
@@ -33,6 +34,8 @@ type Props = {
     unitShort: string;
     unitLabel: string;
   };
+  /** Ziua de azi în România, dată de server ca să nu difere la hidratare. */
+  today: string;
   initial: {
     answers: Answers;
     notes: Notes;
@@ -59,7 +62,7 @@ const STATUS_TEXT: Record<Status, string> = {
   error: "⚠ Fără confirmare — reîncerc",
 };
 
-export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, initial }: Props) {
+export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, today, initial }: Props) {
   const draftKey = `romcrete_vizita_${visitId}`;
 
   /** Tot ce se salvează stă într-o singură stare: o schimbare, o salvare. */
@@ -71,13 +74,15 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     visitDate: initial.visitDate,
   }));
   const [status, setStatus] = useState<Status>("idle");
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState("");
 
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Reîncercarea se programează prin referință, ca funcția să se poată chema
   // pe ea însăși fără să se lege de o versiune veche a stării.
-  const flushRef = useRef<() => void>(() => {});
+  const flushRef = useRef<() => Promise<boolean>>(async () => true);
 
   const flush = useCallback(async () => {
     if (retry.current) clearTimeout(retry.current);
@@ -95,12 +100,13 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
         localStorage.removeItem(draftKey);
       } catch {}
       setStatus("saved");
-      return;
+      return true;
     }
     // Semnal pierdut pentru câteva secunde: reîncearcă singur, fără ca agentul
     // să trebuiască să observe. Copia locală rămâne până salvarea trece.
     setStatus("error");
     retry.current = setTimeout(() => flushRef.current(), 5000);
+    return false;
   }, [form, visitId, draftKey]);
 
   useEffect(() => {
@@ -133,7 +139,43 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
 
   const update = (patch: Partial<FormState>) => {
     dirty.current = true;
+    setFinishError("");
     setForm((f) => ({ ...f, ...patch }));
+  };
+
+  /**
+   * Vizita se încheie doar cu pasul următor stabilit și, dacă nu e o renunțare,
+   * cu data lui. Fără ele firma dispare din agendă și nimeni nu mai revine.
+   */
+  const finish = async () => {
+    // Se cere doar ce există în catalogul de întrebări al firmei.
+    const asks = (id: string) => sections.some((s) => s.groups.some((g) => g.id === id));
+    const step = typeof form.answers.urmator === "string" ? form.answers.urmator : "";
+    const missing = asks("urmator") && !step
+      ? "Alege pasul următor: ce faci mai departe cu firma asta."
+      : asks("cuand") && step !== STEP_WITHOUT_DATE && !form.nextStepDate
+        ? "Pune data pasului următor, ca firma să-ți apară în agendă în ziua aia."
+        : "";
+    if (missing) {
+      setFinishError(missing);
+      const field = document.getElementById(step ? "grup-cuand" : "grup-urmator");
+      const section = field?.closest("details");
+      if (section) section.open = true;
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    setFinishing(true);
+    if (timer.current) clearTimeout(timer.current);
+    const saved = await flush();
+    if (!saved) {
+      setFinishing(false);
+      setFinishError("Nu am putut salva vizita. Verifică semnalul și încearcă din nou.");
+      return;
+    }
+    // La succes, acțiunea redirecționează spre „Azi”; revenirea aici e o eroare.
+    await finishVisit(visitId);
+    setFinishing(false);
   };
 
   const pickSingle = (gid: string, oid: string) =>
@@ -228,15 +270,15 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
             </summary>
             <div className="pb-3.5">
               {s.groups.map((g) => (
-                <fieldset key={g.id} className="mt-4 first:mt-1">
+                <fieldset key={g.id} id={`grup-${g.id}`} className="mt-4 scroll-mt-4 first:mt-1">
                   <legend className="mb-1.5 text-sm text-neutral-500">{g.label}</legend>
 
                   {g.kind === "next_step_date" ? (
-                    <input
-                      type="date"
+                    <NextStepDate
                       value={form.nextStepDate}
-                      onChange={(e) => update({ nextStepDate: e.target.value })}
-                      className="input"
+                      today={today}
+                      optional={form.answers.urmator === STEP_WITHOUT_DATE}
+                      onChange={(nextStepDate) => update({ nextStepDate })}
                     />
                   ) : g.kind === "pump_picker" ? (
                     <PumpPicker pumps={pumps} selected={form.pumpSkus} onToggle={togglePump} />
@@ -365,6 +407,9 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
         </p>
       )}
 
+      {/* Loc sub ultimul card, ca bara de jos să nu-l acopere. */}
+      <div className="h-20" aria-hidden />
+
       <div className="fixed inset-x-0 bottom-[57px] z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
         <div className="mx-auto flex max-w-[760px] items-center gap-3">
           <span
@@ -374,12 +419,71 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           >
             {STATUS_TEXT[status]}
           </span>
-          <button type="button" onClick={flush} className="btn btn-secondary text-sm">
-            Salvează acum
+          <button type="button" onClick={flush} className="btn btn-secondary">
+            Salvează
+          </button>
+          <button
+            type="button"
+            onClick={finish}
+            disabled={finishing}
+            className="btn btn-ok btn-lg"
+          >
+            {finishing ? "Se încheie…" : "Termină vizita"}
           </button>
         </div>
+        {finishError ? (
+          <p role="alert" className="mx-auto mt-1.5 max-w-[760px] text-sm font-semibold text-[var(--color-bad)]">
+            {finishError}
+          </p>
+        ) : null}
       </div>
     </>
+  );
+}
+
+/** Data pasului următor: variantele uzuale dintr-o apăsare, restul din calendar. */
+function NextStepDate({
+  value,
+  today,
+  optional,
+  onChange,
+}: {
+  value: string;
+  today: string;
+  optional: boolean;
+  onChange: (date: string) => void;
+}) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {quickDates(today).map((q) => (
+          <button
+            key={q.label}
+            type="button"
+            onClick={() => onChange(value === q.date ? "" : q.date)}
+            className={`chip flex-col justify-center rounded-xl py-1.5 ${value === q.date ? "chip-on" : ""}`}
+          >
+            <span>{q.label}</span>
+            <span className="text-xs opacity-80">{shortDay(q.date)}</span>
+          </button>
+        ))}
+      </div>
+      <input
+        type="date"
+        value={value}
+        min={today}
+        onChange={(e) => onChange(e.target.value)}
+        className="input mt-2 min-h-12"
+        aria-label="Altă dată"
+      />
+      <p className="mt-1.5 text-xs text-neutral-500">
+        {optional
+          ? "Ai ales să nu mai insiști, deci data nu e obligatorie."
+          : value
+            ? `Firma îți apare în agendă ${shortDay(value)}.`
+            : "Obligatorie la încheierea vizitei: în ziua aleasă firma îți apare pe ecranul „Azi”."}
+      </p>
+    </div>
   );
 }
 
