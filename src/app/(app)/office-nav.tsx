@@ -9,7 +9,8 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
     title: "Activitate",
     links: [
       { href: "/teren", label: "Teren · agenda" },
-      { href: "/raport", label: "Raport de teren" },
+      { href: "/rapoarte", label: "Rapoarte" },
+      { href: "/raport", label: "Analiza pieței" },
     ],
   },
   {

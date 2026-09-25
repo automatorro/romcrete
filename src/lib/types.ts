@@ -36,6 +36,8 @@ export type Organization = {
   recontact_days_cold: number;
   productivity_factor: number;
   working_days_per_month: number;
+  /** Adresele la care se trimit de obicei rapoartele. */
+  report_recipients: string[];
   created_at: string;
 };
 

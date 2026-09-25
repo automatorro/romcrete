@@ -16,11 +16,13 @@ export default async function MaiMultPage() {
 
   const unelte: Item[] = [
     { href: "/teren/catalog", label: "Catalog", hint: "Pompe și accesorii, cu prețuri fără TVA" },
+    { href: "/teren/rapoarte", label: "Rapoartele mele", hint: "Zilnic și săptămânal, de trimis prin Outlook" },
     { href: "/teren/ghid", label: "Ghid", hint: "Cum se face o vizită bună" },
   ];
   const birou: Item[] = [
     { href: "/oferte", label: "Oferte (birou)", hint: "Liste complete, editare, PDF" },
-    { href: "/raport", label: "Raport", hint: "Activitatea echipei și piața" },
+    { href: "/rapoarte", label: "Rapoarte (birou)", hint: "Rapoartele echipei, pe perioade" },
+    { href: "/raport", label: "Analiza pieței", hint: "Obiecții, blocaje, modele discutate" },
     { href: "/clienti", label: "Clienți", hint: "Toate firmele, cu istoricul lor" },
     { href: "/setari", label: "Setări firmă", hint: "Date firmă, ținte, praguri" },
   ];

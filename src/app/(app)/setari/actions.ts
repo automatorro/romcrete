@@ -151,3 +151,27 @@ export async function updateAgentTargets(
   revalidatePath("/teren");
   return { success: `Am salvat țintele pentru ${perAgent.size} persoane.` };
 }
+
+/** Cui se trimit de obicei rapoartele: se propun automat la fiecare raport nou. */
+export async function updateReportRecipients(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { orgId } = await requireOrg();
+  const all = String(formData.get("recipients") ?? "")
+    .split(/[\s,;]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const bad = all.filter((x) => !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(x));
+  if (bad.length) return { error: `Adrese de email greșite: ${bad.join(", ")}` };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ report_recipients: [...new Set(all)] })
+    .eq("id", orgId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/setari");
+  return { success: all.length ? `Rapoartele se vor propune către ${all.length} adrese.` : "Lista de destinatari e goală." };
+}

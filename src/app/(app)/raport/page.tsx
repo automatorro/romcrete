@@ -7,7 +7,7 @@ import { buildReport, type Period } from "@/lib/raport";
 import { formatDate, formatMoney } from "@/lib/totals";
 import { FOCUS_EXPLAIN, FOCUS_LABELS, type Focus } from "@/lib/teren";
 
-export const metadata = { title: "Raport" };
+export const metadata = { title: "Analiza pieței" };
 
 const PERIOADE: [Period, string][] = [
   ["7", "7 zile"],
@@ -53,7 +53,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Raport de teren"
+        title="Analiza pieței"
         description={
           <>
             {period === "all" ? "Toată perioada" : `Ultimele ${period} zile`}

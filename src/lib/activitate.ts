@@ -106,7 +106,7 @@ export type ActivityDataset = {
     nextStepDate: string | null;
     late: boolean;
   }[];
-  market: { group: string; option: string; firms: number }[];
+  market: { groupId: string; group: string; option: string; firms: number }[];
 };
 
 
@@ -219,12 +219,14 @@ export async function buildActivity(
   granularity: Granularity,
   agentFilter: string | null,
   domainFilter: string | null = null,
+  /** Perioada de comparație. Implicit: aceeași lungime, imediat înainte. */
+  previousRange?: { from: string; to: string },
 ): Promise<ActivityDataset> {
   const supabase = await createClient();
   const azi = zi(new Date());
   const lungime = diferentaZile(from, to);
-  const prevTo = adauga(from, -1);
-  const prevFrom = adauga(prevTo, -lungime);
+  const prevTo = previousRange?.to ?? adauga(from, -1);
+  const prevFrom = previousRange?.from ?? adauga(prevTo, -lungime);
 
   const [
     { data: allVisitDates },
@@ -437,7 +439,7 @@ export async function buildActivity(
   }
   for (const [gid, opts] of perGrup) {
     for (const [oid, firms] of [...opts.entries()].sort((a, b) => b[1].size - a[1].size)) {
-      market.push({ group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size });
+      market.push({ groupId: gid, group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size });
     }
   }
 
