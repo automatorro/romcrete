@@ -182,8 +182,9 @@ export default async function AziPage(props: PageProps<"/teren">) {
   const stepLabel = (t: Task) =>
     t.next_step ? optionLabel(sections, "urmator", t.next_step) : "Pas următor";
 
+  // Pe telefon cardurile stau unul sub altul; pe calculator, câte două pe rând.
   const renderTasks = (list: Task[]) => (
-    <ul className="space-y-2">
+    <ul className="grid items-start gap-2 lg:grid-cols-2 lg:gap-3">
       {list.map((t) => {
         const intarziere = daysBetween(t.next_step_date, astazi);
         const adresa = [t.address, t.city, t.county].filter(Boolean).join(", ");
@@ -334,7 +335,7 @@ export default async function AziPage(props: PageProps<"/teren">) {
       {deReluat.length === 0 ? (
         <p className="card p-3 text-sm text-neutral-500">Nicio firmă uitată. Bine.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid items-start gap-2 lg:grid-cols-2 lg:gap-3 xl:grid-cols-3">
           {deReluat.map((r) => (
             <li key={r.client_id} className="card p-3">
               <div className="flex flex-wrap items-center gap-2">

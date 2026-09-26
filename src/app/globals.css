@@ -16,13 +16,15 @@ body {
   }
 
   .input {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900
+    /* 16px pe telefon: iPhone-ul nu mai mărește pagina când atingi câmpul. */
+    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base text-neutral-900 sm:text-sm
       placeholder:text-neutral-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
-      transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    /* Pe telefon minimum 44px, cât cere un deget; pe calculator rămân mai compacte. */
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10;
   }
 
   /* Variantele se folosesc împreună cu .btn: class="btn btn-primary". */
@@ -55,7 +57,7 @@ body {
 
   /* Mărimile: sm pentru rânduri de tabel la birou, lg pentru teren. */
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply min-h-10 px-3 py-1.5 text-xs lg:min-h-8;
   }
 
   /* Pe teren: țintă de atingere de 48px, se apasă din mers. */

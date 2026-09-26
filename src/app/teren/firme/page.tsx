@@ -160,7 +160,8 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
             : "Încă nicio firmă. Apasă „＋ Vizită” după prima întâlnire."}
         </div>
       ) : (
-        <ul className="mt-3 space-y-2">
+        // Pe calculator, câte două firme pe rând; fiecare card își păstrează înălțimea.
+        <ul className="mt-3 grid items-start gap-2 lg:grid-cols-2 lg:gap-3">
           {rows.map((r) => {
             // Lipsurile se numesc în unitatea domeniului: „ml/zi” la marcaje.
             const lipsuri = gaps(r.answers, domainById.get(r.domain ?? "")?.unit_short).slice(0, 2);

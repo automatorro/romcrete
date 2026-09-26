@@ -104,7 +104,8 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   const suggestions = buildMaterialSuggestions(pumps);
 
   return (
-    <div>
+    // Formularul vizitei rămâne o coloană lizibilă și pe ecranele late.
+    <div className="mx-auto max-w-3xl">
       <PageHeader
         back={
           visit.clients
