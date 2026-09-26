@@ -234,3 +234,12 @@ body {
   border: 1px solid #e5e5e5;
   box-shadow: 0 3px 8px rgb(0 0 0 / 0.18);
 }
+
+/* Pe calculator bara de jos nu mai există, iar meniul lateral ocupă 16rem:
+   barele fixate jos (salvarea vizitei) stau lângă meniu, la marginea ecranului. */
+@media (min-width: 1024px) {
+  .above-teren-nav {
+    bottom: 0;
+    left: 16rem;
+  }
+}
