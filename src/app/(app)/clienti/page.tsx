@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { createClientRecord } from "@/app/(app)/clienti/actions";
+import { createClientRecord, importClientsFromFile } from "@/app/(app)/clienti/actions";
 import { ClientForm } from "@/app/(app)/clienti/client-form";
+import { ImportForm } from "@/app/(app)/clienti/import-form";
 import { DataList } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -62,6 +63,15 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
         </div>
       </details>
 
+      <details className="card p-4">
+        <summary className="cursor-pointer text-sm font-medium text-brand-700">
+          Importă clienți din Excel
+        </summary>
+        <div className="mt-4 border-t border-neutral-200 pt-4">
+          <ImportForm action={importClientsFromFile} />
+        </div>
+      </details>
+
       {error ? (
         <p role="alert" className="notice-error">
           {error.message}
@@ -74,7 +84,7 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
           description={
             search
               ? "Încearcă alt termen de căutare."
-              : "Adaugă primul client ca să poți emite oferte pe numele lui."
+              : "Adaugă primul client sau importă-i pe toți dintr-un fișier Excel."
           }
         />
       ) : (
