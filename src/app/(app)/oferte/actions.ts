@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
 import { termsForClient } from "@/lib/conditii";
+import { sheetForNewLine } from "@/lib/fisa-magazin";
 import { pickSheet } from "@/lib/fisa-produs";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/lib/types";
@@ -294,8 +295,9 @@ export async function addCatalogItemToQuote(quoteId: string, formData: FormData)
     unit_price: item.unit_price,
     vat_rate: item.vat_rate,
     is_service: item.is_service ?? false,
-    // Fișa produsului din catalog; pe ofertă se poate schimba doar pentru clientul ei.
-    ...pickSheet(item),
+    // Fișa produsului din catalog, completată din magazin unde lipsește; pe
+    // ofertă se poate schimba doar pentru clientul ei.
+    ...(await sheetForNewLine(supabase, item)),
   });
 
   refreshQuote(quoteId);

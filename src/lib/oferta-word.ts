@@ -408,7 +408,7 @@ export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
   const body: (Paragraph | Table)[] = [];
   if (bannerImg) body.push(new Paragraph({ children: [imageRun(bannerImg, 640, 290)], alignment: AlignmentType.CENTER, spacing: { after: 240 } }));
   body.push(partiesTable(doc));
-  body.push(...banner("FORMULAR DE OFERTĂ TEHNICO – FINANCIARĂ"));
+  body.push(...banner("OFERTĂ TEHNICO – FINANCIARĂ"));
   if (quote.title) body.push(para([text(quote.title, { bold: true })], { align: AlignmentType.CENTER }));
   if (doc.rateText) body.push(para([text(doc.rateText, { size: 18, color: "595959" })], { align: AlignmentType.RIGHT }));
 

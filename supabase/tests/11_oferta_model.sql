@@ -54,6 +54,29 @@ do $$ begin
   end if;
 end $$;
 
+\echo '--- 6. fișa din magazin completează doar câmpurile goale din catalog ---'
+insert into public.catalog_items (org_id, name, unit_price, intro)
+select (select v from public._m where k='org')::uuid, 'Pompă din magazin', 100, 'Scris de conducere';
+insert into public._m select 'item', id::text from public.catalog_items where name = 'Pompă din magazin';
+
+reset role; set role authenticated;
+select set_config('request.jwt.claim.sub', 'f2000000-0000-0000-0000-000000000002', false);
+select public.fill_catalog_sheet((select v from public._m where k='item')::uuid,
+  'Din magazin', null, E'Avantaj 1\nAvantaj 2', '', 'Zugrăveli');
+select intro, benefits, recommendations, applications from public.catalog_items where name = 'Pompă din magazin';
+
+do $$ begin
+  if (select intro from public.catalog_items where name = 'Pompă din magazin') <> 'Scris de conducere' then
+    raise exception 'PROBLEMĂ: textul scris în catalog a fost înlocuit din magazin';
+  end if;
+  if (select benefits from public.catalog_items where name = 'Pompă din magazin') is null then
+    raise exception 'PROBLEMĂ: avantajele din magazin nu s-au păstrat';
+  end if;
+  if (select recommendations from public.catalog_items where name = 'Pompă din magazin') is not null then
+    raise exception 'PROBLEMĂ: un text gol din magazin a completat catalogul';
+  end if;
+end $$;
+
 reset role;
 drop table public._m;
 \echo '--- toate verificările pe oferta model au trecut ---'
