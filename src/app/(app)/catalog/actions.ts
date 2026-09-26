@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
+import type { ShopTexts } from "@/lib/magazin-texte";
+import { shopTexts } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
 import { catalogItemSchema, parseForm, type ActionState } from "@/lib/validation";
 
@@ -64,4 +66,16 @@ export async function deleteCatalogItem(formData: FormData) {
 
   revalidatePath("/catalog");
   redirect("/catalog");
+}
+
+/**
+ * Textele fișei din pagina produsului din magazin, ca să fie verificate în
+ * formular înainte de salvare. Nu scrie nimic în catalog.
+ */
+export async function readShopTexts(shopUrl: string): Promise<ShopTexts | { error: string }> {
+  await requireOrg();
+  if (!/^https?:\/\//i.test(shopUrl)) return { error: "Completează întâi adresa paginii din magazin." };
+  const texts = await shopTexts(shopUrl).catch(() => null);
+  if (!texts) return { error: "Pagina din magazin nu s-a putut citi acum. Încearcă din nou peste câteva minute." };
+  return texts;
 }

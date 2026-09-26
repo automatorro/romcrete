@@ -133,19 +133,25 @@ export async function loadOfferDocument(db: Db, quoteId: string, organization: O
         : ` (curs ${eur.source}${eur.date ? ` din ${formatDate(eur.date)}` : ""})`)
     : null;
 
-  const products: OfferProduct[] = sheets.map(({ item, image, specs, sku }) => ({
-    item,
-    sku,
-    image,
-    intro: item.intro?.trim() || item.description?.trim() || null,
-    contents: lines(item.package_contents),
-    // Specificațiile scrise în catalog sau pe ofertă au prioritate; altfel, cele din fișa magazinului.
-    specs: item.specs_text?.trim() ? parseSpecs(item.specs_text) : fromAutoSpecs(specs),
-    benefits: lines(item.benefits),
-    recommendations: lines(item.recommendations),
-    applications: lines(item.applications),
-    price: lineFinal(item, discount),
-  }));
+  const products: OfferProduct[] = sheets.map(({ item, image, specs, sku, shop }) => {
+    // Ce e scris pe ofertă (din catalog sau de agent) are prioritate; ce lipsește
+    // se ia din descrierea produsului din magazin. Serviciile n-au fișă de magazin.
+    const from = (field: keyof NonNullable<typeof shop>) =>
+      item[field]?.trim() || (item.is_service ? null : shop?.[field]?.trim()) || null;
+    return {
+      item,
+      sku,
+      image,
+      intro: from("intro") || item.description?.trim() || null,
+      contents: lines(from("package_contents")),
+      // Specificațiile scrise în catalog sau pe ofertă au prioritate; altfel, cele din fișa magazinului.
+      specs: item.specs_text?.trim() ? parseSpecs(item.specs_text) : fromAutoSpecs(specs),
+      benefits: lines(from("benefits")),
+      recommendations: lines(from("recommendations")),
+      applications: lines(from("applications")),
+      price: lineFinal(item, discount),
+    };
+  });
 
   const validityDays =
     quote.valid_until && quote.issue_date

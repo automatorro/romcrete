@@ -1,3 +1,4 @@
+import type { ShopTexts } from "@/lib/magazin-texte";
 import { productSheet, type CatalogSheet, type Spec } from "@/lib/oferta-print";
 import type { createClient } from "@/lib/supabase/server";
 import type { QuoteItem } from "@/lib/types";
@@ -70,7 +71,14 @@ async function linePhoto(db: Db, quoteItemId: string): Promise<string | null> {
 }
 
 /** `sku` e codul produsului din catalog (Part N pe ofertă); null la liniile libere. */
-export type QuoteSheet = { item: QuoteItem; image: string | null; specs: Spec[]; sku: string | null };
+export type QuoteSheet = {
+  item: QuoteItem;
+  image: string | null;
+  specs: Spec[];
+  sku: string | null;
+  /** Textele din descrierea magazinului, pentru ce n-a fost scris în catalog sau pe ofertă. */
+  shop: ShopTexts | null;
+};
 
 /**
  * Fișele tuturor produselor de pe ofertă, cu poza pusă direct în pagină
@@ -90,14 +98,14 @@ export async function loadQuoteSheets(db: Db, items: QuoteItem[]): Promise<{ she
   const sheets = await Promise.all(
     items.map(async (item): Promise<QuoteSheet> => {
       const cat = item.catalog_item_id ? (catalog.get(item.catalog_item_id) ?? null) : null;
-      const { image: shopImageUrl, specs } = await productSheet(cat);
+      const { image: shopImageUrl, specs, texts } = await productSheet(cat);
       // Serviciile (transport, instruire) nu au poză și nu o cer; o poză pusă de mână tot apare.
       const image = item.is_service
         ? await linePhoto(db, item.id)
         : cat
           ? await catalogPhoto(db, cat, shopImageUrl)
           : await linePhoto(db, item.id);
-      return { item, image, specs, sku: cat?.sku ?? null };
+      return { item, image, specs, sku: cat?.sku ?? null, shop: texts };
     }),
   );
 

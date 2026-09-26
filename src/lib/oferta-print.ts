@@ -1,3 +1,4 @@
+import { extractShopTexts, type ShopTexts } from "@/lib/magazin-texte";
 import type { CatalogItem } from "@/lib/types";
 
 /** Ce îi trebuie ofertei tipărite dintr-o poziție de catalog. */
@@ -227,8 +228,10 @@ function sameSpec(a: string, b: string) {
  * codul și ce s-a verificat la import; pagina din magazin completează restul
  * caracteristicilor tehnice. Ce se livrează în pachet vine la final.
  */
-export async function productSheet(item: CatalogSheet | null): Promise<{ image: string | null; specs: Spec[] }> {
-  if (!item) return { image: null, specs: [] };
+export async function productSheet(
+  item: CatalogSheet | null,
+): Promise<{ image: string | null; specs: Spec[]; texts: ShopTexts | null }> {
+  if (!item) return { image: null, specs: [], texts: null };
 
   const html = await shopPage(item.shop_url);
   let image = item.image_url;
@@ -252,5 +255,12 @@ export async function productSheet(item: CatalogSheet | null): Promise<{ image: 
   }
   specs.push(...delivered);
 
-  return { image, specs: specs.slice(0, 18) };
+  // Textele din descrierea magazinului: completează fișa când catalogul n-o are scrisă.
+  return { image, specs: specs.slice(0, 18), texts: html ? extractShopTexts(html) : null };
+}
+
+/** Doar textele fișei din pagina magazinului (pentru catalog și pentru liniile noi de ofertă). */
+export async function shopTexts(shopUrl: string | null): Promise<ShopTexts | null> {
+  const html = await shopPage(shopUrl);
+  return html ? extractShopTexts(html) : null;
 }

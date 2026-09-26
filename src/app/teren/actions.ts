@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { termsForClient } from "@/lib/conditii";
+import { sheetForNewLine } from "@/lib/fisa-magazin";
 import { pickSheet } from "@/lib/fisa-produs";
 import { isManualKind } from "@/lib/istoric";
 import { createClient } from "@/lib/supabase/server";
@@ -347,12 +348,18 @@ export async function createQuoteFromVisit(formData: FormData) {
   if (skus.length) {
     const { data: items } = await supabase
       .from("catalog_items")
-      .select("id, sku, name, description, unit, unit_price, vat_rate, is_service, intro, package_contents, specs_text, benefits, recommendations, applications")
+      .select("id, sku, name, description, unit, unit_price, vat_rate, is_service, shop_url, intro, package_contents, specs_text, benefits, recommendations, applications")
       .eq("org_id", orgId)
       .in("sku", skus);
 
     // Ordinea de pe ofertă o dă ordinea în care agentul a ales modelele.
     const bySku = new Map((items ?? []).map((i) => [i.sku as string, i]));
+    // Fișa fiecărui produs, completată din magazin unde catalogul n-o are (în paralel).
+    const sheets = new Map(
+      await Promise.all(
+        (items ?? []).map(async (item) => [item.id as string, await sheetForNewLine(supabase, item)] as const),
+      ),
+    );
     const lines = skus
       .map((sku, index) => {
         const item = bySku.get(sku);
@@ -368,7 +375,7 @@ export async function createQuoteFromVisit(formData: FormData) {
           unit_price: item.unit_price,
           vat_rate: item.vat_rate,
           is_service: Boolean(item.is_service),
-          ...pickSheet(item),
+          ...(sheets.get(item.id) ?? pickSheet(item)),
         };
       })
       .filter((l) => l !== null);

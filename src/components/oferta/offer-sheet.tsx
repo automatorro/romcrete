@@ -83,7 +83,7 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
             </div>
           </section>
 
-          <Banner>FORMULAR DE OFERTĂ TEHNICO – FINANCIARĂ</Banner>
+          <Banner>OFERTĂ TEHNICO – FINANCIARĂ</Banner>
           {quote.title ? <p className="mt-2 text-center font-semibold">{quote.title}</p> : null}
           {rateText ? <p className="mt-1 text-right text-[11px] text-neutral-600">{rateText}</p> : null}
 
