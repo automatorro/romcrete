@@ -252,3 +252,98 @@ export function nameKey(name: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+type ClientData = ParsedClient["data"];
+
+/** O firmă din baza de date, cu câmpurile pe care importul le poate completa. */
+export type ExistingClient = { id: string } & Record<ImportField, string | null>;
+
+export type ImportPlan = {
+  /** Firmele care nu există: se adaugă. */
+  inserts: ClientData[];
+  /** Firmele existente care primesc date în câmpurile goale. */
+  updates: { id: string; name: string; patch: Partial<ClientData> }[];
+  /** Ce s-a completat, pe rânduri, pentru mesajul de la final. */
+  filled: string[];
+  /** Rândurile care n-au adus nimic nou. */
+  unchanged: string[];
+};
+
+type Target = { id: string | null; record: Record<ImportField, string | null>; patch: Partial<ClientData> };
+
+/**
+ * Hotărăște ce face fiecare rând: firmă nouă sau completarea uneia existente.
+ * O firmă se recunoaște după CUI sau după denumire; două firme cu aceeași
+ * denumire, dar cu CUI-uri diferite, rămân firme diferite. Ce e deja scris
+ * în aplicație nu se suprascrie niciodată: se completează doar golurile.
+ */
+export function planImport(existing: ExistingClient[], rows: ParsedClient[]): ImportPlan {
+  const byCui = new Map<string, Target>();
+  const byName = new Map<string, Target[]>();
+
+  const index = (target: Target) => {
+    const cui = cuiKey(target.record.cui);
+    if (cui && !byCui.has(cui)) byCui.set(cui, target);
+    const name = nameKey(target.record.name ?? "");
+    byName.set(name, [...(byName.get(name) ?? []), target]);
+  };
+
+  for (const { id, ...record } of existing) index({ id, record, patch: {} });
+
+  const find = (data: ClientData): Target | null => {
+    const cui = cuiKey(data.cui);
+    if (cui && byCui.has(cui)) return byCui.get(cui)!;
+    const sameName = byName.get(nameKey(data.name)) ?? [];
+    // Pe denumire doar dacă CUI-urile nu se contrazic (unul dintre ele lipsește).
+    return sameName.find((t) => !cui || !cuiKey(t.record.cui)) ?? null;
+  };
+
+  const inserts: ClientData[] = [];
+  const filled: string[] = [];
+  const unchanged: string[] = [];
+
+  for (const { row, data } of rows) {
+    const target = find(data);
+    if (!target) {
+      // Rândurile următoare cu aceeași firmă completează direct rândul nou.
+      const fresh = { ...data };
+      inserts.push(fresh);
+      index({ id: null, record: fresh, patch: {} });
+      continue;
+    }
+
+    const added: ImportField[] = [];
+    for (const field of IMPORT_FIELDS) {
+      if (field === "name") continue;
+      if (!target.record[field] && data[field]) {
+        target.record[field] = data[field];
+        target.patch[field] = data[field];
+        added.push(field);
+      }
+    }
+    // A primit CUI acum: rândurile următoare cu același CUI o găsesc direct.
+    if (added.includes("cui")) index(target);
+
+    // Firma poate fi una adăugată chiar din acest fișier, pe un rând de mai sus.
+    const label = `rândul ${row}: „${data.name}”${target.id ? "" : " (apare de mai multe ori în fișier)"}`;
+    if (added.length) {
+      filled.push(`${label} — completat: ${added.map((f) => TEMPLATE_HEADERS[f]).join(", ")}`);
+    } else {
+      unchanged.push(`${label} există deja, fără date noi`);
+    }
+  }
+
+  const updates: ImportPlan["updates"] = [];
+  const seen = new Set<Target>();
+  for (const targets of byName.values()) {
+    for (const t of targets) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      if (t.id && Object.keys(t.patch).length) {
+        updates.push({ id: t.id, name: t.record.name ?? "", patch: t.patch });
+      }
+    }
+  }
+
+  return { inserts, updates, filled, unchanged };
+}

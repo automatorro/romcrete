@@ -39,7 +39,8 @@ export function ImportForm({ action }: Props) {
         Primul rând al tabelului trebuie să aibă capetele de coloană: <strong>Denumire</strong>{" "}
         (obligatoriu), CUI, Nr. Reg. Com., Persoană de contact, Telefon, Email, Adresă, Localitate,
         Județ, Observații. Ordinea nu contează, iar coloanele în plus se ignoră. Clienții care există
-        deja (același CUI sau, fără CUI, aceeași denumire) nu se dublează.{" "}
+        deja (același CUI sau aceeași denumire) nu se dublează: la ei se completează doar câmpurile
+        goale, iar ce e deja scris în aplicație rămâne neschimbat.{" "}
         <a href="/clienti/model-import" download className="text-brand-700 hover:underline">
           Descarcă fișierul model
         </a>
@@ -74,7 +75,8 @@ export function ImportForm({ action }: Props) {
         </p>
       ) : null}
       <Details title="Rânduri cu probleme" lines={state?.problems} />
-      <Details title="Clienți care existau deja" lines={state?.skipped} />
+      <Details title="Clienți existenți completați" lines={state?.filled} />
+      <Details title="Clienți existenți fără date noi" lines={state?.skipped} />
 
       {tooBig ? null : (
         <SubmitButton className="btn btn-ok" pendingLabel="Se importă…">
