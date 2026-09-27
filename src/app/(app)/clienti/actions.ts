@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
-import { cuiKey, nameKey, parseClientsFile, type ParsedClient } from "@/lib/import-clienti";
+import {
+  IMPORT_FIELDS,
+  parseClientsFile,
+  planImport,
+  type ExistingClient,
+} from "@/lib/import-clienti";
 import { createClient } from "@/lib/supabase/server";
 import { clientSchema, parseForm, type ActionState } from "@/lib/validation";
 
@@ -62,12 +67,13 @@ export async function deleteClientRecord(formData: FormData) {
   redirect("/clienti");
 }
 
-/** Rezultatul importului: pe lângă mesaj, ce s-a sărit și de ce. */
+/** Rezultatul importului: pe lângă mesaj, ce s-a completat, ce s-a sărit și de ce. */
 export type ImportState =
-  | { error?: string; success?: string; skipped?: string[]; problems?: string[] }
+  | { error?: string; success?: string; filled?: string[]; skipped?: string[]; problems?: string[] }
   | null;
 
 const INSERT_CHUNK = 500;
+const UPDATE_PARALLEL = 10;
 
 export async function importClientsFromFile(
   _prev: ImportState,
@@ -87,58 +93,53 @@ export async function importClientsFromFile(
   const supabase = await createClient();
   const { data: existing, error: readError } = await supabase
     .from("clients")
-    .select("name, cui")
+    .select(["id", ...IMPORT_FIELDS].join(", "))
     .eq("org_id", orgId);
   if (readError) return { error: readError.message };
 
-  // Un client se recunoaște după CUI; fără CUI, după denumire.
-  const seenCui = new Set<string>();
-  const seenName = new Set<string>();
-  for (const c of existing ?? []) {
-    const cui = cuiKey(c.cui);
-    if (cui) seenCui.add(cui);
-    seenName.add(nameKey(c.name));
-  }
-
-  const fresh: ParsedClient["data"][] = [];
-  const skipped: string[] = [];
-  for (const { row, data } of parsed.clients) {
-    const cui = cuiKey(data.cui);
-    const name = nameKey(data.name);
-    if ((cui && seenCui.has(cui)) || (!cui && seenName.has(name))) {
-      skipped.push(`rândul ${row}: „${data.name}” există deja`);
-      continue;
-    }
-    if (cui) seenCui.add(cui);
-    seenName.add(name);
-    fresh.push(data);
-  }
+  const plan = planImport((existing ?? []) as unknown as ExistingClient[], parsed.clients);
+  const details = { filled: plan.filled, skipped: plan.unchanged, problems: parsed.problems };
 
   let added = 0;
-  for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
-    const chunk = fresh.slice(i, i + INSERT_CHUNK).map((c) => ({ ...c, org_id: orgId }));
+  for (let i = 0; i < plan.inserts.length; i += INSERT_CHUNK) {
+    const chunk = plan.inserts.slice(i, i + INSERT_CHUNK).map((c) => ({ ...c, org_id: orgId }));
     const { error } = await supabase.from("clients").insert(chunk);
     if (error) {
       if (added > 0) revalidatePath("/clienti");
-      return {
-        error: `Importul s-a oprit după ${added} clienți adăugați: ${error.message}`,
-        skipped,
-        problems: parsed.problems,
-      };
+      return { error: `Importul s-a oprit după ${added} clienți adăugați: ${error.message}`, ...details };
     }
     added += chunk.length;
+  }
+
+  // Câte o actualizare pe firmă, doar cu câmpurile care erau goale.
+  let updated = 0;
+  const failed: string[] = [];
+  for (let i = 0; i < plan.updates.length; i += UPDATE_PARALLEL) {
+    const batch = plan.updates.slice(i, i + UPDATE_PARALLEL);
+    const results = await Promise.all(
+      batch.map((u) => supabase.from("clients").update(u.patch).eq("id", u.id)),
+    );
+    results.forEach(({ error }, j) => {
+      if (error) failed.push(`„${batch[j].name}”: ${error.message}`);
+      else updated++;
+    });
   }
 
   revalidatePath("/clienti");
 
   const parts = [
-    added === 1 ? "Am adăugat 1 client." : `Am adăugat ${added} clienți.`,
-    skipped.length ? `${skipped.length} existau deja și au rămas neatinși.` : "",
+    added === 1 ? "Am adăugat 1 client nou." : `Am adăugat ${added} clienți noi.`,
+    updated ? `Am completat date la ${updated} ${updated === 1 ? "client existent" : "clienți existenți"}.` : "",
+    plan.unchanged.length ? `${plan.unchanged.length} rânduri nu aduceau nimic nou.` : "",
     parsed.problems.length ? `${parsed.problems.length} rânduri nu au putut fi citite.` : "",
   ];
-  return {
-    success: `${parts.filter(Boolean).join(" ")} Coloane folosite: ${parsed.columns.join(", ")}.`,
-    skipped,
-    problems: parsed.problems,
-  };
+  const summary = `${parts.filter(Boolean).join(" ")} Coloane folosite: ${parsed.columns.join(", ")}.`;
+
+  if (failed.length) {
+    return {
+      error: `${summary} Nu s-au putut completa ${failed.length} clienți: ${failed.slice(0, 5).join("; ")}`,
+      ...details,
+    };
+  }
+  return { success: summary, ...details };
 }
