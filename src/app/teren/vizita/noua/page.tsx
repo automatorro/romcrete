@@ -36,7 +36,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
 
   if (firmaNoua) {
     return (
-      <div>
+      <div className="mx-auto max-w-3xl">
         <PageHeader back={{ href: "/teren/vizita/noua", label: "Înapoi" }} title="Firmă / meseriaș nou" />
 
         <form action={startVisit} className="card mt-3 space-y-3 p-3.5">
@@ -102,16 +102,16 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
         />
       </form>
 
-      <Link href="/teren/vizita/noua?nou=1" className="btn btn-primary btn-lg w-full">
+      <Link href="/teren/vizita/noua?nou=1" className="btn btn-primary btn-lg w-full lg:w-auto">
         ＋ Firmă / meseriaș nou
       </Link>
 
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3 grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => (
           <li key={r.client_id}>
             <form action={startVisit}>
               <input type="hidden" name="client_id" value={r.client_id} />
-              <button type="submit" className="card w-full p-3 text-left">
+              <button type="submit" className="card h-full w-full p-3 text-left">
                 <b className="text-[15px]">{r.name}</b>{" "}
                 <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
                 <p className="text-xs text-neutral-500">

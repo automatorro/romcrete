@@ -411,7 +411,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
       <div className="h-20" aria-hidden />
 
       <div className="above-teren-nav fixed inset-x-0 z-20 border-t border-neutral-200 bg-white px-3.5 py-2">
-        <div className="mx-auto flex max-w-[760px] items-center gap-3">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
           <span
             className={`flex-1 text-sm ${
               status === "error" ? "font-semibold text-[var(--color-bad)]" : "text-neutral-500"
@@ -432,7 +432,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           </button>
         </div>
         {finishError ? (
-          <p role="alert" className="mx-auto mt-1.5 max-w-[760px] text-sm font-semibold text-[var(--color-bad)]">
+          <p role="alert" className="mx-auto mt-1.5 max-w-3xl text-sm font-semibold text-[var(--color-bad)]">
             {finishError}
           </p>
         ) : null}
