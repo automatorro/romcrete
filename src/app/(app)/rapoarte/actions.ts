@@ -55,6 +55,27 @@ export async function createReport(formData: FormData) {
 
   const data = await buildReportSnapshot(orgId, organization.name, type, anchor, agentId, domainId);
   const supabase = await createClient();
+
+  // O singură ciornă pe perioadă și filtre, pentru fiecare autor: la a doua
+  // apăsare se deschide ciorna existentă, cu cifrele reîmprospătate și textele
+  // păstrate, în loc să apară două rapoarte identice în listă.
+  let existing = supabase
+    .from("reports")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("created_by", user.id)
+    .eq("status", "ciorna")
+    .eq("type", type)
+    .eq("period_from", data.from);
+  existing = agentId ? existing.eq("agent_filter", agentId) : existing.is("agent_filter", null);
+  existing = domainId ? existing.eq("domain_filter", domainId) : existing.is("domain_filter", null);
+  const { data: draft } = await existing.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  if (draft) {
+    await supabase.from("reports").update({ data }).eq("id", draft.id);
+    refresh(draft.id);
+    redirect(`${base(formData)}/${draft.id}`);
+  }
+
   const { data: row, error } = await supabase
     .from("reports")
     .insert({
@@ -152,7 +173,13 @@ export async function deleteReport(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("reports").delete().eq("id", id);
+  // Se cere înapoi rândul șters: fără el, ștergerea n-a avut loc (drepturi,
+  // conexiune), iar raportul nu trebuie să pară șters când nu e.
+  const { data: deleted, error } = await supabase.from("reports").delete().eq("id", id).select("id");
   refresh(id);
-  redirect(base(formData));
+  if (error || !deleted?.length) {
+    const motiv = error?.message ?? "Raportul nu a putut fi șters. Doar autorul sau conducerea îl pot șterge.";
+    redirect(`${base(formData)}/${id}?eroare=${encodeURIComponent(motiv)}`);
+  }
+  redirect(`${base(formData)}?sters=1`);
 }

@@ -15,7 +15,13 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
 
 type Zona = "teren" | "birou";
-type Search = { tip?: string | string[]; data?: string | string[]; ag?: string | string[]; dom?: string | string[] };
+type Search = {
+  tip?: string | string[];
+  data?: string | string[];
+  ag?: string | string[];
+  dom?: string | string[];
+  sters?: string | string[];
+};
 
 export function ReportStatus({ status, sentAt }: { status: string; sentAt?: string | null }) {
   return status === "trimis" ? (
@@ -33,6 +39,15 @@ export function ReportStatus({ status, sentAt }: { status: string; sentAt?: stri
  * Rapoartele: alegi tipul și perioada, vezi raportul generat din date, apoi îl
  * salvezi ca să-l completezi și să-l trimiți. Agentul vede doar raportul lui.
  */
+const DATE_TIME = new Intl.DateTimeFormat("ro-RO", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Bucharest",
+});
+const dateTime = (v: string | null) => (v ? DATE_TIME.format(new Date(v)) : "—");
+
 export async function ReportsHub({ zona, search }: { zona: Zona; search: Search }) {
   const { orgId, organization, user, role } = await requireOrg();
   const conducere = role !== "agent";
@@ -60,7 +75,7 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
     supabase.from("memberships").select("user_id, full_name").eq("org_id", orgId),
     supabase
       .from("reports")
-      .select("id, title, type, period_from, period_to, status, sent_at, updated_at, created_by")
+      .select("id, title, type, period_from, period_to, status, sent_at, created_at, updated_at, created_by")
       .eq("org_id", orgId)
       .order("period_from", { ascending: false })
       .order("updated_at", { ascending: false })
@@ -188,6 +203,11 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
 
       <section>
         <h2 className="mb-2 text-base font-semibold">Rapoarte salvate</h2>
+        {one(search.sters) === "1" ? (
+          <p role="status" className="notice mb-2">
+            Raportul a fost șters.
+          </p>
+        ) : null}
         {saved?.length ? (
           <DataList
             rows={saved}
@@ -210,7 +230,9 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
               },
               { header: "Stare", cell: (r) => <ReportStatus status={r.status as string} sentAt={r.sent_at as string | null} /> },
               { header: "Autor", className: "text-neutral-500", cell: (r) => who(r.created_by as string | null) ?? "—" },
-              { header: "Modificat", className: "text-neutral-500", cell: (r) => formatDate(r.updated_at as string) },
+              // Cu ora: două rapoarte pe aceeași perioadă se deosebesc după când au fost făcute.
+              { header: "Creat", className: "text-neutral-500", cell: (r) => dateTime(r.created_at as string) },
+              { header: "Modificat", className: "text-neutral-500", cell: (r) => dateTime(r.updated_at as string) },
             ]}
           />
         ) : (

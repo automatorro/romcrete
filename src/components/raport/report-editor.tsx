@@ -45,7 +45,7 @@ function kpiLine(k: Kpi): string {
 }
 
 /** Editarea unui raport salvat: textele, trimiterea și previzualizarea exactă. */
-export async function ReportEditor({ id, zona }: { id: string; zona: Zona }) {
+export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zona; eroare?: string }) {
   const { orgId } = await requireOrg();
   const supabase = await createClient();
   const [{ data: row }, { data: members }] = await Promise.all([
@@ -116,6 +116,12 @@ export async function ReportEditor({ id, zona }: { id: string; zona: Zona }) {
           </>
         }
       />
+
+      {eroare ? (
+        <p role="alert" className="notice-error">
+          {eroare}
+        </p>
+      ) : null}
 
       {r.status === "trimis" ? (
         <p className="notice">
