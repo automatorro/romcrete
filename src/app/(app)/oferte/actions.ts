@@ -212,6 +212,8 @@ async function markQuoteSent(quoteId: string, channel: "email" | "whatsapp") {
     });
     revalidatePath(`/teren/firma/${quote.client_id}`);
     revalidatePath(`/clienti/${quote.client_id}`);
+    // Emailul sau WhatsApp-ul se numără în raport și apare în „Vizitele mele”.
+    revalidatePath("/teren/vizite");
   }
   refreshQuote(quote.id);
 }
