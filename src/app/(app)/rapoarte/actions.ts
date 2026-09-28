@@ -168,18 +168,37 @@ export async function markReportSent(id: string) {
   refresh(id);
 }
 
+/** Ce spune `delete_report` când refuză, pe înțelesul celui care a apăsat. */
+const DELETE_REASONS: Record<string, string> = {
+  neautentificat: "Sesiunea a expirat. Intră din nou în cont și reîncearcă.",
+  alta_firma: "Raportul este al altei firme.",
+  fara_drept: "Doar autorul raportului sau conducerea firmei îl pot șterge.",
+};
+
 export async function deleteReport(formData: FormData) {
   await requireOrg();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const supabase = await createClient();
-  // Se cere înapoi rândul șters: fără el, ștergerea n-a avut loc (drepturi,
-  // conexiune), iar raportul nu trebuie să pară șters când nu e.
-  const { data: deleted, error } = await supabase.from("reports").delete().eq("id", id).select("id");
-  refresh(id);
-  if (error || !deleted?.length) {
-    const motiv = error?.message ?? "Raportul nu a putut fi șters. Doar autorul sau conducerea îl pot șterge.";
-    redirect(`${base(formData)}/${id}?eroare=${encodeURIComponent(motiv)}`);
+
+  // Ștergerea trece prin funcția din baza de date, care verifică singură cine
+  // are voie și spune de ce refuză. Până se aplică migrația ei, se încearcă
+  // ștergerea directă și se verifică rândul întors.
+  let motiv: string | null = null;
+  const { data: rezultat, error: rpcError } = await supabase.rpc("delete_report", { p_id: id });
+  if (!rpcError) {
+    // Deja șters (de exemplu, un al doilea clic): nu mai e nimic de arătat.
+    if (rezultat !== "sters" && rezultat !== "nu_exista") motiv = DELETE_REASONS[rezultat as string] ?? `Raportul nu a putut fi șters (${rezultat}).`;
+  } else {
+    const { data: deleted, error } = await supabase.from("reports").delete().eq("id", id).select("id");
+    if (error) motiv = error.message;
+    else if (!deleted?.length) {
+      motiv =
+        "Baza de date a refuzat ștergerea fără să spună de ce. Aplică migrația 20260928120000_rapoarte_stergere.sql în Supabase.";
+    }
   }
+
+  refresh(id);
+  if (motiv) redirect(`${base(formData)}/${id}?eroare=${encodeURIComponent(motiv)}`);
   redirect(`${base(formData)}?sters=1`);
 }
