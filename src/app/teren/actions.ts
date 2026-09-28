@@ -28,6 +28,20 @@ function companyFromForm(formData: FormData) {
   };
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Revalidează ecranele care arată agenda, lista de vizite și istoricul unei
+ * firme: tot ce se schimbă când se salvează o vizită, un pas sau un contact.
+ */
+function refreshClient(clientId: string) {
+  revalidatePath("/teren");
+  revalidatePath("/teren/firme");
+  revalidatePath("/teren/vizite");
+  revalidatePath(`/teren/firma/${clientId}`);
+  revalidatePath(`/clienti/${clientId}`);
+}
+
 /** Creează firma (dacă e nouă) și deschide o vizită pe ea. */
 export async function startVisit(formData: FormData) {
   const { orgId, user } = await requireOrg();
@@ -56,15 +70,21 @@ export async function startVisit(formData: FormData) {
     clientId = created.id;
   }
 
+  // Ziua o dă aplicația, după ceasul din România: implicit azi, sau ziua din
+  // „Vizitele mele” când agentul trece vizitele din agenda de hârtie.
+  const today = todayRo();
+  const chosen = String(formData.get("visit_date") ?? "");
+  const visitDate = ISO_DAY.test(chosen) && chosen <= today ? chosen : today;
+
   const { data: visit, error } = await supabase
     .from("visits")
-    .insert({ org_id: orgId, client_id: clientId, agent_id: user.id })
+    .insert({ org_id: orgId, client_id: clientId, agent_id: user.id, visit_date: visitDate })
     .select("id")
     .single();
 
   if (error || !visit) return;
 
-  revalidatePath("/teren");
+  refreshClient(clientId);
   redirect(`/teren/vizita/${visit.id}`);
 }
 
@@ -80,8 +100,7 @@ export async function updateCompany(formData: FormData) {
 
   if (error) redirect(`/teren/firma/${clientId}?eroare=${encodeURIComponent(error.message)}`);
 
-  revalidatePath("/teren");
-  revalidatePath(`/teren/firma/${clientId}`);
+  refreshClient(clientId);
   revalidatePath("/clienti");
   redirect(`/teren/firma/${clientId}`);
 }
@@ -101,9 +120,13 @@ export async function saveVisit(
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireOrg();
+  // O vizită nu poate fi în viitor: ar ieși din raportul săptămânii în care s-a făcut.
+  if (!ISO_DAY.test(payload.visit_date) || payload.visit_date > todayRo()) {
+    return { ok: false, error: "Data vizitei trebuie să fie azi sau o zi trecută." };
+  }
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data: saved, error } = await supabase
     .from("visits")
     .update({
       answers: payload.answers,
@@ -112,23 +135,16 @@ export async function saveVisit(
       next_step_date: payload.next_step_date || null,
       visit_date: payload.visit_date,
     })
-    .eq("id", visitId);
+    .eq("id", visitId)
+    .select("client_id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
+  if (!saved) return { ok: false, error: "Vizita nu mai există sau nu o poți modifica." };
 
-  revalidatePath("/teren");
+  refreshClient(saved.client_id as string);
   revalidatePath(`/teren/vizita/${visitId}`);
   return { ok: true };
-}
-
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Revalidează ecranele care arată agenda și istoricul unei firme. */
-function refreshClient(clientId: string) {
-  revalidatePath("/teren");
-  revalidatePath("/teren/firme");
-  revalidatePath(`/teren/firma/${clientId}`);
-  revalidatePath(`/clienti/${clientId}`);
 }
 
 /**
@@ -224,6 +240,8 @@ export async function logActivity(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   const date = String(formData.get("date") ?? "");
   if (!clientId || !isManualKind(kind)) return;
+  // Un contact nu se notează în viitor: ar apărea în raportul unei săptămâni încă netrecute.
+  if (ISO_DAY.test(date) && date > todayRo()) return;
 
   // O zi din trecut se notează la prânz, ca ordinea din istoric să rămână firească.
   const occurred = ISO_DAY.test(date) && date !== todayRo() ? `${date}T12:00:00Z` : new Date().toISOString();
@@ -239,6 +257,13 @@ export async function logActivity(formData: FormData) {
   });
 
   refreshClient(clientId);
+}
+
+/** Din „Vizitele mele”: un telefon, email sau WhatsApp trecut din agendă, pe ziua lui. */
+export async function logContactFromList(formData: FormData) {
+  const kind = String(formData.get("kind") ?? "");
+  if (!["telefon", "email", "whatsapp"].includes(kind)) return;
+  await logActivity(formData);
 }
 
 /** Șterge o notă din istoric. RLS lasă doar autorul sau conducerea. */
@@ -265,21 +290,42 @@ export async function finishVisit(visitId: string) {
 
   const { data: visit } = await supabase
     .from("visits")
-    .select("id, client_id")
+    .select("id, client_id, visit_date")
     .eq("id", visitId)
     .maybeSingle();
   if (!visit) return;
 
+  // Se închid doar pașii vizitelor de dinainte: o vizită trecută din agendă
+  // după una mai nouă nu trebuie să închidă pasul stabilit în cea nouă.
   await supabase
     .from("visits")
     .update({ next_step_done_at: new Date().toISOString() })
     .eq("client_id", visit.client_id)
     .neq("id", visit.id)
+    .lte("visit_date", visit.visit_date)
     .is("next_step_done_at", null);
 
-  revalidatePath("/teren");
-  revalidatePath("/teren/firme");
-  revalidatePath(`/teren/firma/${visit.client_id}`);
+  // Invers, dacă firma are deja o vizită mai nouă, pasul valabil e al aceleia:
+  // pasul vizitei trecute acum din agendă se închide, ca să nu rămână restant.
+  const { count: newer } = await supabase
+    .from("visits")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", visit.client_id)
+    .gt("visit_date", visit.visit_date);
+  if (newer) {
+    await supabase
+      .from("visits")
+      .update({ next_step_done_at: new Date().toISOString() })
+      .eq("id", visit.id)
+      .is("next_step_done_at", null);
+  }
+
+  refreshClient(visit.client_id);
+  // O vizită dintr-o zi trecută se trece de obicei din agendă, una după alta:
+  // agentul se întoarce în lista săptămânii, nu pe ecranul de azi.
+  if (visit.visit_date < todayRo()) {
+    redirect(`/teren/vizite?tip=saptamana&data=${visit.visit_date}&incheiat=${visit.id}`);
+  }
   redirect(`/teren?incheiat=${visit.id}`);
 }
 
@@ -294,8 +340,7 @@ export async function deleteVisit(formData: FormData) {
   const supabase = await createClient();
   await supabase.from("visits").delete().eq("id", visitId);
 
-  revalidatePath("/teren");
-  revalidatePath("/teren/vizite");
+  refreshClient(clientId);
   if (inapoi.startsWith("/teren/vizite")) redirect(inapoi);
   redirect(clientId ? `/teren/firma/${clientId}` : "/teren");
 }

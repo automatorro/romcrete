@@ -5,6 +5,7 @@ import { FilterChips } from "@/components/ui/filter-chips";
 import { PageHeader } from "@/components/ui/page-header";
 import { addDays, addWorkingDays, daysBetween, shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
+import { periodFor } from "@/lib/perioade";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import { lastVisitLabel, type ClientState } from "@/lib/teren";
@@ -12,8 +13,8 @@ import { lastVisitLabel, type ClientState } from "@/lib/teren";
 export const metadata = { title: "Azi" };
 
 /** Luni–vineri din săptămâna curentă, până azi inclusiv: câte zile s-au consumat din țintă. */
-function workingDaysSoFar(today: Date) {
-  const dow = (today.getDay() + 6) % 7; // 0 = luni
+function workingDaysSoFar(today: string) {
+  const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7; // 0 = luni
   let n = 0;
   for (let i = 0; i <= Math.min(dow, 4); i++) n++;
   return n;
@@ -73,11 +74,11 @@ export default async function AziPage(props: PageProps<"/teren">) {
   const echipa = conducere && cine === "echipa";
 
   const now = new Date();
-  const azi = now.toISOString().slice(0, 10);
+  // Ziua și săptămâna după ceasul din România, cu aceleași limite ca „Vizitele
+  // mele” și rapoartele: altfel, noaptea, contoarele de aici ar arăta altă zi.
+  const azi = todayRo(now);
   const inceputLuna = `${azi.slice(0, 7)}-01`;
-  const luni = new Date(now);
-  luni.setDate(luni.getDate() - ((now.getDay() + 6) % 7));
-  const inceputSaptamana = luni.toISOString().slice(0, 10);
+  const inceputSaptamana = periodFor("saptamana", azi).from;
 
   const [sections, { data: membership }, { count: viziteAzi }, { count: viziteSapt }, { count: oferteLuna }, { data: stateRows }] =
     await Promise.all([
@@ -177,7 +178,7 @@ export default async function AziPage(props: PageProps<"/teren">) {
   }
   const zoneSortate = [...zone.entries()].sort((a, b) => b[1].urgente - a[1].urgente || b[1].total - a[1].total);
 
-  const zileLucrate = workingDaysSoFar(now);
+  const zileLucrate = workingDaysSoFar(azi);
 
   const stepLabel = (t: Task) =>
     t.next_step ? optionLabel(sections, "urmator", t.next_step) : "Pas următor";

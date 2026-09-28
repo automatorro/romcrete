@@ -173,7 +173,8 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
       setFinishError("Nu am putut salva vizita. Verifică semnalul și încearcă din nou.");
       return;
     }
-    // La succes, acțiunea redirecționează spre „Azi”; revenirea aici e o eroare.
+    // La succes, acțiunea redirecționează spre „Azi” (sau spre lista săptămânii, la o
+    // vizită dintr-o zi trecută); revenirea aici e o eroare.
     await finishVisit(visitId);
     setFinishing(false);
   };
@@ -253,7 +254,12 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           id="visit_date"
           type="date"
           value={form.visitDate}
-          onChange={(e) => update({ visitDate: e.target.value })}
+          max={today}
+          // O zi goală sau din viitor nu se salvează: vizita ar ieși din raportul zilei ei.
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v && v <= today) update({ visitDate: v });
+          }}
           className="input flex-1"
         />
       </div>

@@ -4,6 +4,7 @@ import { startVisit } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
@@ -13,9 +14,24 @@ export const metadata = { title: "Vizită nouă" };
 
 export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/noua">) {
   const { orgId } = await requireOrg();
-  const { q, nou } = await props.searchParams;
+  const { q, nou, data: ziParam } = await props.searchParams;
   const search = typeof q === "string" ? q.trim() : "";
   const firmaNoua = nou === "1";
+  // Din „Vizitele mele”: vizita se trece pe o zi trecută, din agenda de hârtie.
+  const today = todayRo();
+  const zi = typeof ziParam === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ziParam) && ziParam < today ? ziParam : null;
+  const dateField = zi ? <input type="hidden" name="visit_date" value={zi} /> : null;
+  const withDay = (params: Record<string, string>) => {
+    const p = new URLSearchParams(params);
+    if (zi) p.set("data", zi);
+    const s = p.toString();
+    return s ? `/teren/vizita/noua?${s}` : "/teren/vizita/noua";
+  };
+  const dayNotice = zi ? (
+    <p className="card mt-3 p-3 text-sm">
+      Vizita se trece pe <b className="capitalize">{shortDay(zi)}</b>. Ziua se poate schimba și din formularul vizitei.
+    </p>
+  ) : null;
 
   const supabase = await createClient();
   const domains = await getDomains(orgId);
@@ -37,9 +53,11 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
   if (firmaNoua) {
     return (
       <div className="mx-auto max-w-3xl">
-        <PageHeader back={{ href: "/teren/vizita/noua", label: "Înapoi" }} title="Firmă / meseriaș nou" />
+        <PageHeader back={{ href: withDay({}), label: "Înapoi" }} title="Firmă / meseriaș nou" />
+        {dayNotice}
 
         <form action={startVisit} className="card mt-3 space-y-3 p-3.5">
+          {dateField}
           <CompanyFields />
 
           <fieldset>
@@ -89,9 +107,14 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
 
   return (
     <div>
-      <PageHeader title="Cu cine ai vorbit?" />
+      <PageHeader
+        title="Cu cine ai vorbit?"
+        back={zi ? { href: `/teren/vizite?tip=saptamana&data=${zi}`, label: "Vizitele mele" } : undefined}
+      />
+      {dayNotice}
 
       <form className="my-3">
+        {zi ? <input type="hidden" name="data" value={zi} /> : null}
         <input
           type="search"
           name="q"
@@ -102,7 +125,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
         />
       </form>
 
-      <Link href="/teren/vizita/noua?nou=1" className="btn btn-primary btn-lg w-full lg:w-auto">
+      <Link href={withDay({ nou: "1" })} className="btn btn-primary btn-lg w-full lg:w-auto">
         ＋ Firmă / meseriaș nou
       </Link>
 
@@ -111,6 +134,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
           <li key={r.client_id}>
             <form action={startVisit}>
               <input type="hidden" name="client_id" value={r.client_id} />
+              {dateField}
               <button type="submit" className="card h-full w-full p-3 text-left">
                 <b className="text-[15px]">{r.name}</b>{" "}
                 <span className="text-sm text-neutral-500">{r.city ?? ""}</span>
