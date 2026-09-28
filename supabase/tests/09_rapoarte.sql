@@ -56,6 +56,28 @@ do $$ begin
   raise notice 'OK: conducerea vede rapoartele echipei';
 end $$;
 
+\echo '--- 5. delete_report: colegul e refuzat cu motiv, autorul șterge ---'
+reset role;
+insert into public._r select 'raport', id::text from public.reports limit 1;
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'e0000000-0000-0000-0000-000000000003', false);
+do $$ begin
+  if public.delete_report((select v from public._r where k='raport')::uuid) <> 'fara_drept' then
+    raise exception 'PROBLEMĂ: colegul poate șterge raportul altuia';
+  end if;
+  raise notice 'OK: colegul nu poate șterge raportul Anei';
+end $$;
+select set_config('request.jwt.claim.sub', 'e0000000-0000-0000-0000-000000000002', false);
+do $$ begin
+  if public.delete_report((select v from public._r where k='raport')::uuid) <> 'sters' then
+    raise exception 'PROBLEMĂ: autorul nu își poate șterge raportul';
+  end if;
+  if public.delete_report((select v from public._r where k='raport')::uuid) <> 'nu_exista' then
+    raise exception 'PROBLEMĂ: raportul șters încă există';
+  end if;
+  raise notice 'OK: autorul își șterge raportul';
+end $$;
+
 reset role;
 drop table public._r;
 
