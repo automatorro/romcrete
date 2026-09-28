@@ -15,6 +15,7 @@ export default async function MaiMultPage() {
   const conducere = role !== "agent";
 
   const unelte: Item[] = [
+    { href: "/teren/vizite", label: "Vizitele mele", hint: "Firmele vizitate pe zi și pe săptămână, de corectat sau șters" },
     { href: "/teren/catalog", label: "Catalog", hint: "Pompe și accesorii, cu prețuri fără TVA" },
     { href: "/teren/rapoarte", label: "Rapoartele mele", hint: "Zilnic și săptămânal, de trimis prin Outlook" },
     { href: "/teren/cont", label: "Datele mele pe ofertă", hint: "Nume, telefon, email și semnătură" },
