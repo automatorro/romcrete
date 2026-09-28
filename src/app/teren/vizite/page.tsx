@@ -19,6 +19,7 @@ type Row = {
   agent_id: string | null;
   visit_date: string;
   answers: Answers;
+  pump_skus: string[] | null;
   next_step_date: string | null;
   next_step_done_at: string | null;
   clients: { id: string; name: string; city: string | null; contact_person: string | null } | null;
@@ -43,7 +44,7 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
   const supabase = await createClient();
   let query = supabase
     .from("visits")
-    .select("id, client_id, agent_id, visit_date, answers, next_step_date, next_step_done_at, clients(id, name, city, contact_person)")
+    .select("id, client_id, agent_id, visit_date, answers, pump_skus, next_step_date, next_step_done_at, clients(id, name, city, contact_person)")
     .eq("org_id", orgId)
     .gte("visit_date", period.from)
     .lte("visit_date", period.to)
@@ -60,6 +61,20 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
   ]);
   const visits = (visitRows ?? []) as unknown as Row[];
   const memberName = new Map((memberRows ?? []).map((m) => [m.user_id, m.full_name ?? "Fără nume"]));
+
+  // „Prima vizită” ca în foaia Vizite din Excel: vizita din ziua în care firma
+  // a fost văzută prima oară. Firmele cu vizite înainte de perioadă sunt revizite.
+  const clientIds = [...new Set(visits.map((v) => v.client_id))];
+  const { data: earlierRows } = clientIds.length
+    ? await supabase.from("visits").select("client_id").in("client_id", clientIds).lt("visit_date", period.from)
+    : { data: [] };
+  const vazuteInainte = new Set((earlierRows ?? []).map((r) => r.client_id as string));
+  const primaZi = new Map<string, string>();
+  for (const v of visits) {
+    if (vazuteInainte.has(v.client_id)) continue;
+    const cur = primaZi.get(v.client_id);
+    if (!cur || v.visit_date < cur) primaZi.set(v.client_id, v.visit_date);
+  }
 
   // Pe zile, cea mai recentă sus.
   const byDay = new Map<string, Row[]>();
@@ -154,6 +169,15 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
                 return (
                   <li key={v.id} className="card p-3">
                     <div className="flex flex-wrap items-baseline gap-x-2">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-xs ${
+                          primaZi.get(v.client_id) === v.visit_date
+                            ? "border-brand-200 bg-brand-50 text-brand-700"
+                            : "border-neutral-200 bg-neutral-100 text-neutral-700"
+                        }`}
+                      >
+                        {primaZi.get(v.client_id) === v.visit_date ? "Prima vizită" : "Revizită"}
+                      </span>
                       {v.clients ? (
                         <Link href={`/teren/firma/${v.clients.id}`} className="text-[15px] font-semibold">
                           {v.clients.name}
@@ -175,6 +199,12 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
                         </span>
                       ) : null}
                     </p>
+                    {v.pump_skus?.length ? (
+                      <p className="mt-0.5 text-sm">
+                        <span className="text-neutral-500">Modele discutate: </span>
+                        {v.pump_skus.join(", ")}
+                      </p>
+                    ) : null}
                     {etapa || echipa ? (
                       <p className="mt-0.5 text-xs text-neutral-500">
                         {[etapa, echipa ? (v.agent_id ? (memberName.get(v.agent_id) ?? "Agent") : "Fără agent") : null]
