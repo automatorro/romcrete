@@ -263,12 +263,22 @@ export default async function AziPage(props: PageProps<"/teren">) {
       ) : null}
 
       <section className="card mt-3 space-y-4 p-4">
-        <Progress
-          label="Vizite azi"
-          done={viziteAzi ?? 0}
-          target={tintaZi}
-          hint={`Săptămâna asta: ${viziteSapt ?? 0} din ${tintaZi * zileLucrate} până acum.`}
-        />
+        <div>
+          <Progress
+            label="Vizite azi"
+            done={viziteAzi ?? 0}
+            target={tintaZi}
+            hint={`Săptămâna asta: ${viziteSapt ?? 0} din ${tintaZi * zileLucrate} până acum.`}
+          />
+          <p className="mt-1 flex gap-3 text-xs font-medium">
+            <Link href="/teren/vizite?tip=zi" className="text-brand-700 hover:underline">
+              Vizitele de azi →
+            </Link>
+            <Link href="/teren/vizite?tip=saptamana" className="text-brand-700 hover:underline">
+              Pe săptămână →
+            </Link>
+          </p>
+        </div>
         <Progress
           label="Oferte luna asta"
           done={oferteLuna ?? 0}

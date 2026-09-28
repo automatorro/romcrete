@@ -62,6 +62,7 @@ const TABS = [
     icon: "mai",
     match: (p: string) =>
       p.startsWith("/teren/mai-mult") ||
+      p.startsWith("/teren/vizite") ||
       p.startsWith("/teren/catalog") ||
       p.startsWith("/teren/ghid") ||
       p.startsWith("/teren/rapoarte"),

@@ -287,12 +287,16 @@ export async function deleteVisit(formData: FormData) {
   await requireOrg();
   const visitId = String(formData.get("visit_id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
+  // Din lista de vizite, agentul rămâne pe lista lui; altfel, pe fișa firmei.
+  const inapoi = String(formData.get("inapoi") ?? "");
   if (!visitId) return;
 
   const supabase = await createClient();
   await supabase.from("visits").delete().eq("id", visitId);
 
   revalidatePath("/teren");
+  revalidatePath("/teren/vizite");
+  if (inapoi.startsWith("/teren/vizite")) redirect(inapoi);
   redirect(clientId ? `/teren/firma/${clientId}` : "/teren");
 }
 
