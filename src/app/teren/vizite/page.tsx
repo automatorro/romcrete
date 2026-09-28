@@ -155,9 +155,14 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
     typeof value === "string" && value ? optionLabel(sections, groupId, value) : null;
 
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  // „luni, 21 septembrie”: numele întreg al zilei, ca titlu de panou.
+  const longDay = (day: string) =>
+    new Intl.DateTimeFormat("ro-RO", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(
+      new Date(`${day}T12:00:00Z`),
+    );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         back={{ href: "/teren/mai-mult", label: "Mai mult" }}
         title={echipa ? "Vizitele echipei" : "Vizitele mele"}
@@ -223,9 +228,19 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
         // Azi, „＋ Vizită” e vizita obișnuită; pe o zi trecută, vizita se trece pe ziua ei.
         const newVisit = day === today ? "/teren/vizita/noua" : `/teren/vizita/noua?data=${day}`;
         return (
-          <section key={day} id={`zi-${day}`} className="scroll-mt-4">
-            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2">
-              <h2 className="text-sm font-semibold capitalize">{shortDay(day)}</h2>
+          // Fiecare zi e un panou separat, cu fundal și bară în culoarea de brand:
+          // se vede dintr-o privire pe ce zi trec vizita sau telefonul.
+          <section
+            key={day}
+            id={`zi-${day}`}
+            className="scroll-mt-4 rounded-2xl border border-brand-100 border-l-4 border-l-brand-600 bg-brand-50 p-3 lg:p-4"
+          >
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-2 border-b border-brand-100 pb-2">
+              <h2 className="text-base font-semibold text-brand-700 first-letter:uppercase">{longDay(day)}</h2>
+              {day === today ? (
+                <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-medium text-white">azi</span>
+              ) : null}
+              <span className="flex-1" />
               <span className="text-xs text-neutral-500">
                 {plural(dayVisits.length, "vizită", "vizite")} · {plural(dayContacts.length, "contact", "contacte")}
               </span>
