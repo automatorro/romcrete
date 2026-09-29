@@ -72,6 +72,10 @@ export type Client = {
   /** Domeniul în care lucrează: hotărăște întrebările și unitatea de calcul. */
   domain: string | null;
   owner_agent_id: string | null;
+  /** Canalul pe care firma vrea newsletterele; null = emailul dacă îl are, altfel WhatsApp. */
+  preferred_channel: "email" | "whatsapp" | null;
+  /** Firma a cerut să nu mai primească newslettere. */
+  newsletter_opt_out: boolean;
   created_at: string;
 };
 

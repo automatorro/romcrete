@@ -19,7 +19,8 @@ export type HistoryKind =
   | "pas_amanat"
   | "pas_inchis"
   | "oferta_creata"
-  | "oferta_stare";
+  | "oferta_stare"
+  | "newsletter";
 
 export const HISTORY_LABELS: Record<HistoryKind, string> = {
   vizita: "Vizită",
@@ -32,6 +33,7 @@ export const HISTORY_LABELS: Record<HistoryKind, string> = {
   pas_inchis: "Pas închis",
   oferta_creata: "Ofertă",
   oferta_stare: "Ofertă",
+  newsletter: "Newsletter",
 };
 
 /** Un rând din istoric, gata de afișat: vizită, contact, pas sau ofertă. */
