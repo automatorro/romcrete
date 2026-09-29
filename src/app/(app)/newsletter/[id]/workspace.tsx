@@ -9,9 +9,13 @@ import {
   bccBatches,
   CHANNEL_LABELS,
   channelFor,
+  emailHtml,
   emailsOf,
   formatPhone,
   fullBody,
+  hasTextLinks,
+  htmlToNewsletterText,
+  linksAsText,
   mailtoUrl,
   MAILTO_LIMIT,
   personalize,
@@ -88,8 +92,11 @@ export function NewsletterWorkspace({
   }, [dirty]);
 
   const subjectText = (c: Recipient | null) => personalize(draft.subject.trim() || draft.title, sender, c);
-  const whatsappText = (c: Recipient | null) => fullBody(personalize(draft.body, sender, c), draft.unsubscribe_note);
+  const messageFor = (c: Recipient | null) => fullBody(personalize(draft.body, sender, c), draft.unsubscribe_note);
+  // WhatsApp și emailul simplu nu pot ascunde adresa sub text: linkul se scrie după text.
+  const whatsappText = (c: Recipient | null) => linksAsText(messageFor(c));
   const emailText = (c: Recipient | null) => stripWhatsAppMarks(whatsappText(c));
+  const emailRichHtml = (c: Recipient | null) => emailHtml(messageFor(c));
   const personalized = usesClientFields(draft.body, draft.subject);
 
   // ------------------------------------------------------------ firmele
@@ -151,6 +158,9 @@ export function NewsletterWorkspace({
   // ------------------------------------------------------------ trimiterea
   const [emailModeChoice, setEmailMode] = useState<EmailMode | null>(null);
   const emailMode: EmailMode = emailModeChoice ?? (personalized ? "individual" : "bcc");
+  // Emailul formatat (linkuri pe text, aldin, liste) se lipește în Outlook; implicit când textul are linkuri pe text.
+  const [emailRichChoice, setEmailRich] = useState<boolean | null>(null);
+  const emailRich = emailRichChoice ?? hasTextLinks(draft.body);
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
 
@@ -166,10 +176,23 @@ export function NewsletterWorkspace({
     setSentNow((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { at, channel }])) }));
   };
 
-  /** Deschide emailul în Outlook; textul prea lung pentru link se copiază și se lipește. */
-  const openEmail = (to: string[], bcc: string[], subject: string, body: string) => {
+  /**
+   * Deschide emailul în Outlook. Emailul formatat și textul prea lung pentru
+   * un link „mailto:” se copiază, iar în Outlook se lipesc cu Ctrl+V.
+   */
+  const openEmail = (to: string[], bcc: string[], subject: string, body: string, html: string) => {
     let url = mailtoUrl({ to, bcc, subject, body });
-    if (url.length > MAILTO_LIMIT) {
+    if (emailRich) {
+      url = mailtoUrl({ to, bcc, subject });
+      void copyRich(html, body).then((ok) =>
+        setNotice({
+          text: ok
+            ? "Emailul s-a deschis cu destinatarii și subiectul. Textul formatat, cu linkurile, e copiat: dă clic în corpul emailului din Outlook și apasă Ctrl+V."
+            : "Textul nu s-a putut copia: apasă „Copiază textul emailului” și lipește-l în Outlook cu Ctrl+V.",
+          error: !ok,
+        }),
+      );
+    } else if (url.length > MAILTO_LIMIT) {
       url = mailtoUrl({ to, bcc, subject });
       void copy(body).then((ok) =>
         setNotice({
@@ -186,13 +209,13 @@ export function NewsletterWorkspace({
 
   const sendBcc = (batch: Row[]) => {
     const to = sender.email ? [sender.email] : [];
-    openEmail(to, batch.flatMap((c) => c.emails), subjectText(null), emailText(null));
+    openEmail(to, batch.flatMap((c) => c.emails), subjectText(null), emailText(null), emailRichHtml(null));
     markOpened(batch.map((c) => `email:${c.id}`));
     void log("email", batch.map((c) => c.id));
   };
 
   const sendEmailTo = (c: Row) => {
-    openEmail(c.emails, [], subjectText(c), emailText(c));
+    openEmail(c.emails, [], subjectText(c), emailText(c), emailRichHtml(c));
     markOpened([`email:${c.id}`]);
     void log("email", [c.id]);
   };
@@ -225,6 +248,38 @@ export function NewsletterWorkspace({
     setDraft((d) => ({ ...d, ...patch }));
     setSaveState(null);
   };
+  /** Înlocuiește selecția cu textul dat; cursorul rămâne după el sau selectează `select`. */
+  const replaceSelection = (text: string, select?: [number, number]) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e, value } = el;
+    edit({ body: value.slice(0, s) + text + value.slice(e) });
+    requestAnimationFrame(() => {
+      el.focus();
+      if (select) el.setSelectionRange(s + select[0], s + select[1]);
+      else el.setSelectionRange(s + text.length, s + text.length);
+    });
+  };
+  /** Link pe textul selectat, ca în Word: `[text](adresă)`. */
+  const addLink = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const raw = window.prompt("Adresa linkului (de pe site, ex. https://shop.romcrete.ro/…)", "https://")?.trim();
+    if (!raw || raw === "https://") return;
+    const url = /^(https?:\/\/|mailto:)/i.test(raw) ? raw : raw.includes("@") ? `mailto:${raw}` : `https://${raw}`;
+    const label = el.value.slice(el.selectionStart, el.selectionEnd).trim() || "textul linkului";
+    replaceSelection(`[${label}](${url})`, [1, 1 + label.length]);
+  };
+  /** Textul lipit din Word își păstrează linkurile, aldinul și listele. */
+  const pasteRich = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData("text/html");
+    if (!html || !/<a\s|<b[\s>]|<strong|<i[\s>]|<em[\s>]|<li|mso-|font-weight/i.test(html)) return;
+    const text = htmlToNewsletterText(html);
+    if (!text) return;
+    e.preventDefault();
+    replaceSelection(text);
+  };
+
   /** Pune textul la cursor sau îmbracă selecția, ca în WhatsApp. */
   const insert = (before: string, after = "") => {
     const el = bodyRef.current;
@@ -302,6 +357,9 @@ export function NewsletterWorkspace({
                 <button type="button" onClick={() => insert("\n- ")} className="chip chip-s" title="Rând de listă">
                   • listă
                 </button>
+                <button type="button" onClick={addLink} className="chip chip-s" title="Selectează textul, apoi pune linkul în spatele lui">
+                  🔗 Link
+                </button>
               </div>
             ) : null}
             <textarea
@@ -309,13 +367,15 @@ export function NewsletterWorkspace({
               ref={bodyRef}
               value={draft.body}
               onChange={(e) => edit({ body: e.target.value })}
+              onPaste={canEdit ? pasteRich : undefined}
               readOnly={!canEdit}
               rows={16}
               className="input font-mono text-[14px] leading-relaxed"
             />
             <p className="hint mt-1 text-xs text-neutral-500">
-              Câmpurile în acolade se completează singure pentru fiecare firmă. *Aldinul* și _cursivul_ se văd pe
-              WhatsApp; în email semnele se scot. Linkurile (https://…) devin clicabile.
+              Câmpurile în acolade se completează singure pentru fiecare firmă. Textul lipit din Word își păstrează
+              linkurile, aldinul și listele. Un link pe text se scrie [text](https://…): în emailul formatat textul
+              devine clicabil, iar pe WhatsApp adresa apare după text. *Aldinul* și _cursivul_ se văd pe WhatsApp.
             </p>
           </div>
           <label className="flex min-h-11 items-center gap-2 text-sm">
@@ -396,6 +456,7 @@ export function NewsletterWorkspace({
               bcc={commonEmail ? byEmail.length : 0}
               subject={subjectText(previewClient)}
               body={emailText(previewClient)}
+              html={emailRich ? emailRichHtml(previewClient) : null}
             />
           ) : (
             <WhatsAppPreview
@@ -601,7 +662,10 @@ export function NewsletterWorkspace({
           <div className="space-y-3">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="flex-1 font-semibold">Pe email, din Outlook · {byEmail.length}</h3>
-              <button type="button" onClick={() => void copy(emailText(emailMode === "bcc" ? null : byEmail[0])).then((ok) => setNotice({ text: ok ? "Textul emailului e copiat." : "Textul nu s-a putut copia.", error: !ok }))} className="btn btn-ghost btn-sm">
+              <button type="button" onClick={() => {
+                const c = emailMode === "bcc" ? null : byEmail[0];
+                void (emailRich ? copyRich(emailRichHtml(c), emailText(c)) : copy(emailText(c))).then((ok) => setNotice({ text: ok ? "Textul emailului e copiat." : "Textul nu s-a putut copia.", error: !ok }));
+              }} className="btn btn-ghost btn-sm">
                 Copiază textul emailului
               </button>
             </div>
@@ -623,6 +687,18 @@ export function NewsletterWorkspace({
                 Câte un email pe firmă, personalizat
               </button>
             </div>
+
+            <label className="flex min-h-11 items-start gap-2 text-sm">
+              <input type="checkbox" checked={emailRich} onChange={(e) => setEmailRich(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>
+                Email formatat, ca în Word: linkuri pe text, aldin, liste.
+                <span className="block text-xs text-neutral-500">
+                  Outlook se deschide cu destinatarii și subiectul, iar textul formatat e deja copiat: dai clic în
+                  corpul emailului și apeși Ctrl+V. Fără bifă, textul vine scris în email, simplu, cu adresele
+                  linkurilor după text.
+                </span>
+              </span>
+            </label>
 
             {emailMode === "bcc" ? (
               <>
@@ -739,8 +815,22 @@ function Queue({
   );
 }
 
-/** Emailul așa cum apare în Outlook: text simplu, cu linkurile clicabile. */
-function EmailPreview({ from, to, bcc, subject, body }: { from: string; to: string; bcc: number; subject: string; body: string }) {
+/** Emailul așa cum apare în Outlook: formatat (lipit cu Ctrl+V) sau text simplu, cu linkurile clicabile. */
+function EmailPreview({
+  from,
+  to,
+  bcc,
+  subject,
+  body,
+  html,
+}: {
+  from: string;
+  to: string;
+  bcc: number;
+  subject: string;
+  body: string;
+  html: string | null;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-300 bg-white shadow-sm">
       <div className="bg-[#0f6cbd] px-3 py-1.5 text-xs font-medium text-white">Mesaj · Outlook</div>
@@ -750,12 +840,20 @@ function EmailPreview({ from, to, bcc, subject, body }: { from: string; to: stri
         {bcc ? <PreviewField label="Bcc" value={`${bcc} ${bcc === 1 ? "firmă" : "firme"} (nu se văd între ele)`} /> : null}
         <PreviewField label="Subiect" value={subject || "— fără subiect —"} strong />
       </dl>
-      <div
-        className="max-h-[32rem] overflow-y-auto px-4 py-3 text-[15px] leading-normal break-words whitespace-pre-wrap text-[#242424]"
-        style={{ fontFamily: 'Aptos, Calibri, "Segoe UI", Arial, sans-serif' }}
-      >
-        {linkify(body)}
-      </div>
+      {html ? (
+        // HTML-ul e construit de `emailHtml` din text scăpat de caractere speciale: e același care se lipește în Outlook.
+        <div
+          className="max-h-[32rem] overflow-y-auto px-4 py-3 text-[15px] leading-normal break-words [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <div
+          className="max-h-[32rem] overflow-y-auto px-4 py-3 text-[15px] leading-normal break-words whitespace-pre-wrap text-[#242424]"
+          style={{ fontFamily: 'Aptos, Calibri, "Segoe UI", Arial, sans-serif' }}
+        >
+          {linkify(body)}
+        </div>
+      )}
     </div>
   );
 }
@@ -839,6 +937,35 @@ async function copy(text: string): Promise<boolean> {
     document.body.appendChild(el);
     el.select();
     const ok = document.execCommand("copy");
+    el.remove();
+    return ok;
+  }
+}
+
+/** Copiază emailul formatat: Outlook îl lipește cu linkurile pe text, aldinul și listele. */
+async function copyRich(html: string, plain: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([plain], { type: "text/plain" }),
+      }),
+    ]);
+    return true;
+  } catch {
+    // Browserele fără ClipboardItem: se selectează HTML-ul randat și se copiază ca din pagină.
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    el.style.position = "fixed";
+    el.style.left = "-9999px";
+    document.body.appendChild(el);
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    const ok = document.execCommand("copy");
+    sel?.removeAllRanges();
     el.remove();
     return ok;
   }

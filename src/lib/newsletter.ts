@@ -99,6 +99,138 @@ export const stripWhatsAppMarks = (text: string) =>
     .replace(/```([\s\S]*?)```/g, "$1")
     .replace(/(^|[\s(])([*_~])(\S(?:[^\n]*?\S)?)\2(?=$|[\s).,!?:;])/gm, "$1$3");
 
+/**
+ * Linkurile pe text, ca în Word: `[vezi pompa Mark V](https://…)`. În email
+ * (formatat) textul devine clicabil; unde nu se poate ascunde adresa (WhatsApp,
+ * emailul simplu), linkul se scrie după text, în paranteză.
+ */
+export const LINK_MD = /\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g;
+
+export const hasTextLinks = (text: string) => new RegExp(LINK_MD.source).test(text);
+
+export const linksAsText = (text: string) =>
+  text.replace(LINK_MD, (_all, label: string, url: string) => {
+    const shown = url.replace(/^mailto:/, "");
+    return label.trim() === shown || label.trim() === url ? shown : `${label} (${shown})`;
+  });
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+
+const RAW_URL = /(^|[\s(])((?:https?:\/\/|www\.)[^\s<>]+[^\s<>.,;:!?)"'»”])/g;
+
+/** Un rând de text, cu linkuri, aldin, cursiv și tăiat, gata de pus în HTML. */
+function inlineHtml(line: string): string {
+  const links: string[] = [];
+  // Linkurile se scot întâi, ca semnele de formatare din adrese să rămână neatinse.
+  let out = escapeHtml(line).replace(
+    new RegExp(LINK_MD.source, "g"),
+    (_all, label: string, url: string) => {
+      links.push(`<a href="${url}" style="color:#0f6cbd">${label}</a>`);
+      return `\u0000${links.length - 1}\u0000`;
+    },
+  );
+  out = out.replace(RAW_URL, (_all, pre: string, url: string) => {
+    const href = url.startsWith("www.") ? `https://${url}` : url;
+    links.push(`<a href="${href}" style="color:#0f6cbd">${url}</a>`);
+    return `${pre}\u0000${links.length - 1}\u0000`;
+  });
+  out = out.replace(/(^|[\s(])([^\s<>@()\u0000]+@[^\s<>@()\u0000]+\.[a-z]{2,})/gi, (_all, pre: string, mail: string) => {
+    links.push(`<a href="mailto:${mail}" style="color:#0f6cbd">${mail}</a>`);
+    return `${pre}\u0000${links.length - 1}\u0000`;
+  });
+  out = out.replace(/(^|[\s(])([*_~])(\S(?:[^\n]*?\S)?)\2(?=$|[\s).,!?:;])/g, (_all, pre: string, mark: string, inner: string) => {
+    const tag = mark === "*" ? "strong" : mark === "_" ? "em" : "s";
+    return `${pre}<${tag}>${inner}</${tag}>`;
+  });
+  return out.replace(/\u0000(\d+)\u0000/g, (_all, i: string) => links[Number(i)]);
+}
+
+/**
+ * Emailul formatat, ca în Word: paragrafe, liste cu „- ”, aldin, cursiv și
+ * linkuri ascunse sub text. Se lipește în Outlook (Ctrl+V), pentru că un link
+ * „mailto:” poate duce doar text simplu.
+ */
+export function emailHtml(text: string): string {
+  const blocks = text.replace(/\r\n/g, "\n").split(/\n{2,}/);
+  const html = blocks
+    .map((block) => {
+      const lines = block.split("\n");
+      const parts: string[] = [];
+      let list: string[] = [];
+      const flush = () => {
+        if (list.length) parts.push(`<ul style="margin:0 0 0 24px;padding:0;list-style:disc">${list.join("")}</ul>`);
+        list = [];
+      };
+      let para: string[] = [];
+      const flushPara = () => {
+        if (para.length) parts.push(`<p style="margin:0">${para.join("<br>")}</p>`);
+        para = [];
+      };
+      for (const line of lines) {
+        const item = /^\s*[-•]\s+(.*)$/.exec(line);
+        if (item) {
+          flushPara();
+          list.push(`<li>${inlineHtml(item[1])}</li>`);
+        } else {
+          flush();
+          para.push(inlineHtml(line));
+        }
+      }
+      flushPara();
+      flush();
+      return `<div style="margin:0 0 14px 0">${parts.join("")}</div>`;
+    })
+    .join("");
+  return `<div style="font-family:Aptos,Calibri,'Segoe UI',Arial,sans-serif;font-size:11pt;color:#242424">${html}</div>`;
+}
+
+/**
+ * Textul lipit din Word (sau din alt email, dintr-o pagină web) adus la forma
+ * din aplicație: linkurile păstrate ca `[text](adresă)`, aldinul ca *text*,
+ * cursivul ca _text_, listele cu „- ”. Fără asta, lipirea păstrează doar
+ * textul, iar adresele din spatele linkurilor se pierd.
+ */
+export function htmlToNewsletterText(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? "").replace(/[\s\u00a0]+/g, " ");
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    const style = (el.getAttribute("style") ?? "").toLowerCase();
+    // Word pune buline și numere ca text ascuns în liste; lista o facem noi.
+    if (style.includes("mso-list:ignore") || ["style", "script", "head", "title", "meta"].includes(tag)) return "";
+    const inner = [...el.childNodes].map(walk).join("");
+    const wrap = (mark: string) => {
+      const t = inner.trim();
+      return t ? inner.replace(t, `${mark}${t}${mark}`) : inner;
+    };
+
+    if (tag === "br") return "\n";
+    if (tag === "a") {
+      const href = el.getAttribute("href") ?? "";
+      const text = inner.replace(/\s+/g, " ").trim();
+      if (!/^(https?:|mailto:)/i.test(href) || !text) return inner;
+      return text === href || text === href.replace(/^mailto:/i, "") ? href.replace(/^mailto:/i, "") : `[${text}](${href})`;
+    }
+    if (tag === "b" || tag === "strong" || /font-weight:\s*(bold|[6-9]00)/.test(style)) return wrap("*");
+    if (tag === "i" || tag === "em" || /font-style:\s*italic/.test(style)) return wrap("_");
+    if (tag === "s" || tag === "strike" || tag === "del") return wrap("~");
+    if (tag === "li" || /msolistparagraph/i.test(el.className)) return `\n- ${inner.trim()}\n`;
+    if (/^h[1-6]$/.test(tag)) return `\n\n*${inner.trim()}*\n\n`;
+    if (["p", "div", "tr", "section", "article", "blockquote"].includes(tag)) return `\n${inner.trim()}\n\n`;
+    if (tag === "td" || tag === "th") return `${inner.trim()} `;
+    return inner;
+  };
+  return walk(doc.body)
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n- (.*)\n\n(?=- )/g, "\n- $1\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/(\n- [^\n]*)\n{2,}(?=- )/g, "$1\n")
+    .trim();
+}
+
 const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
 /** Adresele valide din câmpul de email al firmei; unele firme au trecute două. */
