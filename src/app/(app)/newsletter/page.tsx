@@ -5,7 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
-import type { Newsletter } from "@/lib/newsletter";
+import { linksAsText, type Newsletter } from "@/lib/newsletter";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
 
@@ -98,7 +98,7 @@ export default async function NewslettersPage(props: PageProps<"/newsletter">) {
                   {n.subject && n.subject !== n.title ? (
                     <p className="mt-0.5 truncate text-sm text-neutral-700">Subiect: {n.subject}</p>
                   ) : null}
-                  <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-neutral-500">{n.body}</p>
+                  <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-neutral-500">{linksAsText(n.body)}</p>
                   <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-neutral-500">
                     <span>Modificat {formatDate(n.updated_at)}</span>
                     {n.created_by ? <span>de {who.get(n.created_by) ?? "un coleg"}</span> : null}
