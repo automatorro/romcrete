@@ -17,6 +17,11 @@ Stack: **Next.js 16** (App Router, Server Actions) · **TypeScript** ·
 - **Oferte** — număr generat atomic în baza de date (`OF-2026-0001`, serie per firmă și an),
   linii din catalog sau linii libere, discount pe linie și pe ofertă, stări
   (ciornă / trimisă / acceptată / respinsă / expirată), duplicare.
+- **Newslettere** — noutăți, promoții și invitații către firmele din portofoliu: textul se
+  scrie o dată, cu câmpuri completate pe firmă (`{persoana}`, `{firma}`, `{agent}`…), se vede
+  exact cum ajunge pe email și pe WhatsApp, apoi se trimite din Outlook-ul local (un email comun
+  cu firmele în BCC, pe loturi, sau câte unul personalizat) ori din WhatsApp, firmă cu firmă.
+  Fiecare firmă are canalul preferat și poate refuza newsletterele; trimiterea intră în istoric.
 - **PDF** — pagină de tipărire format A4 cu antetul firmei, datele clientului, tabelul
   de linii, totalurile și zona de semnături. Se salvează ca PDF din dialogul de tipărire
   al browserului.
@@ -106,6 +111,7 @@ src/
 | `client_contacts` | oamenii întâlniți la firmă: patron, șef de echipă, meșter |
 | `client_state` | view: starea firmei derivată din toate vizitele ei, cu prioritatea A/B/C |
 | `question_sections` / `question_groups` / `question_options` | catalogul de întrebări din vizită, ca date |
+| `newsletters` | textele newsletterelor, comune echipei; trimiterile stau în `client_activities` |
 | `invitations` | invitarea unui coleg în organizația existentă |
 
 Toate tabelele au **RLS activ**. Accesul are două niveluri, verificate de

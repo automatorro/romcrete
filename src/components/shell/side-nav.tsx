@@ -28,6 +28,7 @@ const AGENT: Group[] = [
       { href: "/teren/oferte", label: "Oferte", also: ["/teren/oferta"] },
       { href: "/teren/catalog", label: "Catalog" },
       { href: "/teren/rapoarte", label: "Rapoartele mele" },
+      { href: "/newsletter", label: "Newslettere" },
     ],
   },
   {
@@ -57,6 +58,7 @@ const MANAGEMENT: Group[] = [
     items: [
       { href: "/oferte", label: "Oferte", also: ["/teren/oferte", "/teren/oferta"] },
       { href: "/clienti", label: "Clienți", also: ["/teren/firme", "/teren/firma"] },
+      { href: "/newsletter", label: "Newslettere" },
     ],
   },
   {

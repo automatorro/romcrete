@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { startVisit, updateCompany } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
 import { ClientHistory } from "@/components/client-history";
+import { NewsletterPrefs } from "@/components/newsletter-prefs";
 import { SubmitButton } from "@/components/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { todayRo } from "@/lib/agenda";
@@ -26,10 +27,12 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const { orgId, organization, user, role } = await requireOrg();
 
   const supabase = await createClient();
-  const [{ data: stateRow }, { data: visitRows }, domains] = await Promise.all([
+  const [{ data: stateRow }, { data: visitRows }, domains, { data: prefs }] = await Promise.all([
     supabase.from("client_state").select("*").eq("client_id", id).maybeSingle(),
     supabase.from("visits").select("*").eq("client_id", id).order("visit_date", { ascending: false }),
     getAllDomains(orgId),
+    // Fără migrația newsletterelor, interogarea dă eroare și preferința nu apare.
+    supabase.from("clients").select("preferred_channel, newsletter_opt_out").eq("id", id).maybeSingle(),
   ]);
 
   if (!stateRow) notFound();
@@ -173,6 +176,27 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
                 <SubmitButton className="btn btn-ok btn-lg w-full">Salvează datele</SubmitButton>
               </form>
             </details>
+            {prefs ? (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                  Newslettere:{" "}
+                  {prefs.newsletter_opt_out
+                    ? "nu mai primește"
+                    : prefs.preferred_channel === "whatsapp"
+                      ? "pe WhatsApp"
+                      : prefs.preferred_channel === "email"
+                        ? "pe email"
+                        : "automat"}
+                </summary>
+                <div className="mt-3 border-t border-neutral-200 pt-3">
+                  <NewsletterPrefs
+                    clientId={state.client_id}
+                    channel={prefs.preferred_channel}
+                    optOut={prefs.newsletter_opt_out}
+                  />
+                </div>
+              </details>
+            ) : null}
         </div>
 
           <form action={startVisit} className="mt-2">

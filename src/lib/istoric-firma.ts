@@ -15,7 +15,15 @@ type ActivityRow = {
   step_to: string | null;
   quote_id: string | null;
   visit_id: string | null;
-  meta: { number?: string; status?: QuoteStatus; from?: QuoteStatus; event?: "arhivata" | "restaurata" };
+  meta: {
+    number?: string;
+    status?: QuoteStatus;
+    from?: QuoteStatus;
+    event?: "arhivata" | "restaurata";
+    /** Newsletterul trimis: titlul rămâne citibil și după ștergerea lui. */
+    title?: string;
+    channel?: "email" | "whatsapp";
+  };
 };
 
 type VisitRow = {
@@ -102,6 +110,9 @@ export async function getClientHistory(
           : `Ofertă ${number}: ${status.toLowerCase()}`;
       if (!r.quote_id) lines.push("Oferta a fost ștearsă între timp.");
       else if (opts.quoteHref) href = opts.quoteHref(r.quote_id);
+    } else if (r.kind === "newsletter") {
+      title = `Newsletter „${r.meta?.title ?? ""}”`;
+      lines.push(`Trimis pe ${r.meta?.channel === "whatsapp" ? "WhatsApp" : "email"}.`);
     } else if (r.kind === "pas_amanat") {
       if (r.step_to) lines.push(`Mutat${r.step_from ? ` de pe ${fmt(r.step_from)}` : ""} pe ${fmt(r.step_to)}`);
     } else if (r.kind === "pas_inchis") {
@@ -111,7 +122,7 @@ export async function getClientHistory(
     } else if (r.visit_id) {
       lines.push("Pas închis, fără o nouă revenire programată.");
     }
-    if (r.body?.trim()) lines.unshift(r.body.trim());
+    if (r.body?.trim() && r.kind !== "newsletter") lines.unshift(r.body.trim());
 
     return {
       id: r.id,

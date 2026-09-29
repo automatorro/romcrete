@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { deleteClientRecord, updateClientRecord } from "@/app/(app)/clienti/actions";
 import { ClientForm } from "@/app/(app)/clienti/client-form";
 import { ClientHistory } from "@/components/client-history";
+import { NewsletterPrefs } from "@/components/newsletter-prefs";
 import { SubmitButton } from "@/components/submit-button";
 import { todayRo } from "@/lib/agenda";
 import { PageHeader } from "@/components/ui/page-header";
@@ -46,8 +47,19 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="card p-6">
-          <ClientForm action={updateClientRecord.bind(null, client.id)} client={client} />
+        <div className="space-y-6">
+          <div className="card p-6">
+            <ClientForm action={updateClientRecord.bind(null, client.id)} client={client} />
+          </div>
+          {"newsletter_opt_out" in client ? (
+            <div className="card p-6">
+              <NewsletterPrefs
+                clientId={client.id}
+                channel={client.preferred_channel}
+                optOut={client.newsletter_opt_out}
+              />
+            </div>
+          ) : null}
         </div>
 
         <section>
