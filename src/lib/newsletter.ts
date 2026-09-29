@@ -240,10 +240,13 @@ export const emailsOf = (raw: string | null) =>
     .map((x) => x.trim().replace(/^mailto:/i, ""))
     .filter((x) => EMAIL.test(x));
 
+/** Telefoanele fixe din România (02x, 03x) nu au WhatsApp; numerele din alte țări le lăsăm. */
+const canHaveWhatsApp = (digits: string) => !digits.startsWith("40") || digits.startsWith("407");
+
 /**
  * Numărul în formatul cerut de WhatsApp: doar cifre, cu prefixul țării.
  * Numerele românești scrise „0722 123 456” devin „40722123456”. Din câmpurile
- * cu mai multe numere se ia primul mobil, altfel primul număr.
+ * cu mai multe numere se ia primul mobil; un fix românesc nu e număr de WhatsApp.
  */
 export function whatsappNumber(raw: string | null): string | null {
   const candidates = (raw ?? "")
@@ -256,7 +259,7 @@ export function whatsappNumber(raw: string | null): string | null {
       return d.length >= 10 && d.length <= 15 ? d : null;
     })
     .filter((d): d is string => d !== null);
-  return candidates.find((d) => d.startsWith("407")) ?? candidates[0] ?? null;
+  return candidates.find(canHaveWhatsApp) ?? null;
 }
 
 /** „40722123456” → „+40 722 123 456”, ca agentul să recunoască numărul. */
@@ -284,14 +287,19 @@ export function channelFor(c: Recipient, only?: Channel | null): Channel | null 
 }
 
 /**
- * Lungimea maximă a unui link „mailto:”. Outlook clasic pe Windows taie sau
- * refuză linkurile mai lungi de ~2.000 de caractere; peste limită, textul
+ * Lungimea maximă a unui link „mailto:”. Windows și Outlook refuză, fără niciun
+ * mesaj, linkurile mai lungi de ~2.000 de caractere (o diacritică ocupă 6); peste limită, textul
  * emailului se copiază și se lipește în Outlook.
  */
-export const MAILTO_LIMIT = 1900;
+export const MAILTO_LIMIT = 1500;
 
-/** Câte adrese într-un singur email cu BCC: serverele de email refuză listele prea lungi. */
-export const BCC_MAX = 50;
+/**
+ * Câte firme într-un singur email cu BCC. Adresele nu mai intră în linkul
+ * „mailto:” (Outlook refuză linkurile lungi fără niciun mesaj): se copiază și
+ * se lipesc în câmpul Bcc. Limita ține de serverele de email, care refuză
+ * listele prea lungi de destinatari.
+ */
+export const BCC_MAX = 100;
 
 export const mailtoUrl = ({ to, bcc, subject, body }: { to?: string[]; bcc?: string[]; subject: string; body?: string }) => {
   const params = [
@@ -302,25 +310,22 @@ export const mailtoUrl = ({ to, bcc, subject, body }: { to?: string[]; bcc?: str
   return `mailto:${(to ?? []).map(encodeURIComponent).join(",")}?${params.join("&")}`;
 };
 
-/**
- * Împarte firmele în emailuri cu BCC: cel mult `BCC_MAX` firme pe email și
- * un link care încape în limita Outlook (fără text; textul se adaugă la
- * deschidere doar dacă mai încape).
- */
-export function bccBatches<T extends { emails: string[] }>(items: T[], to: string[], subject: string): T[][] {
+/** Împarte firmele în emailuri cu BCC, câte cel mult `BCC_MAX`. */
+export function bccBatches<T>(items: T[]): T[][] {
   const batches: T[][] = [];
-  let cur: T[] = [];
-  const fits = (list: T[]) =>
-    list.length <= BCC_MAX && mailtoUrl({ to, bcc: list.flatMap((i) => i.emails), subject }).length <= MAILTO_LIMIT;
-  for (const item of items) {
-    if (cur.length && !fits([...cur, item])) {
-      batches.push(cur);
-      cur = [];
-    }
-    cur.push(item);
-  }
-  if (cur.length) batches.push(cur);
+  for (let i = 0; i < items.length; i += BCC_MAX) batches.push(items.slice(i, i + BCC_MAX));
   return batches;
 }
 
-export const whatsappUrl = (phone: string, text: string) => `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+/**
+ * Linkul care deschide conversația cu firma. Textul intră în link doar dacă
+ * încape: Windows refuză linkurile către aplicații mai lungi de ~2.000 de
+ * caractere, iar o diacritică ocupă 6. Peste limită se deschide doar conversația,
+ * iar mesajul se lipește (Ctrl+V).
+ */
+export function whatsappLink(phone: string, text: string): { url: string; withText: boolean } {
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  return url.length <= WHATSAPP_URL_LIMIT ? { url, withText: true } : { url: `https://wa.me/${phone}`, withText: false };
+}
+
+const WHATSAPP_URL_LIMIT = 1500;
