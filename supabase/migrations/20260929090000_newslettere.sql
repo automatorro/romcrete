@@ -94,24 +94,27 @@ security invoker
 set search_path = public
 as $$
 declare
-  n public.newsletters%rowtype;
+  -- Variabile simple, nu %rowtype: tipul unui rând se caută la crearea funcției,
+  -- iar editorul SQL din Supabase o poate valida înainte să vadă tabelul.
+  v_org   uuid;
+  v_title text;
   v_count integer;
 begin
   if p_channel not in ('email', 'whatsapp') then
     raise exception 'Canal necunoscut: %', p_channel;
   end if;
 
-  select * into n from public.newsletters where id = p_newsletter;
-  if not found then
+  select org_id, title into v_org, v_title from public.newsletters where id = p_newsletter;
+  if v_org is null then
     raise exception 'Newsletterul nu există.';
   end if;
 
   insert into public.client_activities (org_id, client_id, agent_id, kind, body, meta)
   select c.org_id, c.id, auth.uid(), 'newsletter',
-         format('Newsletter „%s” trimis pe %s.', n.title, case p_channel when 'email' then 'email' else 'WhatsApp' end),
-         jsonb_build_object('newsletter_id', n.id, 'title', n.title, 'channel', p_channel)
+         format('Newsletter „%s” trimis pe %s.', v_title, case p_channel when 'email' then 'email' else 'WhatsApp' end),
+         jsonb_build_object('newsletter_id', p_newsletter, 'title', v_title, 'channel', p_channel)
   from public.clients c
-  where c.id = any (p_clients) and c.org_id = n.org_id and not c.newsletter_opt_out;
+  where c.id = any (p_clients) and c.org_id = v_org and not c.newsletter_opt_out;
   get diagnostics v_count = row_count;
 
   return v_count;
