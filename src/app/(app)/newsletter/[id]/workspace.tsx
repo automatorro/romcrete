@@ -23,7 +23,7 @@ import {
   stripWhatsAppMarks,
   usesClientFields,
   whatsappNumber,
-  whatsappUrl,
+  whatsappLink,
   type Channel,
   type Newsletter,
   type Recipient,
@@ -188,7 +188,7 @@ export function NewsletterWorkspace({
         setNotice({
           text: ok
             ? "Emailul s-a deschis cu destinatarii și subiectul. Textul formatat, cu linkurile, e copiat: dă clic în corpul emailului din Outlook și apasă Ctrl+V."
-            : "Textul nu s-a putut copia: apasă „Copiază textul emailului” și lipește-l în Outlook cu Ctrl+V.",
+            : "Textul nu s-a putut copia: copiază-l din previzualizare și lipește-l în Outlook cu Ctrl+V.",
           error: !ok,
         }),
       );
@@ -198,7 +198,7 @@ export function NewsletterWorkspace({
         setNotice({
           text: ok
             ? "Textul e lung pentru un link de email, așa că l-am copiat: în Outlook, dă clic în corpul emailului și apasă Ctrl+V."
-            : "Textul e lung pentru un link de email: apasă „Copiază textul emailului” și lipește-l în Outlook cu Ctrl+V.",
+            : "Textul e lung pentru un link de email: copiază-l din previzualizare și lipește-l în Outlook cu Ctrl+V.",
         }),
       );
     } else {
@@ -207,12 +207,37 @@ export function NewsletterWorkspace({
     window.location.assign(url);
   };
 
+  /**
+   * Pasul 1 al emailului comun: adresele se copiază, iar Outlook se deschide
+   * doar cu subiectul. Un link „mailto:” cu zeci de adrese în BCC e refuzat
+   * de Windows sau de Outlook fără niciun mesaj; lipirea în Bcc merge mereu.
+   */
   const sendBcc = (batch: Row[]) => {
-    const to = sender.email ? [sender.email] : [];
-    openEmail(to, batch.flatMap((c) => c.emails), subjectText(null), emailText(null), emailRichHtml(null));
+    const addresses = batch.flatMap((c) => c.emails).join("; ");
+    const copied = copy(addresses);
+    window.location.assign(mailtoUrl({ to: sender.email ? [sender.email] : [], subject: subjectText(null) }));
+    void copied.then((ok) =>
+      setNotice({
+        text: ok
+          ? `Pasul 1 făcut: cele ${batch.length} adrese sunt copiate. În emailul nou din Outlook dă clic în câmpul „Bcc” și apasă Ctrl+V. (Dacă nu vezi „Bcc”: Opțiuni → Bcc.) Apoi pasul 2.`
+          : "Adresele nu s-au putut copia: deschide „Vezi adresele” de sub email și copiază-le de acolo.",
+        error: !ok,
+      }),
+    );
     markOpened(batch.map((c) => `email:${c.id}`));
     void log("email", batch.map((c) => c.id));
   };
+
+  /** Pasul 2: textul emailului, formatat sau simplu, pentru corpul emailului. */
+  const copyEmailBody = (c: Row | null) =>
+    void (emailRich ? copyRich(emailRichHtml(c), emailText(c)) : copy(emailText(c))).then((ok) =>
+      setNotice({
+        text: ok
+          ? "Textul e copiat: dă clic în corpul emailului din Outlook și apasă Ctrl+V. Verifică și apasă „Trimite”."
+          : "Textul nu s-a putut copia. Încearcă din nou sau copiază-l din previzualizare.",
+        error: !ok,
+      }),
+    );
 
   const sendEmailTo = (c: Row) => {
     openEmail(c.emails, [], subjectText(c), emailText(c), emailRichHtml(c));
@@ -222,14 +247,31 @@ export function NewsletterWorkspace({
 
   const sendWhatsApp = (c: Row) => {
     if (!c.wa) return;
-    // Deschis direct din apăsare, altfel browserul blochează fereastra nouă.
-    window.open(whatsappUrl(c.wa, whatsappText(c)), "_blank", "noopener");
-    setNotice(null);
+    const text = whatsappText(c);
+    const link = whatsappLink(c.wa, text);
+    // Mesajul lung nu încape în link: se copiază, iar în conversație se lipește.
+    const copied = link.withText ? null : copy(text);
+    // Deschis direct din apăsare (altfel browserul blochează fereastra) și mereu
+    // în aceeași filă, ca să nu se adune zeci de file deschise.
+    const w = window.open(link.url, "romcrete-whatsapp");
+    if (w) w.opener = null;
+    if (copied) {
+      void copied.then((ok) =>
+        setNotice({
+          text: ok
+            ? `Mesajul e prea lung ca să intre direct în WhatsApp, așa că l-am copiat: în conversația cu ${c.name} dă clic în caseta de mesaj, apasă Ctrl+V, apoi Trimite.`
+            : "Mesajul nu s-a putut copia: copiază-l din previzualizare și lipește-l în WhatsApp.",
+          error: !ok,
+        }),
+      );
+    } else {
+      setNotice(null);
+    }
     markOpened([`whatsapp:${c.id}`]);
     void log("whatsapp", [c.id]);
   };
 
-  const batches = bccBatches(byEmail, sender.email ? [sender.email] : [], subjectText(null));
+  const batches = bccBatches(byEmail);
 
   // ------------------------------------------------------------ previzualizarea
   const [tab, setTab] = useState<Channel>("email");
@@ -625,7 +667,11 @@ export function NewsletterWorkspace({
                         </span>
                       ) : (
                         <Link href={`/teren/firma/${c.id}`} className="font-medium text-brand-700 hover:underline">
-                          {channelMode === "preferat" ? "completează email/telefon" : `fără ${CHANNEL_LABELS[channelMode]}`}
+                          {c.phone && !c.wa && (channelMode === "whatsapp" || (channelMode === "preferat" && !c.emails.length))
+                            ? "doar telefon fix: completează un mobil sau emailul"
+                            : channelMode === "preferat"
+                              ? "completează email/telefon"
+                              : `fără ${CHANNEL_LABELS[channelMode]}`}
                         </Link>
                       )}
                       {s ? (
@@ -653,21 +699,22 @@ export function NewsletterWorkspace({
           <p className="text-sm text-neutral-500">Bifează mai sus firmele cărora le trimiți newsletterul.</p>
         ) : null}
         {notice ? (
-          <p role={notice.error ? "alert" : "status"} className={notice.error ? "notice-error" : "notice-ok"}>
-            {notice.text}
-          </p>
+          // Jos pe ecran, ca pasul următor să se vadă și când lista de firme e lungă.
+          <div
+            role={notice.error ? "alert" : "status"}
+            className={`fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-xl items-start gap-3 shadow-lg lg:bottom-6 ${notice.error ? "notice-error" : "notice-ok"}`}
+          >
+            <span className="flex-1">{notice.text}</span>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Închide" className="px-1 text-lg leading-none">
+              ×
+            </button>
+          </div>
         ) : null}
 
         {!dirty && byEmail.length ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="flex-1 font-semibold">Pe email, din Outlook · {byEmail.length}</h3>
-              <button type="button" onClick={() => {
-                const c = emailMode === "bcc" ? null : byEmail[0];
-                void (emailRich ? copyRich(emailRichHtml(c), emailText(c)) : copy(emailText(c))).then((ok) => setNotice({ text: ok ? "Textul emailului e copiat." : "Textul nu s-a putut copia.", error: !ok }));
-              }} className="btn btn-ghost btn-sm">
-                Copiază textul emailului
-              </button>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -693,9 +740,9 @@ export function NewsletterWorkspace({
               <span>
                 Email formatat, ca în Word: linkuri pe text, aldin, liste.
                 <span className="block text-xs text-neutral-500">
-                  Outlook se deschide cu destinatarii și subiectul, iar textul formatat e deja copiat: dai clic în
-                  corpul emailului și apeși Ctrl+V. Fără bifă, textul vine scris în email, simplu, cu adresele
-                  linkurilor după text.
+                  Textul formatat se copiază și se lipește în corpul emailului din Outlook cu Ctrl+V. Fără bifă,
+                  textul e simplu, cu adresele linkurilor după text (la emailurile personalizate vine scris direct,
+                  dacă e scurt).
                 </span>
               </span>
             </label>
@@ -704,24 +751,38 @@ export function NewsletterWorkspace({
               <>
                 <p className="text-xs text-neutral-500">
                   Firmele stau în BCC, deci nu își văd adresele una alteia; la „Către” ești tu
-                  {sender.email ? ` (${sender.email})` : ""}.{" "}
-                  {batches.length > 1
-                    ? `Sunt ${batches.length} emailuri, ca Outlook și serverul de email să le primească fără să le taie.`
-                    : ""}{" "}
-                  În Outlook poți atașa o broșură PDF înainte de „Trimite”.
+                  {sender.email ? ` (${sender.email})` : ""}. Fiecare email se face în doi pași: 1 deschide Outlook
+                  și copiază adresele (le lipești în „Bcc”), 2 copiază textul (îl lipești în corpul emailului).
+                  {batches.length > 1 ? ` Sunt ${batches.length} emailuri, ca serverul de email să nu refuze lista.` : ""} În
+                  Outlook poți atașa și o broșură PDF înainte de „Trimite”.
                 </p>
                 <ul className="space-y-2">
                   {batches.map((batch, i) => {
                     const done = batch.every((c) => opened.has(`email:${c.id}`));
                     return (
-                      <li key={batch.map((c) => c.id).join()} className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 p-2.5">
-                        <span className="min-w-0 flex-1 text-sm">
+                      <li key={batch.map((c) => c.id).join()} className="space-y-2 rounded-xl border border-neutral-200 p-2.5">
+                        <p className="text-sm">
                           <b>Emailul {i + 1}</b> · {batch.length} {batch.length === 1 ? "firmă" : "firme"}
                           <span className="block truncate text-xs text-neutral-500">{batch.map((c) => c.name).join(", ")}</span>
-                        </span>
-                        <button type="button" onClick={() => sendBcc(batch)} className={`btn ${done ? "btn-secondary" : "btn-primary"}`}>
-                          {done ? "✓ Deschis · din nou" : "Deschide în Outlook"}
-                        </button>
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <button type="button" onClick={() => sendBcc(batch)} className={`btn justify-start ${done ? "btn-secondary" : "btn-primary"}`}>
+                            {done ? "✓ 1 · Din nou: Outlook + adresele" : "1 · Deschide Outlook și copiază adresele"}
+                          </button>
+                          <button type="button" onClick={() => copyEmailBody(null)} className="btn btn-secondary justify-start">
+                            2 · Copiază textul emailului
+                          </button>
+                        </div>
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-brand-700">Vezi adresele</summary>
+                          <textarea
+                            readOnly
+                            rows={3}
+                            value={batch.flatMap((c) => c.emails).join("; ")}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="input mt-1 font-mono text-xs"
+                          />
+                        </details>
                       </li>
                     );
                   })}
@@ -749,7 +810,7 @@ export function NewsletterWorkspace({
               opened={opened}
               describe={(c) => (c.wa ? formatPhone(c.wa) : "")}
               onSend={sendWhatsApp}
-              hint="Se deschide conversația cu firma, cu mesajul scris; tu apeși „Trimite” în WhatsApp. WhatsApp nu permite trimiterea automată în masă, așa că mesajele pleacă unul câte unul."
+              hint="Se deschide conversația cu firma, cu mesajul scris; un mesaj lung se copiază și îl lipești cu Ctrl+V. Tu apeși „Trimite” în WhatsApp. WhatsApp nu permite trimiterea automată în masă, așa că mesajele pleacă unul câte unul."
             />
           </div>
         ) : null}
