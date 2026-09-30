@@ -3,22 +3,19 @@
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { formatSku, matchesWords, queryWords, searchIndex } from "@/lib/cautare-catalog";
 import { formatCatalogPrice } from "@/lib/totals";
 import type { CatalogItem } from "@/lib/types";
 
 export type PickerItem = Pick<
   CatalogItem,
-  "id" | "name" | "sku" | "category" | "unit" | "unit_price" | "price_on_request"
+  "id" | "name" | "sku" | "category" | "unit" | "unit_price" | "price_on_request" | "tech_type"
 >;
 
 type Props = {
   items: PickerItem[];
   action: (formData: FormData) => void | Promise<void>;
 };
-
-/** Fără diacritice și majuscule, ca „pompa glet” să găsească „Pompă de glet”. */
-const normalize = (value: string) =>
-  value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
  * Căutarea în catalog pentru ofertă. Lista are sute de poziții, prea multe
@@ -29,13 +26,13 @@ export function CatalogPicker({ items, action }: Props) {
   const [query, setQuery] = useState("");
 
   const indexed = useMemo(
-    () => items.map((item) => ({ item, text: normalize(`${item.name} ${item.sku ?? ""} ${item.category ?? ""}`) })),
+    () => items.map((item) => ({ item, index: searchIndex(item) })),
     [items],
   );
 
-  const words = normalize(query).split(/\s+/).filter(Boolean);
+  const words = queryWords(query);
   const matches = words.length
-    ? indexed.filter(({ text }) => words.every((w) => text.includes(w))).map(({ item }) => item)
+    ? indexed.filter(({ index }) => matchesWords(index, words)).map(({ item }) => item)
     : items;
 
   return (
@@ -87,7 +84,7 @@ export function CatalogPicker({ items, action }: Props) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-neutral-900">{item.name}</p>
               <p className="truncate text-xs text-neutral-500">
-                {[item.sku, item.category].filter(Boolean).join(" · ")}
+                {[formatSku(item.sku), item.category].filter(Boolean).join(" · ")}
               </p>
             </div>
             <span className="shrink-0 text-sm whitespace-nowrap text-neutral-700 tabular-nums">

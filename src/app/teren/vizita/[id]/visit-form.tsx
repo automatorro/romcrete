@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { finishVisit, saveVisit } from "@/app/teren/actions";
 import { STEP_WITHOUT_DATE, quickDates, shortDay } from "@/lib/agenda";
 import { computePayback, demandFrom } from "@/lib/amortizare";
+import { matchesWords, queryWords, searchIndex } from "@/lib/cautare-catalog";
 import type { MatchLevel, MaterialSuggestions } from "@/lib/materiale";
 import { formatCatalogPrice, formatMoney, formatNumber } from "@/lib/totals";
 import type { Answers, Notes, QuestionGroup, QuestionSection } from "@/lib/teren";
@@ -503,9 +504,9 @@ function PumpPicker({
   onToggle: (sku: string) => void;
 }) {
   const [q, setQ] = useState("");
-  const needle = q.trim().toLowerCase();
-  const list = needle
-    ? pumps.filter((p) => `${p.name} ${p.sku} ${p.category ?? ""}`.toLowerCase().includes(needle)).slice(0, 40)
+  const words = queryWords(q);
+  const list = words.length
+    ? pumps.filter((p) => matchesWords(searchIndex(p), words)).slice(0, 40)
     : pumps.filter((p) => selected.includes(p.sku));
 
   return (
@@ -544,7 +545,7 @@ function PumpPicker({
           );
         })}
       </ul>
-      {needle && list.length === 0 ? (
+      {words.length > 0 && list.length === 0 ? (
         <p className="mt-2 text-sm text-neutral-500">Niciun model găsit.</p>
       ) : null}
     </div>

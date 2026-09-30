@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { addCatalogItemToQuote, addCustomItem, duplicateQuote, setShowTotal, updateQuote } from "@/app/(app)/oferte/actions";
 import { QuoteForm } from "@/app/(app)/oferte/quote-form";
 import { AddCustomItemForm } from "@/app/(app)/oferte/[id]/add-custom-item-form";
-import { CatalogPicker } from "@/app/(app)/oferte/[id]/catalog-picker";
+import { CatalogPicker, type PickerItem } from "@/app/(app)/oferte/[id]/catalog-picker";
 import { QuoteItemsTable } from "@/app/(app)/oferte/[id]/quote-items-table";
 import { ArchiveControls } from "@/components/oferta/archive-controls";
 import { ProductSheetsPanel } from "@/components/oferta/product-sheets-panel";
@@ -20,8 +20,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { getEurRate } from "@/lib/oferta-print";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/toate-randurile";
 import { formatDate } from "@/lib/totals";
-import type { CatalogItem, Quote, QuoteItem } from "@/lib/types";
+import type { Quote, QuoteItem } from "@/lib/types";
 
 type Zona = "teren" | "birou";
 
@@ -42,13 +43,17 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
         .maybeSingle(),
       supabase.from("quote_items").select("*").eq("quote_id", id).order("position"),
       supabase.from("clients").select("id, name").eq("org_id", orgId).order("name"),
-      supabase
-        .from("catalog_items")
-        .select("*")
-        .eq("org_id", orgId)
-        .eq("is_active", true)
-        .order("category", { ascending: true, nullsFirst: false })
-        .order("name"),
+      allRows((from, to) =>
+        supabase
+          .from("catalog_items")
+          .select("id, name, sku, category, unit, unit_price, price_on_request, tech_type")
+          .eq("org_id", orgId)
+          .eq("is_active", true)
+          .order("category", { ascending: true, nullsFirst: false })
+          .order("name")
+          .order("id")
+          .range(from, to),
+      ).then((data) => ({ data })),
       getEurRate(),
     ]);
 
@@ -59,7 +64,7 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
     clients: { id: string; name: string; email: string | null } | null;
   };
   const items = (itemsData ?? []) as QuoteItem[];
-  const catalog = (catalogData ?? []) as CatalogItem[];
+  const catalog = (catalogData ?? []) as PickerItem[];
   const teren = zona === "teren";
 
   return (
@@ -186,6 +191,7 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
                 unit: item.unit,
                 unit_price: item.unit_price,
                 price_on_request: item.price_on_request,
+                tech_type: item.tech_type,
               }))}
             />
           ) : (

@@ -1,3 +1,4 @@
+import { formatSku } from "@/lib/cautare-catalog";
 import { extractShopTexts, type ShopTexts } from "@/lib/magazin-texte";
 import type { CatalogItem } from "@/lib/types";
 
@@ -195,7 +196,7 @@ function catalogSpecs(item: CatalogSheet) {
     if (value) list.push({ label, value });
   };
 
-  add(main, "Cod produs", text(item.sku));
+  add(main, "Cod produs", formatSku(item.sku));
   add(main, "Tehnologie", text(item.tech_type));
   const presiune = positive(d.presiune_bar);
   if (presiune) add(main, "Presiune maximă", `${numberFormat.format(presiune)} bar`);

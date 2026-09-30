@@ -12,6 +12,7 @@ import { findDomain, getAllDomains, matchesDomain } from "@/lib/domenii";
 import { buildMaterialSuggestions } from "@/lib/materiale";
 import { getQuestionCatalogue } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/toate-randurile";
 import type { Visit } from "@/lib/teren";
 
 export const metadata = { title: "Vizită" };
@@ -66,12 +67,16 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
       .eq("id", id)
       .maybeSingle(),
     getAllDomains(orgId),
-    supabase
-      .from("catalog_items")
-      .select("sku, name, category, tech_type, unit_price, price_on_request, description, materials")
-      .eq("org_id", orgId)
-      .not("sku", "is", null)
-      .order("name"),
+    allRows((from, to) =>
+      supabase
+        .from("catalog_items")
+        .select("sku, name, category, tech_type, unit_price, price_on_request, description, materials")
+        .eq("org_id", orgId)
+        .not("sku", "is", null)
+        .order("name")
+        .order("id")
+        .range(from, to),
+    ).then((data) => ({ data })),
     supabase.from("quotes").select("id, number").eq("visit_id", id).is("archived_at", null).limit(1).maybeSingle(),
   ]);
 

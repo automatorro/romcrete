@@ -103,6 +103,8 @@ export type CatalogItem = {
   price_with_vat: number | null;
   /** Serviciu (transport, instruire): apare pe ofertă fără poză. */
   is_service: boolean;
+  /** Ultima dată când importul din magazin a găsit produsul; null = n-a trecut prin import. */
+  shop_seen_at: string | null;
   /** Fișa produsului pe ofertă: câte un rând pe idee. */
   intro: string | null;
   package_contents: string | null;

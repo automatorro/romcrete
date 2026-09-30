@@ -1,35 +1,51 @@
 import Link from "next/link";
 
 import { createCatalogItem } from "@/app/(app)/catalog/actions";
+import { CatalogBrowser, type BrowserItem } from "@/app/(app)/catalog/catalog-browser";
 import { CatalogForm } from "@/app/(app)/catalog/catalog-form";
-import { DataList } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatCatalogPrice } from "@/lib/totals";
-import type { CatalogItem } from "@/lib/types";
+import { allRows } from "@/lib/toate-randurile";
 
 export const metadata = { title: "Catalog" };
 
-export default async function CatalogPage() {
-  const { orgId, organization } = await requireOrg();
+export default async function CatalogPage(props: PageProps<"/catalog">) {
+  const { orgId, organization, role } = await requireOrg();
+  const { q } = await props.searchParams;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("catalog_items")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("category", { ascending: true, nullsFirst: false })
-    .order("name", { ascending: true });
-
-  const items = (data ?? []) as CatalogItem[];
+  const [rows, photos] = await Promise.all([
+    allRows((from, to) =>
+      supabase
+        .from("catalog_items")
+        .select("id, sku, name, description, category, unit, unit_price, vat_rate, is_active, price_on_request, tech_type, materials")
+        .eq("org_id", orgId)
+        .order("category", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true })
+        .order("id")
+        .range(from, to),
+    ),
+    allRows((from, to) =>
+      supabase.from("catalog_images").select("catalog_item_id").eq("org_id", orgId).order("catalog_item_id").range(from, to),
+    ),
+  ]);
+  const withPhoto = new Set(photos.map((p) => p.catalog_item_id as string));
+  const items = rows.map((i) => ({ ...i, has_photo: withPhoto.has(i.id as string) })) as BrowserItem[];
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Catalog"
         description="Produsele și serviciile pe care le poți adăuga pe ofertă cu un click."
+        actions={
+          role !== "agent" ? (
+            <Link href="/catalog/import" className="btn btn-secondary">
+              Import din magazin
+            </Link>
+          ) : null
+        }
       />
 
       <details className="card p-4">
@@ -52,43 +68,7 @@ export default async function CatalogPage() {
           description="Adaugă primele produse ca să poți construi oferte rapid."
         />
       ) : (
-        <DataList
-          rows={items}
-          rowKey={(i) => i.id}
-          muted={(i) => !i.is_active}
-          title={(i) => (
-            <Link href={`/catalog/${i.id}`} className="hover:underline">
-              {i.name}
-              {i.is_active ? null : <span className="ml-2 text-xs font-normal text-neutral-500">(inactiv)</span>}
-            </Link>
-          )}
-          columns={[
-            {
-              header: "Denumire",
-              hideOnMobile: true,
-              cell: (i) => (
-                <>
-                  <span className="font-medium">{i.name}</span>
-                  {i.sku ? <span className="ml-2 text-xs text-neutral-500">{i.sku}</span> : null}
-                  {i.is_active ? null : <span className="ml-2 text-xs text-neutral-500">(inactiv)</span>}
-                </>
-              ),
-            },
-            { header: "Categorie", className: "text-neutral-500", cell: (i) => i.category ?? "—" },
-            { header: "UM", className: "text-neutral-500", cell: (i) => i.unit },
-            {
-              header: "Preț fără TVA",
-              className: "text-right tabular-nums",
-              cell: (i) => formatCatalogPrice(i.unit_price, i.price_on_request),
-            },
-            { header: "TVA", className: "text-right tabular-nums text-neutral-500", cell: (i) => `${i.vat_rate}%` },
-          ]}
-          actions={(i) => (
-            <Link href={`/catalog/${i.id}`} className="btn btn-secondary btn-sm">
-              Editează
-            </Link>
-          )}
-        />
+        <CatalogBrowser items={items} initialQuery={typeof q === "string" ? q : ""} />
       )}
     </div>
   );
