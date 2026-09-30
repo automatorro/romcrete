@@ -1,4 +1,5 @@
 import { formatSku } from "@/lib/cautare-catalog";
+import { fetchShop, readProductPage } from "@/lib/magazin-import";
 import { extractShopTexts, type ShopTexts } from "@/lib/magazin-texte";
 import type { CatalogItem } from "@/lib/types";
 
@@ -75,11 +76,15 @@ export async function getEurRate(): Promise<EurRate | null> {
 
 // ---------------------------------------------------- pagina din magazin
 
-/** Pagina produsului din magazin, citită cel mult o dată pe zi. */
+/**
+ * Pagina produsului din magazin. Fără cache: magazinul răspunde uneori cu o
+ * pagină de așteptare („One moment”), care nu trebuie ținută minte o zi în
+ * locul produsului. `fetchShop` o recunoaște și reîncearcă.
+ */
 async function shopPage(url: string | null): Promise<string | null> {
   if (!url) return null;
   try {
-    return await readText(url, 86400, 8000);
+    return (await fetchShop(url))?.body ?? null;
   } catch {
     return null;
   }
@@ -237,7 +242,8 @@ export async function productSheet(
   const html = await shopPage(item.shop_url);
   let image = item.image_url;
   if (!image && html && item.shop_url) {
-    const found = mainImage(html);
+    // Întâi poza mare din galeria produsului, apoi miniatura din og:image.
+    const found = readProductPage(html, item.shop_url).product?.image ?? mainImage(html);
     if (found) {
       try {
         const url = new URL(found.replace(/&amp;/g, "&"), item.shop_url);

@@ -12,12 +12,12 @@ import {
   type ApplyResult,
 } from "@/app/(app)/catalog/import/actions";
 import { formatSku } from "@/lib/cautare-catalog";
-import { categoryFor, planImport, type ExistingItem, type ImportPlan } from "@/lib/catalog-import";
+import { categoryFor, categoryGuide, planImport, type ExistingItem, type ImportPlan } from "@/lib/catalog-import";
 import { urlKey, type PageReading, type ShopProduct } from "@/lib/magazin-import";
 import type { PhotoResult } from "@/lib/magazin-poze";
 
-/** Câte pagini cere browserul odată; serverul le citește câte 4 în paralel. */
-const CRAWL_BATCH = 12;
+/** Câte pagini cere browserul odată; serverul le citește câte 3 în paralel. */
+const CRAWL_BATCH = 6;
 /** Oprire de siguranță: magazinul are sute de pagini, nu zeci de mii. */
 const MAX_PAGES = 6000;
 const APPLY_BATCH = 40;
@@ -452,10 +452,7 @@ function TestPage({ existing }: { existing: ExistingItem[] }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ reading?: PageReading; links?: number; error?: string } | null>(null);
-  const categories = useMemo(
-    () => [...new Set(existing.map((e) => e.category).filter((c): c is string => Boolean(c)))],
-    [existing],
-  );
+  const guide = useMemo(() => categoryGuide(existing), [existing]);
   const product = result?.reading?.product;
 
   return (
@@ -506,7 +503,7 @@ function TestPage({ existing }: { existing: ExistingItem[] }) {
                 <dd>{lei(product.price)}</dd>
                 <dt className="text-neutral-500">Categorie</dt>
                 <dd>
-                  {categoryFor(product, categories)}
+                  {categoryFor(product, guide)}
                   <span className="text-neutral-500"> ({product.breadcrumb.join(" › ") || "din adresă"})</span>
                 </dd>
                 <dt className="text-neutral-500">Adresă</dt>

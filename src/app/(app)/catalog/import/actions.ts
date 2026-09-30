@@ -24,8 +24,12 @@ async function requireManagement() {
   return context;
 }
 
-/** Câte pagini se citesc deodată: magazinul nu trebuie încărcat ca de un atac. */
-const PARALLEL = 4;
+/**
+ * Câte pagini se citesc deodată. Magazinul are un limitator care răspunde la
+ * cereri dese cu o pagină de așteptare de 5 secunde; mai multe în paralel doar
+ * înseamnă mai multe așteptări.
+ */
+const PARALLEL = 3;
 
 async function inParallel<T, R>(list: T[], work: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(list.length);
@@ -85,7 +89,7 @@ export type CrawledPage = { url: string; product: ShopProduct | null; links: str
 /** Citește câteva pagini: ce produs e pe fiecare și ce legături are mai departe. */
 export async function importCrawl(urls: string[]): Promise<CrawledPage[]> {
   await requireManagement();
-  const safe = urls.slice(0, 16).map((u) => catalogUrl(u)).filter((u): u is string => Boolean(u));
+  const safe = urls.slice(0, 8).map((u) => catalogUrl(u)).filter((u): u is string => Boolean(u));
   return inParallel(safe, async (url): Promise<CrawledPage> => {
     try {
       const page = await fetchShop(url);

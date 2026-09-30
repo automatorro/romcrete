@@ -94,12 +94,36 @@ const skuKey = (sku: string | null | undefined) => (sku ? sku.trim().toUpperCase
 
 export const withoutVat = (price: number, vatRate: number) => Math.round((price / (1 + vatRate / 100)) * 100) / 100;
 
+/** Ce știe catalogul despre categorii: numele lor și în ce loc din magazin stă fiecare. */
+export type CategoryGuide = { known: string[]; byDir: Map<string, string> };
+
+/** Dosarul unei adrese din magazin: /catalog/accesorii/duze/duza-x → /catalog/accesorii/duze. */
+const dirOf = (url: string | null | undefined) => urlKey(url).replace(/\/[^/]*$/, "");
+
+export function categoryGuide(existing: { category: string | null; shop_url: string | null }[]): CategoryGuide {
+  const votes = new Map<string, Map<string, number>>();
+  for (const e of existing) {
+    if (!e.category || !e.shop_url) continue;
+    const dir = dirOf(e.shop_url);
+    const count = votes.get(dir) ?? new Map<string, number>();
+    count.set(e.category, (count.get(e.category) ?? 0) + 1);
+    votes.set(dir, count);
+  }
+  const byDir = new Map([...votes].map(([dir, count]) => [dir, [...count].sort((a, b) => b[1] - a[1])[0][0]]));
+  return { known: [...new Set(existing.map((e) => e.category).filter((c): c is string => Boolean(c)))], byDir };
+}
+
 /**
- * Categoria unui produs nou, din calea lui din magazin. Accesoriile păstrează
- * felul catalogului de acum („Accesorii — Duze”); o categorie care există deja
- * în catalog se scrie exact ca acolo.
+ * Categoria unui produs nou. Întâi cea a produselor din catalog aflate în
+ * același loc din magazin (așa, un ToughTek nou ajunge la „Pompe ToughTek
+ * (rotor-stator)”, nu la o categorie nouă). Altfel, din calea magazinului:
+ * accesoriile în felul catalogului de acum („Accesorii — Duze Graco”).
  */
-export function categoryFor(product: ShopProduct, known: string[]): string {
+export function categoryFor(product: ShopProduct, guide: CategoryGuide): string {
+  for (const url of product.aliases.length ? product.aliases : [product.url]) {
+    const same = guide.byDir.get(dirOf(url));
+    if (same) return same;
+  }
   let crumbs = product.breadcrumb;
   if (!crumbs.length) {
     // Fără firimituri: din adresă, /catalog/pompe-de-glet/… → „Pompe de glet”.
@@ -108,18 +132,17 @@ export function categoryFor(product: ShopProduct, known: string[]): string {
   }
   let category = crumbs[0] ?? "Diverse";
   if (/^accesori/i.test(plain(category)) && crumbs[1]) category = `Accesorii — ${crumbs[1]}`;
-  const same = known.find((k) => plain(k) === plain(category));
-  return same ?? category;
+  return guide.known.find((k) => plain(k) === plain(category)) ?? category;
 }
 
 /** Produsele citite din magazin → rânduri de catalog, câte unul pe cod, fără dubluri. */
-export function shopRows(products: ShopProduct[], knownCategories: string[]): { rows: ShopRow[]; duplicates: number } {
+export function shopRows(products: ShopProduct[], guide: CategoryGuide): { rows: ShopRow[]; duplicates: number } {
   const rows: ShopRow[] = [];
   const seen = new Set<string>();
   let duplicates = 0;
 
   for (const product of products) {
-    const category = categoryFor(product, knownCategories);
+    const category = categoryFor(product, guide);
     const candidates: ShopRow[] = product.variants.length
       ? product.variants.map((v) => ({
           sku: v.sku,
@@ -157,8 +180,7 @@ export function planImport(
   /** Toate adresele de produs văzute la import, și cele dublate în alte categorii. */
   seenUrls: string[],
 ): ImportPlan {
-  const knownCategories = [...new Set(existing.map((e) => e.category).filter((c): c is string => Boolean(c)))];
-  const { rows, duplicates } = shopRows(products, knownCategories);
+  const { rows, duplicates } = shopRows(products, categoryGuide(existing));
 
   const bySku = new Map(existing.filter((e) => e.sku).map((e) => [skuKey(e.sku), e]));
   const byUrl = new Map<string, ExistingItem[]>();
