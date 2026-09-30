@@ -3,9 +3,10 @@ import { formatMoney } from "@/lib/totals";
 
 /**
  * Un produs pe oferta tipărită, ca în oferta model Romcrete: titlul, poza cu
- * prezentarea, ce conține, specificațiile tehnice, avantajele, recomandările și
- * aplicațiile, apoi prețul lui în lei și în euro. Produsele stau unul sub altul,
- * fiecare cu prețul propriu, pe oricâte pagini e nevoie.
+ * ce conține, specificațiile tehnice, avantajele, recomandările și aplicațiile,
+ * apoi prețul lui în lei și în euro. Textul de prezentare nu se tipărește: din
+ * magazin vine de regulă cu aceleași date ca tabelul de specificații. Produsele
+ * stau unul sub altul, fiecare cu prețul propriu, pe oricâte pagini e nevoie.
  */
 export function ProductBlock({
   product,
@@ -20,13 +21,13 @@ export function ProductBlock({
   base: string;
   other: OtherCurrency | null;
 }) {
-  const { item, image, intro, contents, specs, benefits, recommendations, applications, price } = product;
+  const { item, image, contents, specs, benefits, recommendations, applications, price } = product;
   const withNotes = specs.some((s) => s.note);
   const rows = priceRows(item, price, quoteDiscountPct);
 
   return (
     <section className={index ? "mt-10 border-t border-neutral-300 pt-8" : "mt-6"}>
-      {/* Poza plutește în stânga, iar textul curge lângă ea și, dacă e lung, pe pagina următoare. */}
+      {/* Poza plutește în stânga, cu „Conține” lângă ea. */}
       <div className="flow-root">
         <h2 className="text-[17px] leading-tight font-bold break-after-avoid">
           {index + 1}. {item.name}
@@ -39,7 +40,6 @@ export function ProductBlock({
           </div>
         ) : null}
         <div className="mt-3 space-y-3">
-          {intro ? <p className="text-justify whitespace-pre-line">{intro}</p> : null}
           {contents.length ? (
             <div className="break-inside-avoid">
               <p className="font-bold">CONȚINE:</p>
