@@ -211,15 +211,14 @@ function partiesTable(doc: OfferDocument) {
 }
 
 async function productParts(product: OfferProduct, index: number, doc: OfferDocument) {
-  const { item, intro, contents, specs, benefits, recommendations, applications, price } = product;
+  const { item, contents, specs, benefits, recommendations, applications, price } = product;
   const parts: (Paragraph | Table)[] = [];
 
   parts.push(para([text(`${index + 1}. ${item.name}`, { bold: true, size: 28 })], { before: index ? 480 : 240, after: 120, keepNext: true }));
 
-  // Poza în stânga, prezentarea și ce conține în dreapta, ca în oferta model.
+  // Poza în stânga, ce conține în dreapta. Prezentarea nu se pune: repetă specificațiile.
   const img = await toImage(product.image);
   const textSide = [
-    ...(intro ? intro.split(/\r?\n/).filter(Boolean).map((p) => para(p, { align: AlignmentType.JUSTIFIED })) : []),
     ...(contents.length ? [para([text("CONȚINE:", { bold: true })], { before: 80, after: 40 }), ...contents.map(bullet)] : []),
   ];
   if (img) {
