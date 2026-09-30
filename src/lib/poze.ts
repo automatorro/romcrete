@@ -1,3 +1,4 @@
+import { formatSku } from "@/lib/cautare-catalog";
 import type { ShopTexts } from "@/lib/magazin-texte";
 import { productSheet, type CatalogSheet, type Spec } from "@/lib/oferta-print";
 import type { createClient } from "@/lib/supabase/server";
@@ -70,7 +71,7 @@ async function linePhoto(db: Db, quoteItemId: string): Promise<string | null> {
   return data ? dataUri(data.mime as string, data.data_b64 as string) : null;
 }
 
-/** `sku` e codul produsului din catalog (Part N pe ofertă); null la liniile libere. */
+/** `sku` e codul produsului din catalog (Part N pe ofertă), „la cerere” dacă n-are; null la liniile libere. */
 export type QuoteSheet = {
   item: QuoteItem;
   image: string | null;
@@ -105,7 +106,8 @@ export async function loadQuoteSheets(db: Db, items: QuoteItem[]): Promise<{ she
         : cat
           ? await catalogPhoto(db, cat, shopImageUrl)
           : await linePhoto(db, item.id);
-      return { item, image, specs, sku: cat?.sku ?? null, shop: texts };
+      // Un produs din catalog fără cod apare pe ofertă cu „la cerere”; liniile libere n-au cod deloc.
+      return { item, image, specs, sku: cat ? formatSku(cat.sku) : null, shop: texts };
     }),
   );
 

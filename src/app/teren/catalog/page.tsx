@@ -1,7 +1,9 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
+import { formatSku, matchesWords, queryWords, searchIndex } from "@/lib/cautare-catalog";
 import { getDomains, matchesDomain } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/toate-randurile";
 import { formatCatalogPrice } from "@/lib/totals";
 import type { CatalogItem } from "@/lib/types";
 
@@ -17,24 +19,26 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
   const domains = await getDomains(orgId);
   const domain = domains.find((d) => d.id === domeniu) ?? null;
   const supabase = await createClient();
-  const { data: allRows } = await supabase
-    .from("catalog_items")
-    .select("*")
-    .eq("org_id", orgId)
-    .eq("is_active", true)
-    .order("category", { ascending: true, nullsFirst: false })
-    .order("unit_price", { ascending: false });
+  const rows = await allRows((from, to) =>
+    supabase
+      .from("catalog_items")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("is_active", true)
+      .order("category", { ascending: true, nullsFirst: false })
+      .order("unit_price", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   // Filtrarea pe domeniu ține și de tehnologie: aceeași categorie servește și
   // zugrăveala, și finisajul fin.
-  const all = ((allRows ?? []) as CatalogItem[]).filter((i) => (domain ? matchesDomain(domain, i) : true));
+  const all = (rows as CatalogItem[]).filter((i) => (domain ? matchesDomain(domain, i) : true));
   const categories = [...new Set(all.map((i) => i.category).filter(Boolean))] as string[];
 
-  const needle = search.toLowerCase();
+  const words = queryWords(search);
   const items = all.filter(
-    (i) =>
-      (!category || i.category === category) &&
-      (!needle || `${i.name} ${i.sku ?? ""} ${i.description ?? ""}`.toLowerCase().includes(needle)),
+    (i) => (!category || i.category === category) && (!words.length || matchesWords(searchIndex(i), words)),
   );
 
   const chipHref = (patch: Record<string, string | null>) => {
@@ -107,7 +111,7 @@ export default async function TerenCatalogPage(props: PageProps<"/teren/catalog"
               <div className="min-w-0 flex-1">
                 <b className="text-[15px]">{i.name}</b>
                 <p className="text-xs text-neutral-500">
-                  {[i.sku, i.category].filter(Boolean).join(" · ")}
+                  {[formatSku(i.sku), i.category].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <span className="shrink-0 text-right text-sm font-semibold tabular-nums">
