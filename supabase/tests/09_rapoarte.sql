@@ -30,6 +30,18 @@ update public.reports set summary = 'Săptămână bună.', status = 'trimis', s
        recipients = array['director@rapoarte.ro'];
 select title, status, created_by = auth.uid() as al_ei, updated_at >= created_at as atins from public.reports;
 
+\echo '--- 1b. partea scrisă, pe cele patru întrebări ---'
+update public.reports set reflection = '{"amers":"Două demonstrații.","nevoie":"Preț pentru 3 bucăți."}'::jsonb;
+do $$ begin
+  if (select reflection ->> 'nevoie' from public.reports) <> 'Preț pentru 3 bucăți.' then
+    raise exception 'PROBLEMĂ: răspunsurile din raport nu s-au salvat';
+  end if;
+  if (select count(*) from public.reports where reflection is null) <> 0 then
+    raise exception 'PROBLEMĂ: un raport fără răspunsuri trebuie să aibă un obiect gol, nu null';
+  end if;
+  raise notice 'OK: răspunsurile din teren se salvează';
+end $$;
+
 \echo '--- 2. perioada inversă e refuzată ---'
 do $$ begin
   insert into public.reports (org_id, type, period_from, period_to, title, data)

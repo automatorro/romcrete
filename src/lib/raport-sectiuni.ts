@@ -2,33 +2,106 @@
  * Structura unui raport salvat: secțiunile și forma cifrelor înghețate. Fără
  * acces la baza de date, ca s-o poată folosi și formularele din browser.
  */
+import type { ReportDecisions } from "@/lib/decizii";
 import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
-export type ReportSection = "kpi" | "agenti" | "evolutie" | "palnie" | "vizite" | "oferte" | "piata" | "note";
+export type ReportSection =
+  | "retine" | "reflectie" | "decizii" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "pierderi" | "asteptare" | "fereastra"
+  | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
+  retine: "De reținut",
+  reflectie: "Din teren, pe scurt",
+  decizii: "Decizii și urmărirea lor",
   kpi: "Indicatori cheie",
   agenti: "Activitatea pe agenți",
-  evolutie: "Evoluția în perioadă",
+  tendinta: "Tendința pe 6 luni",
+  evolutie: "Vizitele față de țintă",
   palnie: "De la vizită la client",
+  pierderi: "De ce pierdem",
+  asteptare: "Oferte care așteaptă răspuns",
+  fereastra: "Ce se deschide în curând",
+  restante: "Pași restanți",
+  uitate: "Firme calde fără contact",
+  owner: "Întrebări pentru conducere",
   vizite: "Vizitele perioadei",
-  oferte: "Ofertele perioadei",
+  oferte: "Ofertele emise în perioadă",
   piata: "Ce spune piața",
   note: "Ce au spus clienții",
 };
 
 export const ALL_SECTIONS = Object.keys(SECTION_LABELS) as ReportSection[];
 
-/** Ce intră implicit în fiecare tip de raport: operativ zilnic, strategic trimestrial. */
-export const DEFAULT_SECTIONS: Record<ReportType, ReportSection[]> = {
-  zi: ["kpi", "agenti", "vizite", "oferte", "note"],
-  saptamana: ["kpi", "agenti", "evolutie", "palnie", "oferte", "note"],
-  luna: ["kpi", "agenti", "evolutie", "palnie", "oferte", "piata"],
-  trimestru: ["kpi", "agenti", "evolutie", "palnie", "piata"],
+/**
+ * Pentru cine e raportul. Individual: un singur agent. Echipă: toți agenții
+ * împreună, cu defalcarea pe agent. Sunt rapoarte separate, nu filtre ale
+ * aceluiași raport: se salvează, se titrează și se trimit fiecare pe numele lui.
+ */
+export type ReportScope = "agent" | "echipa";
+
+export const SCOPE_LABELS: Record<ReportScope, string> = {
+  agent: "Raport individual",
+  echipa: "Raport de echipă",
 };
 
+/** Ce intră implicit în fiecare tip de raport: operativ zilnic, strategic trimestrial. */
+const DEFAULTS: Record<ReportType, ReportSection[]> = {
+  zi: ["kpi", "agenti", "vizite", "oferte", "restante", "note"],
+  saptamana: [
+    "retine", "reflectie", "decizii", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante",
+    "uitate", "owner",
+  ],
+  luna: [
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "evolutie", "palnie", "pierderi", "asteptare",
+    "fereastra", "piata",
+  ],
+  // Pe trimestru, tendința pe luni ține locul evoluției din interior.
+  trimestru: [
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "palnie", "pierderi", "asteptare", "fereastra", "piata",
+  ],
+};
+
+/**
+ * Indicatorii mari, pe tip de raport: cei după care se iau decizii la nivelul
+ * perioadei. Restul apar pe un singur rând dedesubt, ca raportul să nu fie un
+ * zid de cifre egale ca importanță.
+ */
+export const PRIMARY_KPIS: Record<ReportType, string[]> = {
+  zi: ["vizite", "firmeNoi", "telefoane", "oferte", "valoare", "restante"],
+  saptamana: ["vizite", "oferte", "valoare", "acceptate", "asteptare", "restante"],
+  luna: ["vizite", "oferte", "valoare", "vanzari", "castig", "asteptare"],
+  trimestru: ["vizite", "oferte", "valoare", "vanzari", "castig", "asteptare"],
+};
+
+/** Secțiunile care au sens pentru cine e raportul: tabelul pe agenți e doar al echipei. */
+export const sectionsFor = (scope: ReportScope): ReportSection[] =>
+  scope === "echipa" ? ALL_SECTIONS : ALL_SECTIONS.filter((s) => s !== "agenti");
+
+export const defaultSections = (type: ReportType, scope: ReportScope): ReportSection[] =>
+  DEFAULTS[type].filter((s) => sectionsFor(scope).includes(s));
+
 export type KpiFormat = "int" | "money" | "pct" | "dec";
+
+/**
+ * Partea scrisă de om, pe patru întrebări fixe. Ultima e cea mai importantă:
+ * face din raport un dialog cu conducerea, nu doar un control al agentului.
+ */
+export const REFLECTION_QUESTIONS = [
+  { key: "amers", label: "Ce a mers", placeholder: "O demonstrație reușită, o firmă câștigată, un argument care a prins." },
+  { key: "nuamers", label: "Ce n-a mers și de ce", placeholder: "O ofertă pierdută, o firmă care s-a răcit, o zi pierdută pe drum." },
+  { key: "piata", label: "Ce văd în piață", placeholder: "Prețuri, concurență, ce cer clienții, ce s-a schimbat față de luna trecută." },
+  { key: "nevoie", label: "De ce am nevoie de la conducere", placeholder: "Un preț, o decizie, un utilaj de demonstrație, o vizită împreună." },
+] as const;
+
+export type ReflectionKey = (typeof REFLECTION_QUESTIONS)[number]["key"];
+export type Reflection = Partial<Record<ReflectionKey, string>>;
+
+export const hasReflection = (r?: Reflection | null): boolean =>
+  Boolean(r && Object.values(r).some((t) => t?.trim()));
+
+/** Un lucru de reținut, cu tonul lui: bine, de urmărit sau doar de știut. */
+export type Highlight = { tone: "bine" | "atentie" | "info"; text: string };
 
 export type Kpi = {
   key: string;
@@ -40,6 +113,12 @@ export type Kpi = {
   target?: number | null;
   /** Unde „mai puțin” e mai bine (pașii restanți). */
   lowerIsBetter?: boolean;
+  /** Ce anume se numără, când numele singur poate fi citit greșit. */
+  hint?: string;
+  /** Starea de acum, fără perioadă anterioară cu care să se compare. */
+  noCompare?: boolean;
+  /** Ce fel de țintă e: „până azi”, „pe lună”. Implicit „până azi”. */
+  targetNote?: string;
 };
 
 export type ReportSnapshot = {
@@ -52,6 +131,8 @@ export type ReportSnapshot = {
   prevLabel: string;
   generatedAt: string;
   orgName: string;
+  /** Lipsește la rapoartele salvate înainte de separarea individual / echipă. */
+  scope?: ReportScope;
   filters: { agentId: string | null; agent: string | null; domainId: string | null; domain: string | null };
   kpis: Kpi[];
   agents: {
@@ -67,10 +148,86 @@ export type ReportSnapshot = {
     acceptate: number;
     tinta: number | null;
   }[];
-  evolution: { label: string; vizite: number; oferte: number; valoare: number }[];
+  /** `tinta` și `viitor` lipsesc la rapoartele salvate înainte de grafic. */
+  evolution: {
+    label: string;
+    /** Eticheta scurtă de sub coloană: „Lu 29”, „22–28.09”, „sept.”. */
+    short?: string;
+    vizite: number;
+    oferte: number;
+    valoare: number;
+    tinta?: number | null;
+    /** Perioadă care n-a venit încă: coloana goală nu e o zi proastă. */
+    viitor?: boolean;
+  }[];
+  /** Deciziile, înghețate la trimitere; până atunci se citesc pe loc. */
+  decisions?: ReportDecisions;
+  /** Cele de mai jos lipsesc la rapoartele salvate înainte să existe secțiunile lor. */
+  /** Ultimele 6 luni, cu luna raportului ultima: încotro merge activitatea. */
+  trend?: {
+    label: string;
+    short: string;
+    vizite: number;
+    oferte: number;
+    vanzari: number;
+    /** Acceptate din ofertele cu răspuns în lună; null când n-a fost niciun răspuns. */
+    castig: number | null;
+    /** Luna raportului, evidențiată. */
+    curent: boolean;
+    /** Lună care n-a venit încă (în trimestrul curent). */
+    viitor: boolean;
+  }[];
+  highlights?: Highlight[];
+  pending?: {
+    total: number;
+    count: number;
+    /** Câte expiră în 7 zile de la data raportului, și valoarea lor. */
+    expiring: number;
+    expiringValue: number;
+    /** Toate ofertele care așteaptă, pe vechime: cât de reci sunt banii. */
+    aging?: { label: string; count: number; value: number }[];
+    rows: {
+      number: string; client: string; agent: string; date: string; validUntil: string | null; gross: number; zile: number;
+      /** Expiră în 7 zile de la data raportului (sau a expirat deja, fără răspuns). */
+      expira?: boolean;
+    }[];
+  };
+  overdue?: { count: number; rows: { client: string; agent: string; step: string | null; date: string; zile: number }[] };
+  /** Firme care spun că ar cumpăra curând sau au utilajul de schimbat: privirea înainte. */
+  opportunities?: {
+    count: number;
+    rows: { client: string; agent: string; reasons: string[]; interest: string | null; nextStep: string | null; nextStepDate: string | null }[];
+  };
+  /** Ofertele pierdute în perioadă, pe motiv: ce e de schimbat, nu doar cât s-a pierdut. */
+  losses?: {
+    count: number;
+    value: number;
+    /** Câte nu au motivul notat: cât de mult se poate crede împărțirea. */
+    unknown: number;
+    byReason: { label: string; count: number; value: number }[];
+    rows: { number: string; client: string; agent: string; status: string; gross: number; reason: string; note: string | null }[];
+  };
+  /** Firme calde, fără pas stabilit, la care a trecut termenul de revenire. */
+  slipping?: { count: number; rows: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[] };
+  escalations?: { client: string; agent: string; date: string; items: string[] }[];
   funnel: { vizite: number; cuPas: number; oferteDinVizite: number; acceptate: number };
   visits: { date: string; agent: string; client: string; city: string | null; prima: boolean; nextStepDate: string | null }[];
   quotes: { number: string; date: string; client: string; agent: string; status: string; gross: number }[];
-  market: { group: string; rows: [string, number][] }[];
+  /**
+   * `answered`: câte firme au răspuns la întrebare; `prevAnswered` și `prev`
+   * (firme pe răspuns, după etichetă): aceleași în perioada anterioară.
+   * Lipsesc la rapoartele mai vechi.
+   */
+  market: {
+    group: string;
+    rows: [string, number][];
+    answered?: number;
+    prevAnswered?: number;
+    prev?: Record<string, number>;
+  }[];
   notes: { date: string; client: string; agent: string; text: string }[];
 };
+
+/** Pentru cine e un raport salvat, și la cele de dinainte să existe câmpul. */
+export const scopeOf = (s: Pick<ReportSnapshot, "scope" | "filters">): ReportScope =>
+  s.scope ?? (s.filters.agentId ? "agent" : "echipa");

@@ -10,7 +10,13 @@ import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
 import { isReportType, periodFor, REPORT_TYPES, type ReportType } from "@/lib/perioade";
-import { buildReportSnapshot, defaultTitle, DEFAULT_SECTIONS } from "@/lib/raport-perioada";
+import {
+  buildReportSnapshot,
+  defaultSections,
+  defaultTitle,
+  SCOPE_LABELS,
+  type ReportScope,
+} from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/totals";
 
@@ -57,14 +63,12 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
   const type: ReportType = isReportType(one(search.tip)) ? (one(search.tip) as ReportType) : "saptamana";
   const today = todayRo();
   const anchor = /^\d{4}-\d{2}-\d{2}$/.test(one(search.data)) ? one(search.data) : today;
-  // Pe teren fiecare își vede raportul lui; conducerea alege, la birou, agentul.
-  // „echipa” e explicit, ca pe teren (unde implicit ești tu) să se poată alege și echipa.
+  // Implicit, fiecare își vede raportul lui. Conducerea poate deschide raportul
+  // altui agent sau raportul echipei — „echipa” e explicit, ca cele două să nu
+  // se confunde niciodată.
   const agParam = one(search.ag);
-  const agentId = !conducere
-    ? user.id
-    : agParam === "echipa"
-      ? null
-      : agParam || (zona === "teren" ? user.id : null);
+  const agentId = !conducere ? user.id : agParam === "echipa" ? null : agParam || user.id;
+  const scope: ReportScope = agentId ? "agent" : "echipa";
   const domainId = one(search.dom) || null;
   const period = periodFor(type, anchor);
 
@@ -75,7 +79,7 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
     supabase.from("memberships").select("user_id, full_name").eq("org_id", orgId),
     supabase
       .from("reports")
-      .select("id, title, type, period_from, period_to, status, sent_at, created_at, updated_at, created_by")
+      .select("id, title, type, period_from, period_to, status, sent_at, created_at, updated_at, created_by, agent_filter")
       .eq("org_id", orgId)
       .order("period_from", { ascending: false })
       .order("updated_at", { ascending: false })
@@ -102,9 +106,32 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
     <div className="space-y-4">
       <PageHeader
         title={zona === "teren" && !conducere ? "Rapoartele mele" : "Rapoarte"}
-        description="Alegi perioada, verifici cifrele, apoi salvezi raportul ca să adaugi rezumatul și să-l trimiți prin Outlook."
+        description="Alegi perioada, verifici cifrele, apoi salvezi raportul săptămânal sau lunar ca să adaugi rezumatul și să-l trimiți prin Outlook."
         back={zona === "teren" ? { href: "/teren/mai-mult", label: "Mai mult" } : undefined}
       />
+
+      {conducere ? (
+        <nav aria-label="Pentru cine e raportul" className="grid grid-cols-2 gap-2">
+          {(
+            [
+              ["agent", user.id, "Activitatea unui singur agent"],
+              ["echipa", "echipa", "Toți agenții împreună, cu defalcare pe agent"],
+            ] as [ReportScope, string, string][]
+          ).map(([id, ag, hint]) => (
+            <Link
+              key={id}
+              href={href({ ag })}
+              aria-current={scope === id ? "page" : undefined}
+              className={`rounded-xl border-2 p-3 transition-colors ${
+                scope === id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white hover:border-neutral-400"
+              }`}
+            >
+              <span className="block font-semibold">{SCOPE_LABELS[id]}</span>
+              <span className={`block text-xs ${scope === id ? "text-white/80" : "text-neutral-500"}`}>{hint}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
 
       <nav aria-label="Tipul raportului" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {REPORT_TYPES.map((r) => (
@@ -124,13 +151,12 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
         ))}
       </nav>
 
-      {conducere || domains.length > 1 ? (
+      {(conducere && scope === "agent" && (members?.length ?? 0) > 1) || domains.length > 1 ? (
         <div className="card space-y-3 p-3">
-          {conducere ? (
+          {conducere && scope === "agent" && (members?.length ?? 0) > 1 ? (
             <FilterChips
               label="Agentul"
               items={[
-                { label: "Toată echipa", href: href({ ag: "echipa" }), active: !agentId },
                 ...(members ?? []).map((m) => ({
                   label: m.full_name ?? "Fără nume",
                   href: href({ ag: m.user_id }),
@@ -176,6 +202,17 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
         )}
       </div>
 
+      {type === "zi" ? (
+        <div className="grid gap-2 sm:flex sm:items-center">
+          <p className="notice sm:flex-1">
+            Fișa zilei nu se trimite: e centralizarea zilei {scope === "echipa" ? "pentru echipă" : "pentru agent"}.
+            Vizitele, contactele și ofertele ei intră singure în rapoartele săptămânale și lunare.
+          </p>
+          <a href={`/raport/export?${excel.toString()}`} className="btn btn-secondary btn-lg">
+            Descarcă Excel
+          </a>
+        </div>
+      ) : (
       <div className="grid gap-2 sm:flex">
         <form action={createReport} className="sm:flex-1">
           <input type="hidden" name="tip" value={type} />
@@ -191,12 +228,13 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
           Descarcă Excel
         </a>
       </div>
+      )}
 
       <div className="card overflow-hidden p-4 md:p-8">
         <ReportDocument
           data={snapshot}
           title={defaultTitle(snapshot)}
-          sections={DEFAULT_SECTIONS[type]}
+          sections={defaultSections(type, scope)}
           author={who(user.id)}
         />
       </div>
@@ -227,6 +265,15 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
                     {r.title as string}
                   </Link>
                 ),
+              },
+              {
+                header: "Pentru",
+                cell: (r) =>
+                  r.agent_filter ? (
+                    (who(r.agent_filter as string) ?? "Agent")
+                  ) : (
+                    <span className="font-medium">Echipa</span>
+                  ),
               },
               { header: "Stare", cell: (r) => <ReportStatus status={r.status as string} sentAt={r.sent_at as string | null} /> },
               { header: "Autor", className: "text-neutral-500", cell: (r) => who(r.created_by as string | null) ?? "—" },

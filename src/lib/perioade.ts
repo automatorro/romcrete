@@ -5,7 +5,7 @@ import type { Granularity } from "@/lib/activitate";
 export type ReportType = "zi" | "saptamana" | "luna" | "trimestru";
 
 export const REPORT_TYPES: { id: ReportType; label: string; adjective: string; hint: string }[] = [
-  { id: "zi", label: "Zilnic", adjective: "zilnic", hint: "Vizitele zilei, pe agent, cu pașii următori" },
+  { id: "zi", label: "Zilnic", adjective: "zilnic", hint: "Fișa zilei, pentru centralizare — nu se trimite" },
   { id: "saptamana", label: "Săptămânal", adjective: "săptămânal", hint: "Ținte, evoluție pe zile, restanțe" },
   { id: "luna", label: "Lunar", adjective: "lunar", hint: "Oferte și valoare, pâlnie, piața" },
   { id: "trimestru", label: "Trimestrial", adjective: "trimestrial", hint: "Tendințe pe luni, conversie, clasament" },

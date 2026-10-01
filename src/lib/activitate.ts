@@ -1,6 +1,8 @@
+import { todayRo } from "@/lib/agenda";
 import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
+import { allRows } from "@/lib/toate-randurile";
 
 export type Granularity = "zi" | "saptamana" | "luna";
 
@@ -15,6 +17,7 @@ export type Metrics = {
   vizitePeZi: number;
   /** Vizite după care agentul a stabilit ce urmează. */
   cuPasUrmator: number;
+  /** Pași următori trecuți de termen și nefăcuți, la sfârșitul perioadei (sau azi, dacă perioada ține încă). */
   pasiRestanti: number;
   /** Vizite în care s-a aflat destul cât să se poată califica meseriașul. */
   calificareCompleta: number;
@@ -22,11 +25,17 @@ export type Metrics = {
   cuCalculAmortizare: number;
   modeleDiscutate: number;
   intrebariOwner: number;
+  /** Oferte emise în perioadă, fără ciorne. */
   oferteEmise: number;
   oferteDinVizite: number;
+  /** Din ofertele emise în perioadă și pornite dintr-o vizită, câte sunt acum acceptate. */
+  acceptateDinVizite: number;
   valoareOferte: number;
+  /** Oferte acceptate în perioadă, după data acceptării, oricând ar fi fost emise. */
   oferteAcceptate: number;
   valoareAcceptata: number;
+  /** Oferte care au primit un răspuns în perioadă: acceptate, respinse sau expirate. */
+  oferteDecise: number;
   /** Zile medii de la vizită la ofertă, pentru ofertele care pornesc dintr-o vizită. */
   zileVizitaOferta: number | null;
 };
@@ -106,7 +115,49 @@ export type ActivityDataset = {
     nextStepDate: string | null;
     late: boolean;
   }[];
-  market: { groupId: string; group: string; option: string; firms: number }[];
+  /** Oferte trimise și fără răspuns la data raportului: banii care așteaptă. */
+  pending: {
+    number: string;
+    client: string;
+    agent: string;
+    date: string;
+    validUntil: string | null;
+    gross: number;
+    /** Zile de la emitere până la sfârșitul perioadei (sau azi). */
+    zile: number;
+  }[];
+  /** Pașii restanți la sfârșitul perioadei, pe firmă: aceiași pe care îi numără `pasiRestanti`. */
+  overdue: { client: string; agent: string; step: string | null; date: string; zile: number }[];
+  /** Întrebările tehnice încă fără răspuns, puse în vizite până la sfârșitul perioadei. */
+  escalations: { client: string; agent: string; date: string; items: string[] }[];
+  /**
+   * Firme care spun că ar cumpăra curând, sunt gata de cumpărare sau au un
+   * utilaj de peste 5 ani: unde se deschide o vânzare. Starea de acum.
+   */
+  opportunities: {
+    client: string;
+    agent: string;
+    reasons: string[];
+    interest: string | null;
+    nextStep: string | null;
+    nextStepDate: string | null;
+    /** Cât de aproape e: 0 luna asta, 1 gata de cumpărare, 2 în 1–3 luni, 3 utilaj vechi. */
+    rank: number;
+  }[];
+  /**
+   * Ofertele pierdute în perioadă (respinse sau expirate, la data deciziei), cu
+   * motivul notat. `reason` e null când nu s-a notat, sau până la migrația lui.
+   */
+  lost: {
+    number: string; client: string; agent: string; status: string; gross: number;
+    reason: string | null; note: string | null;
+  }[];
+  /** Firme calde fără pas stabilit, la care a trecut termenul de revenire. Starea de acum. */
+  slipping: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[];
+  /** `answered`: câte firme au răspuns la întrebare, ca „4 firme” să aibă o bază. */
+  market: { groupId: string; group: string; option: string; firms: number; answered: number }[];
+  /** Aceleași răspunsuri, pe perioada anterioară. */
+  marketPrevious: { groupId: string; group: string; option: string; firms: number; answered: number }[];
 };
 
 
@@ -153,6 +204,14 @@ function bucketOf(date: string, g: Granularity): { key: string; label: string } 
   return { key: monday, label: `${scurt(monday)}–${scurt(sunday)}` };
 }
 
+/** O ofertă care a primit răspuns: acceptată, respinsă sau expirată, la data deciziei. */
+type Decizie = {
+  id: string; number: string; status: string; date: string; gross: number; agentId: string | null; clientId: string;
+};
+
+/** Stările în care o ofertă și-a primit răspunsul. */
+const DECISE = ["accepted", "rejected", "expired"];
+
 type RawVisit = {
   id: string; client_id: string; agent_id: string | null; visit_date: string;
   answers: Answers; notes: Notes; pump_skus: string[];
@@ -171,17 +230,18 @@ const calificat = (a: Answers) =>
 function computeMetrics(
   visits: RawVisit[],
   quotes: QuoteDetail[],
+  decizii: Decizie[],
   clientiNoi: number,
   primaVizitaPeFirma: Map<string, string>,
   from: string,
   to: string,
-  azi: string,
+  restante: number,
 ): Metrics {
   const lucratoare = zileLucratoare(from, to);
   const prime = visits.filter((v) => primaVizitaPeFirma.get(v.client_id) === v.visit_date).length;
   const dinVizite = quotes.filter((q) => q.dinVizita);
   const intarzieri = dinVizite.map((q) => q.zilePanaLaOferta).filter((x): x is number => x !== null);
-  const acceptate = quotes.filter((q) => q.status === "accepted");
+  const acceptate = decizii.filter((d) => d.status === "accepted");
 
   return {
     vizite: visits.length,
@@ -192,9 +252,7 @@ function computeMetrics(
     zileLucratoare: lucratoare,
     vizitePeZi: lucratoare ? Math.round((visits.length / lucratoare) * 100) / 100 : 0,
     cuPasUrmator: visits.filter((v) => v.next_step_date || v.answers?.urmator).length,
-    pasiRestanti: visits.filter(
-      (v) => v.next_step_date && !v.next_step_done_at && v.next_step_date < azi,
-    ).length,
+    pasiRestanti: restante,
     calificareCompleta: visits.filter((v) => calificat(v.answers)).length,
     cuCalculAmortizare: visits.filter((v) => v.answers?.supr && v.answers?.manopera).length,
     modeleDiscutate: visits.reduce((n, v) => n + (v.pump_skus?.length ?? 0), 0),
@@ -203,9 +261,11 @@ function computeMetrics(
     ).length,
     oferteEmise: quotes.length,
     oferteDinVizite: dinVizite.length,
+    acceptateDinVizite: dinVizite.filter((q) => q.status === "accepted").length,
     valoareOferte: Math.round(quotes.reduce((s, q) => s + q.gross, 0) * 100) / 100,
     oferteAcceptate: acceptate.length,
-    valoareAcceptata: Math.round(acceptate.reduce((s, q) => s + q.gross, 0) * 100) / 100,
+    valoareAcceptata: Math.round(acceptate.reduce((s, d) => s + d.gross, 0) * 100) / 100,
+    oferteDecise: decizii.length,
     zileVizitaOferta: intarzieri.length
       ? Math.round((intarzieri.reduce((a, b) => a + b, 0) / intarzieri.length) * 10) / 10
       : null,
@@ -223,13 +283,18 @@ export async function buildActivity(
   previousRange?: { from: string; to: string },
 ): Promise<ActivityDataset> {
   const supabase = await createClient();
-  const azi = zi(new Date());
+  const azi = todayRo();
   const lungime = diferentaZile(from, to);
   const prevTo = previousRange?.to ?? adauga(from, -1);
   const prevFrom = previousRange?.from ?? adauga(prevTo, -lungime);
 
+  type PasVizita = {
+    client_id: string; agent_id: string | null; visit_date: string;
+    next_step_date: string | null; next_step_done_at: string | null;
+    urmator: string | null; esc: unknown; escalation_done_at: string | null;
+  };
   const [
-    { data: allVisitDates },
+    allVisitDates,
     { data: visitRows },
     { data: memberRows },
     { data: clientRows },
@@ -237,8 +302,21 @@ export async function buildActivity(
     { data: stateRows },
     { data: groupRows },
     { data: optionRows },
+    { data: decisionRows },
+    { data: pendingRows },
   ] = await Promise.all([
-    supabase.from("visits").select("client_id, visit_date").eq("org_id", orgId),
+    // Tot istoricul vizitelor: prima vizită pe firmă și pașii restanți. Trece
+    // ușor de 1.000 de rânduri, așa că se citește pe pagini.
+    allRows<PasVizita>((a, b) =>
+      supabase
+        .from("visits")
+        .select(
+          "client_id, agent_id, visit_date, next_step_date, next_step_done_at, urmator:answers->>urmator, esc:answers->esc, escalation_done_at",
+        )
+        .eq("org_id", orgId)
+        .order("id")
+        .range(a, b),
+    ),
     supabase
       .from("visits")
       .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, next_step_date, next_step_done_at")
@@ -259,11 +337,31 @@ export async function buildActivity(
       .select("id, number, issue_date, status, client_id, created_by, visit_id")
       .eq("org_id", orgId)
       .is("archived_at", null)
+      // O ciornă nu e încă o ofertă: n-a văzut-o clientul.
+      .neq("status", "draft")
       .gte("issue_date", prevFrom)
       .lte("issue_date", to),
     supabase.from("client_state").select("*").eq("org_id", orgId),
     supabase.from("question_groups").select("id, label"),
     supabase.from("question_options").select("group_id, id, label"),
+    // Schimbările de stare ale ofertelor, cu ora lor: de aici se știe când a fost
+    // acceptată o ofertă, nu doar când a fost emisă. O zi în plus în urmă, pentru
+    // diferența dintre ora României și UTC.
+    supabase
+      .from("client_activities")
+      .select("quote_id, occurred_at, meta")
+      .eq("org_id", orgId)
+      .eq("kind", "oferta_stare")
+      .gte("occurred_at", `${adauga(prevFrom, -1)}T00:00:00Z`)
+      .order("occurred_at"),
+    // Ofertele trimise care încă așteaptă răspuns, oricând ar fi fost emise.
+    supabase
+      .from("quotes")
+      .select("id, number, issue_date, valid_until, client_id, created_by")
+      .eq("org_id", orgId)
+      .is("archived_at", null)
+      .eq("status", "sent")
+      .lte("issue_date", to),
   ]);
 
   const domenii = await getDomains(orgId);
@@ -281,7 +379,7 @@ export async function buildActivity(
 
   // Prima vizită pe fiecare firmă, din tot istoricul — nu doar din perioada cerută.
   const primaVizita = new Map<string, string>();
-  for (const v of allVisitDates ?? []) {
+  for (const v of allVisitDates) {
     const cur = primaVizita.get(v.client_id as string);
     if (!cur || (v.visit_date as string) < cur) primaVizita.set(v.client_id as string, v.visit_date as string);
   }
@@ -289,10 +387,36 @@ export async function buildActivity(
   const totiiVizite = (visitRows ?? []) as RawVisit[];
   const visitById = new Map(totiiVizite.map((v) => [v.id, v]));
 
+  // Data deciziei pe fiecare ofertă: ultima schimbare de stare din perioadă.
+  const ultimaSchimbare = new Map<string, { status: string; date: string }>();
+  for (const e of decisionRows ?? []) {
+    const status = (e.meta as { status?: string } | null)?.status;
+    if (!e.quote_id || !status) continue;
+    ultimaSchimbare.set(e.quote_id as string, { status, date: todayRo(new Date(e.occurred_at as string)) });
+  }
+  // Ofertele decise în perioadă pot fi emise oricând înainte: se citesc separat.
+  const emiseInPerioada = new Set((quoteRows ?? []).map((q) => q.id as string));
+  const deCitit = [...ultimaSchimbare.keys()].filter((id) => !emiseInPerioada.has(id));
+  const { data: olderRows } = deCitit.length
+    ? await supabase
+        .from("quotes")
+        .select("id, number, issue_date, status, client_id, created_by, visit_id")
+        .eq("org_id", orgId)
+        .is("archived_at", null)
+        .in("id", deCitit)
+    : { data: [] };
+
+  const idsTotaluri = [
+    ...new Set([
+      ...emiseInPerioada,
+      ...(olderRows ?? []).map((q) => q.id as string),
+      ...(pendingRows ?? []).map((q) => q.id as string),
+    ]),
+  ];
   const { data: totalRows } = await supabase
     .from("quote_totals")
     .select("quote_id, net_total, vat_total")
-    .in("quote_id", (quoteRows ?? []).length ? (quoteRows ?? []).map((q) => q.id) : ["00000000-0000-0000-0000-000000000000"]);
+    .in("quote_id", idsTotaluri.length ? idsTotaluri : ["00000000-0000-0000-0000-000000000000"]);
   const totaluri = new Map(
     (totalRows ?? []).map((t) => [
       t.quote_id as string,
@@ -318,6 +442,30 @@ export async function buildActivity(
     };
   });
 
+  // Decizia contează doar dacă oferta e încă în starea aceea. Ofertele decise
+  // înainte să existe istoricul stărilor nu au o dată a deciziei: pentru ele
+  // rămâne data emiterii.
+  const toateDeciziile: Decizie[] = [...(quoteRows ?? []), ...(olderRows ?? [])]
+    .filter((q) => DECISE.includes(q.status as string))
+    .flatMap((q) => {
+      const s = ultimaSchimbare.get(q.id as string);
+      const date = s ? (s.status === q.status ? s.date : null) : (q.issue_date as string);
+      if (!date) return [];
+      return [{
+        id: q.id as string,
+        number: q.number as string,
+        status: q.status as string,
+        date,
+        gross: totaluri.get(q.id as string)?.gross ?? 0,
+        agentId: (q.created_by as string | null) ?? null,
+        clientId: q.client_id as string,
+      }];
+    });
+
+  const etichete = new Map((optionRows ?? []).map((o) => [`${o.group_id}|${o.id}`, o.label as string]));
+  const numeGrup = new Map((groupRows ?? []).map((g) => [g.id as string, g.label as string]));
+  const eticheta = (gid: string, oid: string) => etichete.get(`${gid}|${oid}`) ?? oid;
+
   const inInterval = (d: string, a: string, b: string) => d >= a && d <= b;
   const filtruAgent = <T extends { agent_id?: string | null; agentId?: string | null }>(rows: T[]) =>
     agentFilter ? rows.filter((r) => (r.agent_id ?? r.agentId) === agentFilter) : rows;
@@ -332,6 +480,106 @@ export async function buildActivity(
   const ofertePerioada = filtruDomeniuOferte(filtruAgent(toateOfertele.filter((q) => inInterval(q.date, from, to))));
   const ofertePrecedent = filtruDomeniuOferte(filtruAgent(toateOfertele.filter((q) => inInterval(q.date, prevFrom, prevTo))));
 
+  const decizii = toateDeciziile.filter(
+    (d) =>
+      (!agentFilter || d.agentId === agentFilter) &&
+      (!domainFilter || domeniuFirma.get(d.clientId) === domainFilter),
+  );
+  const deciziiPerioada = decizii.filter((d) => inInterval(d.date, from, to));
+
+  // Motivele pierderilor din perioadă. Coloanele lipsesc până la migrația lor:
+  // atunci raportul arată pierderile fără motiv, nu se oprește.
+  const pierdute = deciziiPerioada.filter((d) => d.status !== "accepted");
+  const { data: motive } = pierdute.length
+    ? await supabase.from("quotes").select("id, loss_reason, loss_note").in("id", pierdute.map((d) => d.id))
+    : { data: [] };
+  const motivDe = new Map((motive ?? []).map((m) => [m.id as string, m]));
+  const lost: ActivityDataset["lost"] = pierdute
+    .map((d) => ({
+      number: d.number,
+      client: numeClient.get(d.clientId) ?? "—",
+      agent: numeAgent(d.agentId),
+      status: d.status,
+      gross: d.gross,
+      reason: (motivDe.get(d.id)?.loss_reason as string | null) ?? null,
+      note: (motivDe.get(d.id)?.loss_note as string | null) ?? null,
+    }))
+    .sort((a, b) => b.gross - a.gross);
+  const deciziiPrecedent = decizii.filter((d) => inInterval(d.date, prevFrom, prevTo));
+
+  // Pașii restanți la o dată: pași ai vizitelor de până atunci, cu termenul
+  // trecut și nefăcuți până la ea. Pentru o perioadă încheiată se citesc la
+  // sfârșitul ei, ca săptămâna trecută să nu fie judecată cu restanțele de azi.
+  const pasi = allVisitDates.filter(
+    (v) =>
+      v.next_step_date &&
+      (!agentFilter || v.agent_id === agentFilter) &&
+      (!domainFilter || domeniuFirma.get(v.client_id) === domainFilter),
+  );
+  const restanteLa = (pana: string, pastreaza: (v: PasVizita) => boolean = () => true) => {
+    const la = pana < azi ? pana : azi;
+    return pasi.filter(
+      (v) =>
+        pastreaza(v) &&
+        v.visit_date <= la &&
+        (v.next_step_date as string) < la &&
+        (!v.next_step_done_at || todayRo(new Date(v.next_step_done_at)) > la),
+    ).length;
+  };
+
+  // Aceleași reguli, pe nume: ce firmă, al cui pas, de câte zile.
+  const laSfarsit = to < azi ? to : azi;
+  const overdue = pasi
+    .filter(
+      (v) =>
+        v.visit_date <= laSfarsit &&
+        (v.next_step_date as string) < laSfarsit &&
+        (!v.next_step_done_at || todayRo(new Date(v.next_step_done_at)) > laSfarsit),
+    )
+    .map((v) => ({
+      client: numeClient.get(v.client_id) ?? "—",
+      agent: numeAgent(v.agent_id),
+      step: v.urmator ? eticheta("urmator", v.urmator) : null,
+      date: v.next_step_date as string,
+      zile: diferentaZile(v.next_step_date as string, laSfarsit),
+    }))
+    .sort((a, b) => b.zile - a.zile);
+
+  const escalations = allVisitDates
+    .filter(
+      (v) =>
+        Array.isArray(v.esc) &&
+        v.esc.length > 0 &&
+        v.visit_date <= to &&
+        (!v.escalation_done_at || todayRo(new Date(v.escalation_done_at)) > laSfarsit) &&
+        (!agentFilter || v.agent_id === agentFilter) &&
+        (!domainFilter || domeniuFirma.get(v.client_id) === domainFilter),
+    )
+    .sort((a, b) => a.visit_date.localeCompare(b.visit_date))
+    .map((v) => ({
+      client: numeClient.get(v.client_id) ?? "—",
+      agent: numeAgent(v.agent_id),
+      date: v.visit_date,
+      items: (v.esc as string[]).map((e) => eticheta("esc", e)),
+    }));
+
+  const pending = (pendingRows ?? [])
+    .filter(
+      (q) =>
+        (!agentFilter || q.created_by === agentFilter) &&
+        (!domainFilter || domeniuFirma.get(q.client_id as string) === domainFilter),
+    )
+    .map((q) => ({
+      number: q.number as string,
+      client: numeClient.get(q.client_id as string) ?? "—",
+      agent: numeAgent(q.created_by as string | null),
+      date: q.issue_date as string,
+      validUntil: (q.valid_until as string | null) ?? null,
+      gross: totaluri.get(q.id as string)?.gross ?? 0,
+      zile: Math.max(0, diferentaZile(q.issue_date as string, laSfarsit)),
+    }))
+    .sort((a, b) => b.gross - a.gross);
+
   const firmeNoiIn = (a: string, b: string) =>
     clients.filter((c) => {
       const creat = (c.created_at as string).slice(0, 10);
@@ -340,25 +588,43 @@ export async function buildActivity(
         && (!domainFilter || ((c.domain as string) ?? "constructii") === domainFilter);
     }).length;
 
-  const total = computeMetrics(vizitePerioada, ofertePerioada, firmeNoiIn(from, to), primaVizita, from, to, azi);
-  const previous = computeMetrics(vizitePrecedent, ofertePrecedent, firmeNoiIn(prevFrom, prevTo), primaVizita, prevFrom, prevTo, azi);
+  const total = computeMetrics(
+    vizitePerioada, ofertePerioada, deciziiPerioada, firmeNoiIn(from, to), primaVizita, from, to, restanteLa(to),
+  );
+  const previous = computeMetrics(
+    vizitePrecedent, ofertePrecedent, deciziiPrecedent, firmeNoiIn(prevFrom, prevTo), primaVizita, prevFrom, prevTo,
+    restanteLa(prevTo),
+  );
 
-  // Pe agent
-  const agentIds = [...new Set(vizitePerioada.map((v) => v.agent_id ?? "necunoscut"))];
+  // Pe agent: toți agenții echipei, și cei fără nicio vizită — tocmai ei trebuie
+  // văzuți. Plus oricine a lucrat în perioadă, chiar dacă nu are rolul de agent.
+  const cheieAgent = (id: string | null) => id ?? "necunoscut";
+  const agentIds = agentFilter
+    ? [agentFilter]
+    : [
+        ...new Set([
+          ...members.filter((m) => m.role === "agent").map((m) => m.user_id as string),
+          ...vizitePerioada.map((v) => cheieAgent(v.agent_id)),
+          ...ofertePerioada.map((q) => cheieAgent(q.agentId)),
+          ...deciziiPerioada.map((d) => cheieAgent(d.agentId)),
+        ]),
+      ];
   const perAgent = agentIds
     .map((id) => ({
       agentId: id,
       agent: numeAgent(id === "necunoscut" ? null : id),
       metrics: computeMetrics(
-        vizitePerioada.filter((v) => (v.agent_id ?? "necunoscut") === id),
-        ofertePerioada.filter((q) => (q.agentId ?? "necunoscut") === id),
+        vizitePerioada.filter((v) => cheieAgent(v.agent_id) === id),
+        ofertePerioada.filter((q) => cheieAgent(q.agentId) === id),
+        deciziiPerioada.filter((d) => cheieAgent(d.agentId) === id),
         clients.filter(
           (c) => c.owner_agent_id === id && inInterval((c.created_at as string).slice(0, 10), from, to),
         ).length,
-        primaVizita, from, to, azi,
+        primaVizita, from, to,
+        restanteLa(to, (v) => cheieAgent(v.agent_id) === id),
       ),
     }))
-    .sort((a, b) => b.metrics.vizite - a.metrics.vizite);
+    .sort((a, b) => b.metrics.vizite - a.metrics.vizite || a.agent.localeCompare(b.agent, "ro"));
 
   // Pe domeniu: aceiași indicatori, ca să se vadă unde se lucrează și unde nu.
   const perDomain = domenii
@@ -369,26 +635,29 @@ export async function buildActivity(
       metrics: computeMetrics(
         vizitePerioada.filter((v) => domeniuFirma.get(v.client_id) === d.id),
         ofertePerioada.filter((q) => domeniuFirma.get(q.clientId) === d.id),
+        deciziiPerioada.filter((x) => domeniuFirma.get(x.clientId) === d.id),
         clients.filter(
           (c) =>
             ((c.domain as string) ?? "constructii") === d.id &&
             inInterval((c.created_at as string).slice(0, 10), from, to) &&
             (!agentFilter || c.owner_agent_id === agentFilter),
         ).length,
-        primaVizita, from, to, azi,
+        primaVizita, from, to,
+        restanteLa(to, (v) => domeniuFirma.get(v.client_id) === d.id),
       ),
     }))
-    .filter((d) => d.metrics.vizite > 0 || d.metrics.firmeNoi > 0)
+    .filter((d) => d.metrics.vizite > 0 || d.metrics.firmeNoi > 0 || d.metrics.oferteAcceptate > 0)
     .sort((a, b) => b.metrics.vizite - a.metrics.vizite);
 
   // Pe perioadă
-  const gasit = new Map<string, { label: string; visits: RawVisit[]; quotes: typeof ofertePerioada }>();
+  const gasit = new Map<string, { label: string; visits: RawVisit[]; quotes: typeof ofertePerioada; decizii: Decizie[] }>();
   for (let d = from; d <= to; d = adauga(d, 1)) {
     const b = bucketOf(d, granularity);
-    if (!gasit.has(b.key)) gasit.set(b.key, { label: b.label, visits: [], quotes: [] });
+    if (!gasit.has(b.key)) gasit.set(b.key, { label: b.label, visits: [], quotes: [], decizii: [] });
   }
   for (const v of vizitePerioada) gasit.get(bucketOf(v.visit_date, granularity).key)?.visits.push(v);
   for (const q of ofertePerioada) gasit.get(bucketOf(q.date, granularity).key)?.quotes.push(q);
+  for (const d of deciziiPerioada) gasit.get(bucketOf(d.date, granularity).key)?.decizii.push(d);
 
   const perPeriod: Bucket[] = [...gasit.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -398,11 +667,12 @@ export async function buildActivity(
         : granularity === "saptamana" ? adauga(key, 6)
         : `${key}-31`;
       const start = granularity === "luna" ? `${key}-01` : key;
+      const sfarsit = capat > to ? to : capat;
       return {
         key,
         label: g.label,
         metrics: computeMetrics(
-          g.visits, g.quotes,
+          g.visits, g.quotes, g.decizii,
           clients.filter((c) => {
             const creat = (c.created_at as string).slice(0, 10);
             return creat >= (start < from ? from : start) && creat <= (capat > to ? to : capat) &&
@@ -410,38 +680,44 @@ export async function buildActivity(
           }).length,
           primaVizita,
           start < from ? from : start,
-          capat > to ? to : capat,
-          azi,
+          sfarsit,
+          // Zilele care n-au venit încă nu au restanțe.
+          start > azi ? 0 : restanteLa(sfarsit),
         ),
       };
     });
 
-  const etichete = new Map((optionRows ?? []).map((o) => [`${o.group_id}|${o.id}`, o.label as string]));
-  const numeGrup = new Map((groupRows ?? []).map((g) => [g.id as string, g.label as string]));
-  const eticheta = (gid: string, oid: string) => etichete.get(`${gid}|${oid}`) ?? oid;
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
 
-  const market: ActivityDataset["market"] = [];
-  const perGrup = new Map<string, Map<string, Set<string>>>();
-  for (const v of vizitePerioada) {
-    for (const [gid, raw] of Object.entries(v.answers ?? {})) {
-      const values = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
-      if (!values.length) continue;
-      const g = perGrup.get(gid) ?? new Map<string, Set<string>>();
-      for (const val of values) {
-        const set = g.get(val) ?? new Set<string>();
-        set.add(v.client_id);
-        g.set(val, set);
+  // Răspunsurile din piață, numărate pe firmă: o firmă contează o dată pe răspuns.
+  const piataDin = (vizite: RawVisit[]): ActivityDataset["market"] => {
+    const out: ActivityDataset["market"] = [];
+    const perGrup = new Map<string, Map<string, Set<string>>>();
+    for (const v of vizite) {
+      for (const [gid, raw] of Object.entries(v.answers ?? {})) {
+        const values = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
+        if (!values.length) continue;
+        const g = perGrup.get(gid) ?? new Map<string, Set<string>>();
+        for (const val of values) {
+          const set = g.get(val) ?? new Set<string>();
+          set.add(v.client_id);
+          g.set(val, set);
+        }
+        perGrup.set(gid, g);
       }
-      perGrup.set(gid, g);
     }
-  }
-  for (const [gid, opts] of perGrup) {
-    for (const [oid, firms] of [...opts.entries()].sort((a, b) => b[1].size - a[1].size)) {
-      market.push({ groupId: gid, group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size });
+    for (const [gid, opts] of perGrup) {
+      const answered = new Set([...opts.values()].flatMap((set) => [...set])).size;
+      for (const [oid, firms] of [...opts.entries()].sort((a, b) => b[1].size - a[1].size)) {
+        out.push({ groupId: gid, group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size, answered });
+      }
     }
-  }
+    return out;
+  };
+  const market = piataDin(vizitePerioada);
+  // Aceeași numărătoare pe perioada anterioară: piața se citește ca tendință.
+  const marketPrevious = piataDin(vizitePrecedent);
 
   const { data: orgRow } = await supabase
     .from("organizations")
@@ -449,10 +725,59 @@ export async function buildActivity(
     .eq("id", orgId)
     .maybeSingle();
 
+  // Privirea înainte, din starea de acum a firmelor, pe aceleași filtre.
+  const stari = (stateRows ?? [])
+    .filter((c) => !agentFilter || c.owner_agent_id === agentFilter)
+    .filter((c) => !domainFilter || ((c.domain as string) ?? "constructii") === domainFilter)
+    // O firmă deja client sau pierdută nu mai e o vânzare care se deschide.
+    .filter((c) => c.stage !== "client" && c.stage !== "pierdut");
+
+  const opportunities: ActivityDataset["opportunities"] = stari
+    .flatMap((c) => {
+      const a = (c.answers ?? {}) as Answers;
+      if (c.interest === "nu") return [];
+      const reasons: string[] = [];
+      let rank = 9;
+      if (a.cand === "acum" || a.cand === "l13") {
+        reasons.push(`Ar cumpăra: ${eticheta("cand", a.cand as string).toLowerCase()}`);
+        rank = a.cand === "acum" ? 0 : 2;
+      }
+      if (c.interest === "gata") {
+        reasons.push(eticheta("interes", "gata"));
+        rank = Math.min(rank, 1);
+      }
+      if (a.utilaj === "peste5") {
+        reasons.push("Utilajul are peste 5 ani");
+        rank = Math.min(rank, 3);
+      }
+      if (!reasons.length) return [];
+      return [{
+        client: c.name as string,
+        agent: numeAgent(c.owner_agent_id as string | null),
+        reasons,
+        interest: c.interest ? eticheta("interes", c.interest as string) : null,
+        nextStep: c.next_step ? eticheta("urmator", c.next_step as string) : null,
+        nextStepDate: (c.next_step_date as string | null) ?? null,
+        rank,
+      }];
+    })
+    .sort((x, y) => x.rank - y.rank || x.client.localeCompare(y.client, "ro"));
+
+  const slipping: ActivityDataset["slipping"] = stari
+    .filter((c) => c.is_warm && c.needs_recontact && c.recontact_due)
+    .map((c) => ({
+      client: c.name as string,
+      agent: numeAgent(c.owner_agent_id as string | null),
+      lastVisit: (c.last_visit as string | null) ?? null,
+      zile: Math.max(0, diferentaZile(c.recontact_due as string, azi)),
+      interest: c.interest ? eticheta("interes", c.interest as string) : null,
+    }))
+    .sort((x, y) => y.zile - x.zile);
+
   return {
     from, to, granularity, agentFilter, domainFilter, members,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
-    total, previous, perAgent, perDomain, perPeriod,
+    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations, opportunities, slipping, lost,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);
       return {
@@ -509,5 +834,6 @@ export async function buildActivity(
         late: Boolean(s.next_step_late),
       })),
     market,
+    marketPrevious,
   };
 }

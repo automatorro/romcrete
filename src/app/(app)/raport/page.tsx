@@ -91,8 +91,8 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Vizite" value={String(r.visits.length)} />
         <StatTile label="Firme vizitate" value={String(r.clientCount)} />
-        <StatTile label="Oferte din vizite" value={String(r.quotesFromVisits)} />
-        <StatTile label="Valoare oferte" value={formatMoney(r.quotedValue)} hint="cu TVA" />
+        <StatTile label="Oferte din aceste vizite" value={String(r.quotesFromVisits)} hint="fără ciorne" />
+        <StatTile label="Valoarea lor" value={formatMoney(r.quotedValue)} hint="cu TVA" />
       </section>
 
       <section className="card p-4">

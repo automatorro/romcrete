@@ -16,11 +16,15 @@ export default async function SettingsPage() {
   const { orgId, organization, role } = await requireOrg();
   const [sections, domenii] = await Promise.all([getQuestionCatalogue(orgId), getAllDomains(orgId)]);
   const supabase = await createClient();
-  const { data: agentRows } = await supabase
-    .from("memberships")
-    .select("user_id, full_name, role, target_visits_per_day, target_quotes_per_month")
-    .eq("org_id", orgId)
-    .order("role");
+  const membri = (columns: string) =>
+    supabase.from("memberships").select(columns).eq("org_id", orgId).order("role");
+  const cuVanzari = await membri(
+    "user_id, full_name, role, target_visits_per_day, target_quotes_per_month, target_sales_per_month",
+  );
+  // Până se aplică migrația țintei de vânzări, celelalte ținte se văd oricum.
+  const { data: agentRows } = cuVanzari.error
+    ? await membri("user_id, full_name, role, target_visits_per_day, target_quotes_per_month")
+    : cuVanzari;
   const grup = (id: string) => sections.flatMap((s) => s.groups).find((g) => g.id === id);
 
   // Intervalele sunt scrise pe domeniu: „60–100 mp” la construcții și
@@ -98,7 +102,7 @@ export default async function SettingsPage() {
           nou nu are de ce să aibă aceeași țintă cu unul cu cinci ani de teren.
         </p>
         <div className="card p-6">
-          <TinteAgentiForm agents={(agentRows ?? []) as AgentTarget[]} />
+          <TinteAgentiForm agents={(agentRows ?? []) as unknown as AgentTarget[]} />
         </div>
       </section>
 

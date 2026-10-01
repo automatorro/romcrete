@@ -16,7 +16,19 @@ export async function updateOrganization(
   if (!parsed.ok) return { error: parsed.error };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("organizations").update(parsed.data).eq("id", orgId);
+  let { error } = await supabase.from("organizations").update(parsed.data).eq("id", orgId);
+  // Până se aplică migrația țintei de vânzări, restul datelor se salvează oricum.
+  if (error && /target_sales_per_month/.test(error.message)) {
+    const { target_sales_per_month: _fara, ...rest } = parsed.data;
+    void _fara;
+    ({ error } = await supabase.from("organizations").update(rest).eq("id", orgId));
+    if (!error) {
+      revalidatePath("/", "layout");
+      return {
+        error: "Datele s-au salvat, fără ținta de vânzări: aplică migrația 20261001120000_tinta_vanzari.sql în Supabase.",
+      };
+    }
+  }
 
   if (error) return { error: error.message };
 
@@ -123,28 +135,40 @@ export async function updateAgentTargets(
   const { orgId } = await requireOrg();
   const supabase = await createClient();
 
-  const perAgent = new Map<string, { vizite: number | null; oferte: number | null }>();
+  const perAgent = new Map<string, { vizite: number | null; oferte: number | null; vanzari: number | null }>();
   for (const [name, raw] of formData.entries()) {
-    const m = name.match(/^(vizite|oferte)_(.+)$/);
+    const m = name.match(/^(vizite|oferte|vanzari)_(.+)$/);
     if (!m) continue;
     const [, camp, userId] = m;
     const text = String(raw).trim();
     const value = text === "" ? null : Number(text);
-    if (value !== null && !Number.isFinite(value)) continue;
+    if (value !== null && (!Number.isFinite(value) || value < 0)) continue;
 
-    const rec = perAgent.get(userId) ?? { vizite: null, oferte: null };
+    const rec = perAgent.get(userId) ?? { vizite: null, oferte: null, vanzari: null };
     if (camp === "vizite") rec.vizite = value;
-    else rec.oferte = value;
+    else if (camp === "oferte") rec.oferte = value;
+    else rec.vanzari = value;
     perAgent.set(userId, rec);
   }
 
+  let faraVanzari = false;
   for (const [userId, t] of perAgent) {
-    const { error } = await supabase
+    const base = { target_visits_per_day: t.vizite, target_quotes_per_month: t.oferte };
+    let { error } = await supabase
       .from("memberships")
-      .update({ target_visits_per_day: t.vizite, target_quotes_per_month: t.oferte })
+      .update(faraVanzari ? base : { ...base, target_sales_per_month: t.vanzari })
       .eq("org_id", orgId)
       .eq("user_id", userId);
+    // Până se aplică migrația țintei de vânzări, celelalte ținte se salvează oricum.
+    if (error && /target_sales_per_month/.test(error.message)) {
+      faraVanzari = true;
+      ({ error } = await supabase.from("memberships").update(base).eq("org_id", orgId).eq("user_id", userId));
+    }
     if (error) return { error: error.message };
+  }
+  if (faraVanzari) {
+    revalidatePath("/setari");
+    return { error: "Țintele s-au salvat, fără vânzări: aplică migrația 20261001120000_tinta_vanzari.sql în Supabase." };
   }
 
   revalidatePath("/setari");

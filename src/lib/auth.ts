@@ -12,7 +12,7 @@ export type SessionContext = {
 
 const ORG_COLUMNS = [
   "id", "name", "cui", "reg_com", "address", "city", "county", "email", "phone", "iban", "bank",
-  "vat_rate", "quote_terms", "join_domains", "target_visits_per_day", "target_quotes_per_month",
+  "vat_rate", "quote_terms", "join_domains", "target_visits_per_day", "target_quotes_per_month", "target_sales_per_month",
   "recontact_days_warm", "recontact_days_cold", "productivity_factor", "working_days_per_month",
   "report_recipients", "websites", "created_at",
 ].join(", ");

@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
+import { isDecisionStatus, readReportDecisions } from "@/lib/decizii";
 import { isReportType } from "@/lib/perioade";
 import {
   ALL_SECTIONS,
   buildReportSnapshot,
+  defaultSections,
   defaultTitle,
-  DEFAULT_SECTIONS,
+  REFLECTION_QUESTIONS,
+  scopeOf,
+  type Reflection,
   type ReportSection,
 } from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
@@ -42,13 +46,14 @@ function parseRecipients(raw: string): { ok: string[]; bad: string[] } {
 
 /**
  * Salvează raportul perioadei alese, cu cifrele de acum, și deschide editarea.
- * Agentul își salvează doar raportul propriu.
+ * Agentul își salvează doar raportul propriu. Ziua nu se salvează: fișa zilei
+ * nu se trimite nimănui, iar cifrele ei intră singure în săptămână și în lună.
  */
 export async function createReport(formData: FormData) {
   const { orgId, organization, user, role } = await requireOrg();
   const type = formData.get("tip");
   const anchor = String(formData.get("data") ?? "");
-  if (!isReportType(type) || !ISO_DAY.test(anchor)) return;
+  if (!isReportType(type) || type === "zi" || !ISO_DAY.test(anchor)) return;
 
   const agentId = role === "agent" ? user.id : String(formData.get("ag") ?? "") || null;
   const domainId = String(formData.get("dom") ?? "") || null;
@@ -87,7 +92,7 @@ export async function createReport(formData: FormData) {
       agent_filter: agentId,
       domain_filter: domainId,
       title: defaultTitle(data),
-      sections: DEFAULT_SECTIONS[type],
+      sections: defaultSections(type, scopeOf(data)),
       data,
       recipients: organization.report_recipients ?? [],
     })
@@ -116,21 +121,35 @@ export async function updateReport(id: string, _prev: ActionState, formData: For
     if (text) notes[s] = text;
   }
 
+  const reflection: Reflection = {};
+  for (const q of REFLECTION_QUESTIONS) {
+    const text = String(formData.get(`refl_${q.key}`) ?? "").trim();
+    if (text) reflection[q.key] = text;
+  }
+
   const { ok, bad } = parseRecipients(String(formData.get("recipients") ?? ""));
   if (bad.length) return { error: `Adrese de email greșite: ${bad.join(", ")}` };
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("reports")
-    .update({
-      title,
-      summary: String(formData.get("summary") ?? "").trim() || null,
-      sections,
-      section_notes: notes,
-      recipients: ok,
-    })
-    .eq("id", id);
-  if (error) return { error: error.message };
+  const fields = {
+    title,
+    summary: String(formData.get("summary") ?? "").trim() || null,
+    sections,
+    section_notes: notes,
+    recipients: ok,
+  };
+  const { error } = await supabase.from("reports").update({ ...fields, reflection }).eq("id", id);
+  if (error) {
+    // Până se aplică migrația câmpului nou, restul raportului se salvează oricum.
+    if (!/reflection/.test(error.message)) return { error: error.message };
+    const { error: again } = await supabase.from("reports").update(fields).eq("id", id);
+    if (again) return { error: again.message };
+    refresh(id);
+    return {
+      error:
+        "Raportul s-a salvat, fără cele patru întrebări: aplică migrația 20261001090000_raport_din_teren.sql în Supabase.",
+    };
+  }
 
   refresh(id);
   return { success: "Raportul a fost salvat." };
@@ -160,12 +179,91 @@ export async function refreshReportData(formData: FormData) {
   refresh(id);
 }
 
-/** Înainte să se deschidă Outlook: raportul trece în „Trimis”, cu data trimiterii. */
+/**
+ * Înainte să se deschidă Outlook: raportul trece în „Trimis”, cu data trimiterii.
+ * Deciziile se îngheață în raport, ca cifrele: PDF-ul rămâne cel citit de
+ * destinatar, chiar dacă deciziile se închid între timp.
+ */
 export async function markReportSent(id: string) {
   await requireOrg();
   const supabase = await createClient();
-  await supabase.from("reports").update({ status: "trimis", sent_at: new Date().toISOString() }).eq("id", id);
+  const { data: r } = await supabase
+    .from("reports")
+    .select("id, agent_filter, period_from, created_at, data")
+    .eq("id", id)
+    .maybeSingle();
+  const decisions = r ? await readReportDecisions(r as Parameters<typeof readReportDecisions>[0]) : null;
+  await supabase
+    .from("reports")
+    .update({
+      status: "trimis",
+      sent_at: new Date().toISOString(),
+      ...(r && decisions ? { data: { ...(r.data as object), decisions } } : {}),
+    })
+    .eq("id", id);
   refresh(id);
+}
+
+/** O decizie nouă, luată pe baza raportului: pentru aceeași țintă ca raportul. */
+export async function addDecision(reportId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { orgId } = await requireOrg();
+  const text = String(formData.get("text") ?? "").trim();
+  if (!text) return { error: "Scrie ce s-a hotărât." };
+  const due = String(formData.get("due_date") ?? "");
+  if (due && !ISO_DAY.test(due)) return { error: "Termenul nu e o dată validă." };
+
+  const supabase = await createClient();
+  const { data: report } = await supabase.from("reports").select("id, agent_filter").eq("id", reportId).maybeSingle();
+  if (!report) return { error: "Raportul nu mai există." };
+
+  const { error } = await supabase.from("report_decisions").insert({
+    org_id: orgId,
+    report_id: reportId,
+    agent_filter: report.agent_filter,
+    text,
+    owner: String(formData.get("owner") ?? "").trim() || null,
+    due_date: due || null,
+  });
+  if (error) {
+    return {
+      error: /report_decisions/.test(error.message)
+        ? "Deciziile se pot nota după ce se aplică migrația 20261001180000_decizii.sql în Supabase."
+        : error.message,
+    };
+  }
+  refresh(reportId);
+  return { success: "Decizia a fost notată." };
+}
+
+/** Starea unei decizii și ce a ieșit; „făcută” și „renunțăm” o închid. */
+export async function updateDecision(formData: FormData) {
+  await requireOrg();
+  const id = String(formData.get("id") ?? "");
+  const status = formData.get("status");
+  if (!id || !isDecisionStatus(status)) return;
+  const closed = status === "facuta" || status === "renuntat";
+
+  const supabase = await createClient();
+  // O decizie deja închisă își păstrează data: adăugarea rezultatului nu o redeschide.
+  const { data: cur } = await supabase.from("report_decisions").select("closed_at").eq("id", id).maybeSingle();
+  await supabase
+    .from("report_decisions")
+    .update({
+      status,
+      outcome: String(formData.get("outcome") ?? "").trim() || null,
+      closed_at: closed ? ((cur?.closed_at as string | null) ?? new Date().toISOString()) : null,
+    })
+    .eq("id", id);
+  refresh(String(formData.get("report_id") ?? "") || undefined);
+}
+
+export async function deleteDecision(formData: FormData) {
+  await requireOrg();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from("report_decisions").delete().eq("id", id);
+  refresh(String(formData.get("report_id") ?? "") || undefined);
 }
 
 /** Ce spune `delete_report` când refuză, pe înțelesul celui care a apăsat. */
