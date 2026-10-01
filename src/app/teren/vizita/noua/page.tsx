@@ -34,21 +34,27 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
   ) : null;
 
   const supabase = await createClient();
-  const domains = await getDomains(orgId);
-  let query = supabase
-    .from("client_state")
-    .select("client_id, name, city, contact_person, last_visit")
-    .eq("org_id", orgId)
-    .limit(25);
-  if (search) {
-    query = query.or(
-      `name.ilike.%${search}%,city.ilike.%${search}%,contact_person.ilike.%${search}%,cui.ilike.%${search}%`,
-    );
-  }
+  type Row = Pick<ClientState, "client_id" | "name" | "city" | "contact_person" | "last_visit">;
+  const cols = "client_id, name, city, contact_person, last_visit";
 
-  const { data } = await query;
-  const rows = (data ?? []) as Pick<ClientState, "client_id" | "name" | "city" | "contact_person" | "last_visit">[];
-  rows.sort((a, b) => (b.last_visit ?? "").localeCompare(a.last_visit ?? ""));
+  // Sub căutare: ce s-a găsit sau, fără căutare, ultimele firme vizitate.
+  // Ordinea se cere bazei, nu se face după limită: altfel ieșeau 25 la întâmplare.
+  let query = supabase.from("client_state").select(cols).eq("org_id", orgId);
+  query = search
+    ? query
+        .or(`name.ilike.%${search}%,city.ilike.%${search}%,contact_person.ilike.%${search}%,cui.ilike.%${search}%`)
+        .order("name")
+        .limit(25)
+    : query.order("last_visit", { ascending: false, nullsFirst: false }).limit(6);
+
+  const [domains, { data }, { data: allData }] = await Promise.all([
+    getDomains(orgId),
+    query,
+    // Lista derulantă cu toate firmele, în ordine alfabetică.
+    supabase.from("client_state").select("client_id, name, city").eq("org_id", orgId).order("name").limit(2000),
+  ]);
+  const rows = (data ?? []) as Row[];
+  const allFirms = (allData ?? []) as Pick<ClientState, "client_id" | "name" | "city">[];
 
   if (firmaNoua) {
     return (
@@ -125,11 +131,42 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
         />
       </form>
 
-      <Link href={withDay({ nou: "1" })} className="btn btn-primary btn-lg w-full lg:w-auto">
+      {allFirms.length ? (
+        <form action={startVisit} className="card mb-3 space-y-2 p-3">
+          {dateField}
+          <label htmlFor="client_id" className="text-sm font-medium text-neutral-700">
+            Sau alege din toate firmele ({allFirms.length})
+          </label>
+          <div className="flex gap-2">
+            {/* Pe telefon se deschide alegătorul sistemului: o listă lungă, derulată cu degetul. */}
+            <select id="client_id" name="client_id" required defaultValue="" className="input min-h-12 min-w-0 flex-1">
+              <option value="" disabled>
+                Alege firma…
+              </option>
+              {allFirms.map((f) => (
+                <option key={f.client_id} value={f.client_id}>
+                  {f.name}
+                  {f.city ? ` — ${f.city}` : ""}
+                </option>
+              ))}
+            </select>
+            <SubmitButton className="btn btn-primary btn-lg shrink-0" pendingLabel="…">
+              Începe
+            </SubmitButton>
+          </div>
+        </form>
+      ) : null}
+
+      <Link href={withDay({ nou: "1" })} className="btn btn-secondary btn-lg w-full lg:w-auto">
         ＋ Firmă / meseriaș nou
       </Link>
 
-      <ul className="mt-3 grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
+      {rows.length ? (
+        <h2 className="mt-4 mb-1.5 text-sm font-semibold text-neutral-700">
+          {search ? `Găsite pentru „${search}”` : "Vizitate recent"}
+        </h2>
+      ) : null}
+      <ul className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => (
           <li key={r.client_id}>
             <form action={startVisit}>
