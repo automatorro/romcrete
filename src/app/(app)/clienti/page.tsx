@@ -13,7 +13,7 @@ import type { Client } from "@/lib/types";
 export const metadata = { title: "Clienți" };
 
 export default async function ClientsPage(props: PageProps<"/clienti">) {
-  const { orgId } = await requireOrg();
+  const { orgId, role } = await requireOrg();
   const { q } = await props.searchParams;
   const search = typeof q === "string" ? q.trim() : "";
 
@@ -50,6 +50,15 @@ export default async function ClientsPage(props: PageProps<"/clienti">) {
             <button type="submit" className="btn btn-secondary">
               Caută
             </button>
+            {/* Link simplu, nu <Link>: răspunsul e un fișier Excel, nu o pagină. */}
+            <a
+              href="/clienti/export"
+              download
+              className="btn btn-secondary"
+              title={role === "agent" ? "Firmele tale, în Excel" : "Toți clienții, de la toți agenții, în Excel"}
+            >
+              Exportă Excel
+            </a>
           </form>
         }
       />

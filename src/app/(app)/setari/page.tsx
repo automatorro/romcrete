@@ -85,6 +85,22 @@ export default async function SettingsPage() {
       <OfferProfileCard />
 
       <section>
+        <h2 className="text-lg font-semibold tracking-tight">Baza de clienți</h2>
+        <p className="mt-1 mb-3 text-sm text-neutral-500">
+          Toți clienții, de la toți agenții, într-un fișier Excel: datele firmei, agentul
+          responsabil, vizitele și persoanele de contact.
+        </p>
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-6">
+          <p className="text-sm text-neutral-600">
+            Exportul se poate face oricând și de pe pagina Clienți.
+          </p>
+          <a href="/clienti/export" download className="btn btn-secondary">
+            Exportă clienții în Excel
+          </a>
+        </div>
+      </section>
+
+      <section>
         <h2 className="text-lg font-semibold tracking-tight">Destinatarii rapoartelor</h2>
         <p className="mt-1 mb-3 text-sm text-neutral-500">
           Cui se trimit de obicei rapoartele zilnice, săptămânale, lunare și trimestriale. Se
