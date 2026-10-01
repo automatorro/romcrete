@@ -4,8 +4,9 @@ import { createReport } from "@/app/(app)/rapoarte/actions";
 import { ReportDocument } from "@/components/raport/report-document";
 import { SubmitButton } from "@/components/submit-button";
 import { DataList } from "@/components/ui/data-list";
-import { FilterChips } from "@/components/ui/filter-chips";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
@@ -110,71 +111,60 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
         back={zona === "teren" ? { href: "/teren/mai-mult", label: "Mai mult" } : undefined}
       />
 
-      {conducere ? (
-        <nav aria-label="Pentru cine e raportul" className="grid grid-cols-2 gap-2">
-          {(
-            [
-              ["agent", user.id, "Activitatea unui singur agent"],
-              ["echipa", "echipa", "Toți agenții împreună, cu defalcare pe agent"],
-            ] as [ReportScope, string, string][]
-          ).map(([id, ag, hint]) => (
-            <Link
-              key={id}
-              href={href({ ag })}
-              aria-current={scope === id ? "page" : undefined}
-              className={`rounded-xl border-2 p-3 transition-colors ${
-                scope === id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white hover:border-neutral-400"
-              }`}
-            >
-              <span className="block font-semibold">{SCOPE_LABELS[id]}</span>
-              <span className={`block text-xs ${scope === id ? "text-white/80" : "text-neutral-500"}`}>{hint}</span>
-            </Link>
-          ))}
-        </nav>
-      ) : null}
-
-      <nav aria-label="Tipul raportului" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {REPORT_TYPES.map((r) => (
-          <Link
-            key={r.id}
-            href={href({ tip: r.id, data: today })}
-            aria-current={r.id === type ? "page" : undefined}
-            className={`rounded-xl border p-3 transition-colors ${
-              r.id === type
-                ? "border-brand-600 bg-brand-600 text-white"
-                : "border-neutral-200 bg-white hover:border-brand-200 hover:bg-brand-50"
-            }`}
-          >
-            <span className="block font-semibold">{r.label}</span>
-            <span className={`block text-xs ${r.id === type ? "text-white/85" : "text-neutral-500"}`}>{r.hint}</span>
-          </Link>
-        ))}
-      </nav>
+      {/* Pe telefon, două rânduri compacte în loc de șase cartonașe: cine și ce raport. */}
+      <div className="space-y-2">
+        {conducere ? (
+          <Segmented
+            label="Pentru cine e raportul"
+            items={(
+              [
+                ["agent", user.id],
+                ["echipa", "echipa"],
+              ] as [ReportScope, string][]
+            ).map(([id, ag]) => ({ label: SCOPE_LABELS[id], href: href({ ag }), active: scope === id }))}
+          />
+        ) : null}
+        <Segmented
+          label="Tipul raportului"
+          items={REPORT_TYPES.map((r) => ({ label: r.label, href: href({ tip: r.id, data: today }), active: r.id === type }))}
+        />
+        <p className="px-1 text-xs text-neutral-500">
+          {REPORT_TYPES.find((r) => r.id === type)?.hint}
+          {conducere ? ` · ${scope === "echipa" ? "toți agenții împreună, cu defalcare pe agent" : "activitatea unui singur agent"}` : ""}
+        </p>
+      </div>
 
       {(conducere && scope === "agent" && (members?.length ?? 0) > 1) || domains.length > 1 ? (
-        <div className="card space-y-3 p-3">
-          {conducere && scope === "agent" && (members?.length ?? 0) > 1 ? (
-            <FilterChips
-              label="Agentul"
-              items={[
-                ...(members ?? []).map((m) => ({
-                  label: m.full_name ?? "Fără nume",
-                  href: href({ ag: m.user_id }),
-                  active: agentId === m.user_id,
-                })),
-              ]}
-            />
-          ) : null}
-          {domains.length > 1 ? (
-            <FilterChips
-              label="Domeniul"
-              items={[
-                { label: "Toate domeniile", href: href({ dom: null }), active: !domainId },
-                ...domains.map((d) => ({ label: d.short_label, href: href({ dom: d.id }), active: domainId === d.id })),
-              ]}
-            />
-          ) : null}
-        </div>
+        <FilterBar
+          path={root}
+          sticky={false}
+          params={Object.fromEntries(
+            Object.entries({ tip: type, data: anchor, ag: conducere ? (agentId ?? "echipa") : "", dom: domainId ?? "" }).filter(
+              ([, v]) => v,
+            ),
+          )}
+          groups={[
+            ...(conducere && scope === "agent" && (members?.length ?? 0) > 1
+              ? [
+                  {
+                    param: "ag",
+                    label: "Agentul",
+                    options: (members ?? []).map((m) => ({ value: m.user_id, label: m.full_name ?? "Fără nume" })),
+                  },
+                ]
+              : []),
+            ...(domains.length > 1
+              ? [
+                  {
+                    param: "dom",
+                    label: "Domeniul",
+                    allLabel: "Toate domeniile",
+                    options: domains.map((d) => ({ value: d.id, label: d.short_label })),
+                  },
+                ]
+              : []),
+          ]}
+        />
       ) : null}
 
       <div className="card flex items-center gap-2 p-2">

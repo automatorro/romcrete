@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { StepActions } from "@/app/teren/step-actions";
-import { FilterChips } from "@/components/ui/filter-chips";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { addDays, addWorkingDays, daysBetween, shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { periodFor } from "@/lib/perioade";
@@ -242,7 +242,7 @@ export default async function AziPage(props: PageProps<"/teren">) {
         description={new Intl.DateTimeFormat("ro-RO", { weekday: "long", day: "numeric", month: "long" }).format(now)}
         actions={
           conducere ? (
-            <FilterChips
+            <Segmented
               label="Agenda cui"
               items={[
                 { label: "Ale mele", href: "/teren", active: !echipa },

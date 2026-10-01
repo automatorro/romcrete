@@ -1,6 +1,7 @@
 import { BarList, Funnel, WorkModeShare } from "@/app/(app)/raport/charts";
-import { FilterChips } from "@/components/ui/filter-chips";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { StatTile } from "@/components/ui/stat-tile";
 import { requireOrg } from "@/lib/auth";
 import { buildReport, type Period } from "@/lib/raport";
@@ -64,26 +65,29 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       />
 
       <div className="card space-y-3 p-3">
-        <FilterChips
+        <Segmented
           label="Perioada"
           items={PERIOADE.map(([v, l]) => ({ label: l, href: chipHref({ per: v }), active: period === v }))}
         />
-        <FilterChips
-          label="Agentul"
-          items={[
-            { label: "Toți agenții", href: chipHref({ ag: null }), active: !agent },
-            ...r.members.map((m) => ({
-              label: m.full_name ?? "Fără nume",
-              href: chipHref({ ag: m.user_id }),
-              active: agent === m.user_id,
-            })),
-          ]}
-        />
-        <FilterChips
-          label="Domeniul"
-          items={[
-            { label: "Toate domeniile", href: chipHref({ dom: null }), active: !domeniu },
-            ...r.domains.map((d) => ({ label: d.short_label, href: chipHref({ dom: d.id }), active: domeniu === d.id })),
+        <FilterBar
+          path="/raport"
+          sticky={false}
+          params={Object.fromEntries(
+            Object.entries({ per: period, ag: agent, gran: granularitate, dom: domeniu }).filter(([, v]) => v),
+          )}
+          groups={[
+            {
+              param: "ag",
+              label: "Agentul",
+              allLabel: "Toți agenții",
+              options: r.members.map((m) => ({ value: m.user_id, label: m.full_name ?? "Fără nume" })),
+            },
+            {
+              param: "dom",
+              label: "Domeniul",
+              allLabel: "Toate domeniile",
+              options: r.domains.map((d) => ({ value: d.id, label: d.short_label })),
+            },
           ]}
         />
       </div>
@@ -305,7 +309,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
 
         <div className="mt-3">
           <p className="mb-1.5 text-sm text-neutral-700">Evoluția, defalcată</p>
-          <FilterChips
+          <Segmented
             label="Granularitatea evoluției"
             items={GRANULARITATI.map(([v, l]) => ({ label: l, href: chipHref({ gran: v }), active: granularitate === v }))}
           />
