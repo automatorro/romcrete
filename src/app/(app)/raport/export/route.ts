@@ -76,19 +76,21 @@ const INDICATORI: { label: string; get: (m: Metrics) => number | null; format?: 
   { label: "Vizite / zi lucrătoare", get: (m) => m.vizitePeZi, format: "0.00" },
   { label: "Vizite cu pas următor stabilit", get: (m) => m.cuPasUrmator },
   { label: "Pondere vizite cu pas următor", get: (m) => PROCENT(m.cuPasUrmator, m.vizite), format: "0%" },
-  { label: "Pași restanți", get: (m) => m.pasiRestanti },
+  { label: "Pași restanți la sfârșitul perioadei", get: (m) => m.pasiRestanti },
   { label: "Vizite cu calificare completă", get: (m) => m.calificareCompleta },
   { label: "Pondere calificare completă", get: (m) => PROCENT(m.calificareCompleta, m.vizite), format: "0%" },
   { label: "Vizite cu calcul de amortizare", get: (m) => m.cuCalculAmortizare },
   { label: "Pondere cu calcul de amortizare", get: (m) => PROCENT(m.cuCalculAmortizare, m.vizite), format: "0%" },
   { label: "Modele discutate", get: (m) => m.modeleDiscutate },
   { label: "Întrebări tehnice pentru owner", get: (m) => m.intrebariOwner },
-  { label: "Oferte emise", get: (m) => m.oferteEmise },
+  { label: "Oferte emise (fără ciorne)", get: (m) => m.oferteEmise },
   { label: "Oferte pornite din vizită", get: (m) => m.oferteDinVizite },
-  { label: "Valoare oferte (cu TVA)", get: (m) => m.valoareOferte, format: BANI },
-  { label: "Oferte acceptate", get: (m) => m.oferteAcceptate },
-  { label: "Valoare acceptată (cu TVA)", get: (m) => m.valoareAcceptata, format: BANI },
-  { label: "Rată de câștig", get: (m) => PROCENT(m.oferteAcceptate, m.oferteEmise), format: "0%" },
+  { label: "Din acestea, acceptate", get: (m) => m.acceptateDinVizite },
+  { label: "Valoare oferte emise (cu TVA)", get: (m) => m.valoareOferte, format: BANI },
+  { label: "Oferte cu răspuns în perioadă", get: (m) => m.oferteDecise },
+  { label: "Oferte acceptate în perioadă", get: (m) => m.oferteAcceptate },
+  { label: "Valoare acceptată în perioadă (cu TVA)", get: (m) => m.valoareAcceptata, format: BANI },
+  { label: "Rată de câștig (acceptate / cu răspuns)", get: (m) => PROCENT(m.oferteAcceptate, m.oferteDecise), format: "0%" },
   { label: "Vizite pentru o ofertă", get: (m) => (m.oferteDinVizite ? Math.round((m.vizite / m.oferteDinVizite) * 10) / 10 : null), format: "0.0" },
   { label: "Zile de la vizită la ofertă", get: (m) => m.zileVizitaOferta, format: "0.0" },
 ];
@@ -347,11 +349,15 @@ export async function GET(request: NextRequest) {
     { header: "Întrebare", key: "grup", width: 38 },
     { header: "Răspuns", key: "optiune", width: 36 },
     { header: "Firme", key: "firme", width: 10 },
+    { header: "Din firme care au răspuns", key: "baza", width: 14 },
+    { header: "Pondere", key: "pondere", width: 10, format: "0%" },
   ]);
   piata.addRow({ grup: "Fiecare firmă se numără o singură dată per răspuns." }).font = {
     italic: true, size: 10, color: { argb: "FF737373" },
   };
-  for (const m of data.market) piata.addRow({ grup: m.group, optiune: m.option, firme: m.firms });
+  for (const m of data.market) {
+    piata.addRow({ grup: m.group, optiune: m.option, firme: m.firms, baza: m.answered, pondere: PROCENT(m.firms, m.answered) });
+  }
   finish(piata);
 
   for (const ws of [sumar, peAgent, peDomeniu, evolutie, piata]) {

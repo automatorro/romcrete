@@ -10,7 +10,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { periodFor } from "@/lib/perioade";
-import type { Kpi, ReportSection, ReportSnapshot } from "@/lib/raport-perioada";
+import { scopeOf, sectionsFor, type Kpi, type ReportSection, type ReportSnapshot } from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatMoney } from "@/lib/totals";
 
@@ -146,12 +146,20 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
               sections={r.sections}
               notes={r.section_notes ?? {}}
               recipients={r.recipients ?? []}
+              available={sectionsFor(scopeOf(r.data))}
             />
           </section>
-          <section className="card p-4">
-            <h2 className="mb-3 text-base font-semibold">Trimite</h2>
-            <SendReport id={r.id} recipients={r.recipients ?? []} subject={subject} body={body} />
-          </section>
+          {r.data.type === "zi" ? (
+            <p className="notice">
+              Raport zilnic salvat înainte ca ziua să devină doar fișă de centralizare. Nu se mai trimite: cifrele
+              lui intră în rapoartele săptămânale și lunare.
+            </p>
+          ) : (
+            <section className="card p-4">
+              <h2 className="mb-3 text-base font-semibold">Trimite</h2>
+              <SendReport id={r.id} recipients={r.recipients ?? []} subject={subject} body={body} />
+            </section>
+          )}
         </div>
 
         <section className="card overflow-hidden p-4 md:p-8">

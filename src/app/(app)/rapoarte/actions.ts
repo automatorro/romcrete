@@ -8,8 +8,9 @@ import { isReportType } from "@/lib/perioade";
 import {
   ALL_SECTIONS,
   buildReportSnapshot,
+  defaultSections,
   defaultTitle,
-  DEFAULT_SECTIONS,
+  scopeOf,
   type ReportSection,
 } from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
@@ -42,13 +43,14 @@ function parseRecipients(raw: string): { ok: string[]; bad: string[] } {
 
 /**
  * Salvează raportul perioadei alese, cu cifrele de acum, și deschide editarea.
- * Agentul își salvează doar raportul propriu.
+ * Agentul își salvează doar raportul propriu. Ziua nu se salvează: fișa zilei
+ * nu se trimite nimănui, iar cifrele ei intră singure în săptămână și în lună.
  */
 export async function createReport(formData: FormData) {
   const { orgId, organization, user, role } = await requireOrg();
   const type = formData.get("tip");
   const anchor = String(formData.get("data") ?? "");
-  if (!isReportType(type) || !ISO_DAY.test(anchor)) return;
+  if (!isReportType(type) || type === "zi" || !ISO_DAY.test(anchor)) return;
 
   const agentId = role === "agent" ? user.id : String(formData.get("ag") ?? "") || null;
   const domainId = String(formData.get("dom") ?? "") || null;
@@ -87,7 +89,7 @@ export async function createReport(formData: FormData) {
       agent_filter: agentId,
       domain_filter: domainId,
       title: defaultTitle(data),
-      sections: DEFAULT_SECTIONS[type],
+      sections: defaultSections(type, scopeOf(data)),
       data,
       recipients: organization.report_recipients ?? [],
     })

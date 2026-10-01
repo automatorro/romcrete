@@ -18,6 +18,7 @@ export function ReportForm({
   sections,
   notes,
   recipients,
+  available = ALL_SECTIONS,
 }: {
   id: string;
   title: string;
@@ -25,6 +26,8 @@ export function ReportForm({
   sections: ReportSection[];
   notes: Partial<Record<ReportSection, string>>;
   recipients: string[];
+  /** Secțiunile care au sens pentru raport: tabelul pe agenți e doar al echipei. */
+  available?: ReportSection[];
 }) {
   const [state, formAction] = useActionState(updateReport.bind(null, id), null);
 
@@ -57,7 +60,7 @@ export function ReportForm({
           Bifează ce intră în raport. Observația apare deasupra secțiunii, evidențiată.
         </p>
         <div className="space-y-2">
-          {ALL_SECTIONS.map((s) => (
+          {ALL_SECTIONS.filter((s) => available.includes(s) || sections.includes(s)).map((s) => (
             <details key={s} className="rounded-xl border border-neutral-200 bg-white" open={Boolean(notes[s])}>
               <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-3">
                 <input

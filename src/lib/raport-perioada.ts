@@ -2,12 +2,14 @@ import { buildActivity } from "@/lib/activitate";
 import { addDays, todayRo } from "@/lib/agenda";
 import { getDomains } from "@/lib/domenii";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
-import type { Kpi, ReportSnapshot } from "@/lib/raport-sectiuni";
+import { scopeOf, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
 import { createClient } from "@/lib/supabase/server";
 
 // Tipurile și secțiunile stau separat, ca formularele din browser să le poată folosi.
-export { ALL_SECTIONS, DEFAULT_SECTIONS, SECTION_LABELS } from "@/lib/raport-sectiuni";
-export type { Kpi, KpiFormat, ReportSection, ReportSnapshot } from "@/lib/raport-sectiuni";
+export {
+  ALL_SECTIONS, defaultSections, SCOPE_LABELS, SECTION_LABELS, sectionsFor, scopeOf,
+} from "@/lib/raport-sectiuni";
+export type { Kpi, KpiFormat, ReportScope, ReportSection, ReportSnapshot } from "@/lib/raport-sectiuni";
 
 /** Întrebările din vizită care spun ceva despre piață, nu despre o firmă anume. */
 const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "utilaj"];
@@ -73,11 +75,14 @@ export async function buildReportSnapshot(
   const dailyTarget = (id: string) => member(id)?.target_visits_per_day ?? ds.orgTargetVisitsPerDay;
   const days = workingDaysUntilToday(p.from, p.to);
 
-  // Ținta echipei: suma țintelor agenților de teren; filtrat pe un agent, ținta lui.
+  // Ținta echipei: suma țintelor celor din tabelul pe agenți — agenții echipei și
+  // oricine a lucrat în perioadă —, ca vizitele și ținta să numere aceiași oameni.
+  // Pe un agent, ținta lui.
   const teamTarget = agentId
     ? dailyTarget(agentId) * days
-    : ds.members.filter((m) => m.role === "agent").reduce((s, m) => s + dailyTarget(m.user_id) * days, 0) ||
-      ds.orgTargetVisitsPerDay * days;
+    : ds.perAgent
+        .filter((a) => a.agentId !== "necunoscut")
+        .reduce((s, a) => s + dailyTarget(a.agentId) * days, 0) || ds.orgTargetVisitsPerDay * days;
 
   const t = ds.total;
   const v = ds.previous;
@@ -105,15 +110,39 @@ export async function buildReportSnapshot(
       prev: countContacts("email", p.prevFrom, p.prevTo),
       format: "int",
     },
-    { key: "oferte", label: "Oferte emise", value: t.oferteEmise, prev: v.oferteEmise, format: "int" },
-    { key: "valoare", label: "Valoare ofertată", value: t.valoareOferte, prev: v.valoareOferte, format: "money" },
-    { key: "acceptate", label: "Oferte acceptate", value: t.oferteAcceptate, prev: v.oferteAcceptate, format: "int" },
+    {
+      key: "oferte",
+      label: "Oferte emise",
+      value: t.oferteEmise,
+      prev: v.oferteEmise,
+      format: "int",
+      hint: "trimise clientului, fără ciorne",
+    },
+    {
+      key: "valoare",
+      label: "Valoare ofertată",
+      value: t.valoareOferte,
+      prev: v.valoareOferte,
+      format: "money",
+      hint: "ofertele emise, cu TVA",
+    },
+    {
+      key: "acceptate",
+      label: "Oferte acceptate",
+      value: t.oferteAcceptate,
+      prev: v.oferteAcceptate,
+      format: "int",
+      hint: "acceptate în perioadă, oricând ar fi fost emise",
+    },
     {
       key: "castig",
       label: "Rată de câștig",
-      value: t.oferteEmise ? t.oferteAcceptate / t.oferteEmise : 0,
-      prev: v.oferteEmise ? v.oferteAcceptate / v.oferteEmise : 0,
+      value: t.oferteDecise ? t.oferteAcceptate / t.oferteDecise : 0,
+      prev: v.oferteDecise ? v.oferteAcceptate / v.oferteDecise : 0,
       format: "pct",
+      hint: t.oferteDecise
+        ? `${t.oferteAcceptate} acceptate din ${t.oferteDecise} cu răspuns în perioadă`
+        : "nicio ofertă cu răspuns în perioadă",
     },
     {
       key: "restante",
@@ -122,18 +151,20 @@ export async function buildReportSnapshot(
       prev: v.pasiRestanti,
       format: "int",
       lowerIsBetter: true,
+      hint: "la sfârșitul perioadei",
     },
   ];
 
-  const byGroup = new Map<string, { group: string; rows: [string, number][] }>();
+  const byGroup = new Map<string, { group: string; rows: [string, number][]; answered: number }>();
   for (const m of ds.market) {
     if (!MARKET_GROUPS.includes(m.groupId)) continue;
-    const g = byGroup.get(m.groupId) ?? { group: m.group, rows: [] };
+    const g = byGroup.get(m.groupId) ?? { group: m.group, rows: [], answered: m.answered };
     if (g.rows.length < 5) g.rows.push([m.option, m.firms]);
     byGroup.set(m.groupId, g);
   }
 
   const agentName = agentId ? (member(agentId)?.full_name ?? "Agent fără nume") : null;
+  const recente = [...ds.visits].reverse();
   const domainName = domainId ? (domains.find((d) => d.id === domainId)?.label ?? domainId) : null;
 
   return {
@@ -146,6 +177,7 @@ export async function buildReportSnapshot(
     prevLabel: previousLabel[type],
     generatedAt: new Date().toISOString(),
     orgName,
+    scope: agentId ? "agent" : "echipa",
     filters: { agentId, agent: agentName, domainId, domain: domainName },
     kpis,
     agents: ds.perAgent.map((a) => ({
@@ -166,13 +198,16 @@ export async function buildReportSnapshot(
       oferte: b.metrics.oferteEmise,
       valoare: b.metrics.valoareOferte,
     })),
+    // Pâlnia urmărește aceleași oferte de la un pas la altul: acceptate sunt
+    // doar cele pornite din vizite, nu toate acceptările perioadei.
     funnel: {
       vizite: t.vizite,
       cuPas: t.cuPasUrmator,
       oferteDinVizite: t.oferteDinVizite,
-      acceptate: t.oferteAcceptate,
+      acceptate: t.acceptateDinVizite,
     },
-    visits: ds.visits.slice(0, LIST_LIMIT).map((x) => ({
+    // Cele mai noi întâi: când lista se taie, se pierd cele vechi, nu cele proaspete.
+    visits: recente.slice(0, LIST_LIMIT).map((x) => ({
       date: x.date,
       agent: x.agent,
       client: x.client,
@@ -180,7 +215,10 @@ export async function buildReportSnapshot(
       prima: x.prima,
       nextStepDate: x.nextStepDate,
     })),
-    quotes: ds.quotes.slice(0, LIST_LIMIT).map((q) => ({
+    quotes: [...ds.quotes]
+      .sort((a, b) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number))
+      .slice(0, LIST_LIMIT)
+      .map((q) => ({
       number: q.number,
       date: q.date,
       client: q.client,
@@ -189,7 +227,7 @@ export async function buildReportSnapshot(
       gross: q.gross,
     })),
     market: [...byGroup.values()],
-    notes: ds.visits
+    notes: recente
       .flatMap((x) =>
         Object.values(x.notes ?? {})
           .filter((text) => text?.trim())
@@ -199,7 +237,9 @@ export async function buildReportSnapshot(
   };
 }
 
-/** Titlul propus la salvare: „Raport săptămânal · Săptămâna 39 · …”. */
+/** Titlul propus la salvare: „Raport săptămânal · Săptămâna 39 · Ion Pop” sau „… de echipă · …”. */
 export function defaultTitle(s: ReportSnapshot): string {
-  return `Raport ${s.typeLabel} · ${s.label}${s.filters.agent ? ` · ${s.filters.agent}` : ""}`;
+  return scopeOf(s) === "echipa"
+    ? `Raport ${s.typeLabel} de echipă · ${s.label}`
+    : `Raport ${s.typeLabel} · ${s.label} · ${s.filters.agent ?? "agent"}`;
 }

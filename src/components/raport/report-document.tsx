@@ -2,7 +2,7 @@ import { BarList, Funnel } from "@/app/(app)/raport/charts";
 import { Logo } from "@/components/logo";
 import { StatusBadge } from "@/components/status-badge";
 import type { Kpi, ReportSection, ReportSnapshot } from "@/lib/raport-perioada";
-import { ALL_SECTIONS, SECTION_LABELS } from "@/lib/raport-perioada";
+import { ALL_SECTIONS, SCOPE_LABELS, SECTION_LABELS, scopeOf } from "@/lib/raport-perioada";
 import { formatDate, formatMoney } from "@/lib/totals";
 import type { QuoteStatus } from "@/lib/types";
 
@@ -47,6 +47,7 @@ function KpiTile({ k, prevLabel }: { k: Kpi; prevLabel: string }) {
   return (
     <div className="rounded-xl border border-neutral-200 p-3 break-inside-avoid">
       <p className="text-xs text-neutral-500">{k.label}</p>
+      {k.hint ? <p className="text-[11px] leading-snug text-neutral-500">{k.hint}</p> : null}
       <p className={`mt-0.5 font-semibold tabular-nums ${k.format === "money" ? "text-lg sm:text-xl" : "text-2xl"}`}>
         {formatKpi(k, k.value)}
       </p>
@@ -86,7 +87,11 @@ export function ReportDocument({
   sectionNotes?: Partial<Record<ReportSection, string>>;
   author?: string | null;
 }) {
-  const filters = [data.filters.agent ?? "Toți agenții", data.filters.domain ?? "Toate domeniile"].join(" · ");
+  const scope = scopeOf(data);
+  const filters = [
+    scope === "echipa" ? "Toți agenții" : (data.filters.agent ?? "Agent"),
+    data.filters.domain ?? "Toate domeniile",
+  ].join(" · ");
   // Numerotarea urmează ordinea fixă a secțiunilor, doar pentru cele alese.
   const shown = ALL_SECTIONS.filter((id) => sections.includes(id));
   const at = (id: ReportSection) => ({ id, index: shown.indexOf(id) + 1, note: sectionNotes[id] });
@@ -102,7 +107,9 @@ export function ReportDocument({
           <p className="font-semibold">{data.orgName}</p>
         </div>
         <div className="sm:text-right print:text-right">
-          <p className="text-xs font-semibold tracking-wide text-brand-700 uppercase">Raport {data.typeLabel}</p>
+          <p className="text-xs font-semibold tracking-wide text-brand-700 uppercase">
+            {SCOPE_LABELS[scope]} {data.typeLabel}
+          </p>
           <p className="text-base font-semibold">{data.label}</p>
           <p className="text-xs text-neutral-600">{filters}</p>
           <p className="text-xs text-neutral-500">
@@ -283,7 +290,15 @@ export function ReportDocument({
           <div className="grid gap-4 sm:grid-cols-2">
             {data.market.map((g) => (
               <div key={g.group} className="break-inside-avoid">
-                <p className="mb-1.5 text-sm font-medium">{g.group}</p>
+                <p className="mb-1.5 text-sm font-medium">
+                  {g.group}
+                  {g.answered ? (
+                    <span className="font-normal text-neutral-500">
+                      {" "}
+                      · din {g.answered} {g.answered === 1 ? "firmă care a răspuns" : "firme care au răspuns"}
+                    </span>
+                  ) : null}
+                </p>
                 <BarList rows={g.rows} limit={5} />
               </div>
             ))}
@@ -309,7 +324,7 @@ export function ReportDocument({
       </Section>
 
       <footer className="mt-8 border-t border-neutral-200 pt-2 text-[11px] text-neutral-500">
-        {data.orgName} · Raport {data.typeLabel} · {data.label} · Comparațiile sunt față de {data.prevLabel}.
+        {data.orgName} · {SCOPE_LABELS[scope]} {data.typeLabel} · {data.label} · Comparațiile sunt față de {data.prevLabel}.
       </footer>
     </article>
   );
