@@ -142,6 +142,9 @@ export type Quote = {
   /** Oferta arhivată nu apare în liste și nu se numără în rapoarte; se poate restaura. */
   archived_at: string | null;
   archived_by: string | null;
+  /** De ce s-a pierdut (respinsă sau expirată). Lipsește până la migrația motivului. */
+  loss_reason?: string | null;
+  loss_note?: string | null;
 };
 
 export type QuoteItem = {

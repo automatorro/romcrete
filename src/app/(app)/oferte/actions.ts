@@ -7,6 +7,7 @@ import { requireOrg } from "@/lib/auth";
 import { termsForClient } from "@/lib/conditii";
 import { sheetForNewLine } from "@/lib/fisa-magazin";
 import { pickSheet } from "@/lib/fisa-produs";
+import { LOSS_REASON_IDS } from "@/lib/pierderi";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/lib/types";
 import {
@@ -112,6 +113,23 @@ export async function setQuoteStatus(formData: FormData) {
 
   const supabase = await createClient();
   await supabase.from("quotes").update({ status: status.data }).eq("id", quoteId);
+
+  refreshQuote(quoteId);
+  revalidatePath("/oferte");
+}
+
+/** De ce s-a pierdut oferta: motivul din listă și, opțional, ce a spus clientul. */
+export async function setLossReason(formData: FormData) {
+  await requireOrg();
+
+  const quoteId = String(formData.get("quote_id") ?? "");
+  const raw = String(formData.get("loss_reason") ?? "");
+  if (!quoteId) return;
+  const reason = (LOSS_REASON_IDS as readonly string[]).includes(raw) ? raw : null;
+  const note = String(formData.get("loss_note") ?? "").trim() || null;
+
+  const supabase = await createClient();
+  await supabase.from("quotes").update({ loss_reason: reason, loss_note: note }).eq("id", quoteId);
 
   refreshQuote(quoteId);
   revalidatePath("/oferte");

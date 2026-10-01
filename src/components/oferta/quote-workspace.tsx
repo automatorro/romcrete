@@ -11,6 +11,7 @@ import { ProductSheetsPanel } from "@/components/oferta/product-sheets-panel";
 import { PhotosPanel } from "@/components/oferta/photos-panel";
 import { SendByEmail } from "@/components/oferta/send-by-email";
 import { SendByWhatsApp } from "@/components/oferta/send-by-whatsapp";
+import { LossReason } from "@/components/oferta/loss-reason";
 import { StatusPicker } from "@/components/oferta/status-picker";
 import { TotalSummary } from "@/components/oferta/total-summary";
 import { StatusBadge } from "@/components/status-badge";
@@ -161,6 +162,7 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
         </div>
         <div className="border-t border-neutral-200 pt-4">
           <StatusPicker quoteId={quote.id} status={quote.status} />
+          <LossReason quote={quote} />
         </div>
       </section>
 

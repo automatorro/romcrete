@@ -13,6 +13,7 @@ import {
   SECTION_LABELS,
   scopeOf,
 } from "@/lib/raport-perioada";
+import { lossReasonLabel } from "@/lib/pierderi";
 import { formatDate, formatMoney } from "@/lib/totals";
 import type { QuoteStatus } from "@/lib/types";
 
@@ -247,6 +248,10 @@ export function ReportDocument({
             { label: "Oferte acceptate", value: data.funnel.acceptate },
           ]}
         />
+      </Section>
+
+      <Section {...at("pierderi")}>
+        <Losses losses={data.losses} echipa={echipa} />
       </Section>
 
       <Section {...at("asteptare")}>
@@ -828,5 +833,72 @@ function MarketGroup({ g, prevLabel }: { g: ReportSnapshot["market"][number]; pr
         })}
       </ul>
     </div>
+  );
+}
+
+/** De ce pierdem: motivele pe număr și valoare, apoi ofertele, cu ce a spus clientul. */
+function Losses({ losses, echipa }: { losses?: ReportSnapshot["losses"]; echipa: boolean }) {
+  if (!losses) return <p className="text-sm text-neutral-500">Raport salvat înainte de această secțiune.</p>;
+  if (!losses.count) return <p className="text-sm text-neutral-500">Nicio ofertă pierdută în perioadă.</p>;
+  const max = Math.max(1, ...losses.byReason.map((r) => r.count));
+  return (
+    <>
+      <p className="mb-2 text-sm">
+        <b className="tabular-nums">{losses.count}</b> {losses.count === 1 ? "ofertă pierdută" : "oferte pierdute"} (respinse sau
+        expirate), în valoare de <b className="tabular-nums">{formatMoney(losses.value)}</b>.
+        {losses.unknown ? (
+          <span className="text-neutral-600">
+            {" "}
+            {losses.unknown === 1 ? "Una nu are" : `${losses.unknown} nu au`} motivul notat; se notează pe pagina ofertei.
+          </span>
+        ) : null}
+      </p>
+      <ul className="mb-3 space-y-1 break-inside-avoid">
+        {losses.byReason.map((r) => (
+          <li key={r.label} className="flex items-center gap-3 text-sm" title={`${r.label}: ${r.count}, ${formatMoney(r.value)}`}>
+            <span className="w-[38%] shrink-0 truncate text-neutral-700">{r.label}</span>
+            <span className="h-3 flex-1 overflow-hidden rounded-sm bg-neutral-100">
+              <span
+                className={`block h-full rounded-e-[4px] ${r.label === lossReasonLabel(null) ? "bg-neutral-400" : "bg-brand-600"}`}
+                style={{ width: `${Math.max(2, Math.round((r.count / max) * 100))}%` }}
+              />
+            </span>
+            <span className="w-36 shrink-0 text-right text-xs text-neutral-600 tabular-nums">
+              {r.count} · {formatMoney(r.value)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+            <th className="py-1.5 pr-2">Oferta</th>
+            <th className="py-1.5 pr-2">Motivul</th>
+            <th className="py-1.5 text-right">Valoare cu TVA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {losses.rows.map((x) => (
+            <tr key={x.number} className="border-b border-neutral-100 align-top">
+              <td className="py-1.5 pr-2">
+                {x.client}
+                <span className="block text-xs text-neutral-500">
+                  {x.number} · {x.status === "expired" ? "expirată" : "respinsă"}
+                  {echipa ? ` · ${x.agent}` : ""}
+                </span>
+              </td>
+              <td className="py-1.5 pr-2">
+                {x.reason}
+                {x.note ? <span className="block text-xs text-neutral-600">„{x.note}”</span> : null}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{formatMoney(x.gross)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {losses.count > losses.rows.length ? (
+        <p className="mt-1.5 text-xs text-neutral-500">Cele mai mari {losses.rows.length} din {losses.count}.</p>
+      ) : null}
+    </>
   );
 }

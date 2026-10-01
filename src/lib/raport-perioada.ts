@@ -3,6 +3,7 @@ import { addDays, todayRo } from "@/lib/agenda";
 import { getDomains } from "@/lib/domenii";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
 import { scopeOf, type Highlight, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
+import { lossReasonLabel } from "@/lib/pierderi";
 import { formatMoney } from "@/lib/totals";
 import { createClient } from "@/lib/supabase/server";
 
@@ -57,7 +58,8 @@ const nr = (n: number, unu: string, multe: string) => `${n} ${n === 1 ? unu : mu
 function buildHighlights(
   s: Pick<
     ReportSnapshot,
-    "kpis" | "pending" | "overdue" | "escalations" | "prevLabel" | "opportunities" | "slipping" | "market" | "type"
+    | "kpis" | "pending" | "overdue" | "escalations" | "prevLabel" | "opportunities" | "slipping" | "market" | "type"
+    | "losses"
   >,
   isCurrent: boolean,
   acceptedValue: number,
@@ -145,6 +147,24 @@ function buildHighlights(
       tone: "info",
       text: `${nr(curand, "firmă are", "firme au")} o vânzare care se deschide: spun că ar cumpăra curând sau au utilajul de schimbat.`,
     });
+  }
+
+  // De ce pierdem: motivul care se repetă, cât timp e notat la cele mai multe.
+  const l = s.losses;
+  if (l && l.count > 0) {
+    const top = l.byReason.find((r) => r.label !== lossReasonLabel(null));
+    if (top && top.count >= 2) {
+      out.push({
+        tone: "atentie",
+        text: `Cel mai des pierdem pe „${top.label.toLowerCase()}”: ${top.count} din ${nr(l.count, "ofertă pierdută", "oferte pierdute")}, ${formatMoney(top.value)}.`,
+      });
+    }
+    if (l.unknown > 0) {
+      out.push({
+        tone: "info",
+        text: `${nr(l.unknown, "ofertă pierdută nu are", "oferte pierdute nu au")} motivul notat.`,
+      });
+    }
   }
 
   // Cea mai mare schimbare din piață față de perioada anterioară, pe o bază destul de mare.
@@ -492,6 +512,29 @@ export async function buildReportSnapshot(
         viitor: `${b.key}-01` > todayRo(),
       };
     }),
+    losses: (() => {
+      const grupe = new Map<string, { label: string; count: number; value: number }>();
+      for (const x of ds.lost) {
+        const label = lossReasonLabel(x.reason);
+        const g = grupe.get(label) ?? { label, count: 0, value: 0 };
+        g.count++;
+        g.value = Math.round((g.value + x.gross) * 100) / 100;
+        grupe.set(label, g);
+      }
+      return {
+        count: ds.lost.length,
+        value: Math.round(ds.lost.reduce((s, x) => s + x.gross, 0) * 100) / 100,
+        unknown: ds.lost.filter((x) => !x.reason).length,
+        // Nenotatele la urmă: nu sunt un motiv, sunt o lipsă.
+        byReason: [...grupe.values()].sort(
+          (a, b) =>
+            Number(a.label === lossReasonLabel(null)) - Number(b.label === lossReasonLabel(null)) ||
+            b.count - a.count ||
+            b.value - a.value,
+        ),
+        rows: ds.lost.slice(0, ACTION_LIMIT).map((x) => ({ ...x, reason: lossReasonLabel(x.reason) })),
+      };
+    })(),
     pending,
     overdue: { count: ds.overdue.length, rows: ds.overdue.slice(0, ACTION_LIMIT) },
     // Privirea înainte: starea de acum a firmelor, nu a perioadei.

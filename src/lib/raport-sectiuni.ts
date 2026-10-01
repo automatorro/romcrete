@@ -6,7 +6,7 @@ import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
 export type ReportSection =
-  | "retine" | "reflectie" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "asteptare" | "fereastra"
+  | "retine" | "reflectie" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "pierderi" | "asteptare" | "fereastra"
   | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
@@ -17,6 +17,7 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   tendinta: "Tendința pe 6 luni",
   evolutie: "Vizitele față de țintă",
   palnie: "De la vizită la client",
+  pierderi: "De ce pierdem",
   asteptare: "Oferte care așteaptă răspuns",
   fereastra: "Ce se deschide în curând",
   restante: "Pași restanți",
@@ -48,9 +49,11 @@ const DEFAULTS: Record<ReportType, ReportSection[]> = {
   saptamana: [
     "retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante", "uitate", "owner",
   ],
-  luna: ["retine", "reflectie", "kpi", "agenti", "tendinta", "evolutie", "palnie", "asteptare", "fereastra", "piata"],
+  luna: [
+    "retine", "reflectie", "kpi", "agenti", "tendinta", "evolutie", "palnie", "pierderi", "asteptare", "fereastra", "piata",
+  ],
   // Pe trimestru, tendința pe luni ține locul evoluției din interior.
-  trimestru: ["retine", "reflectie", "kpi", "agenti", "tendinta", "palnie", "asteptare", "fereastra", "piata"],
+  trimestru: ["retine", "reflectie", "kpi", "agenti", "tendinta", "palnie", "pierderi", "asteptare", "fereastra", "piata"],
 };
 
 /**
@@ -186,6 +189,15 @@ export type ReportSnapshot = {
   opportunities?: {
     count: number;
     rows: { client: string; agent: string; reasons: string[]; interest: string | null; nextStep: string | null; nextStepDate: string | null }[];
+  };
+  /** Ofertele pierdute în perioadă, pe motiv: ce e de schimbat, nu doar cât s-a pierdut. */
+  losses?: {
+    count: number;
+    value: number;
+    /** Câte nu au motivul notat: cât de mult se poate crede împărțirea. */
+    unknown: number;
+    byReason: { label: string; count: number; value: number }[];
+    rows: { number: string; client: string; agent: string; status: string; gross: number; reason: string; note: string | null }[];
   };
   /** Firme calde, fără pas stabilit, la care a trecut termenul de revenire. */
   slipping?: { count: number; rows: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[] };

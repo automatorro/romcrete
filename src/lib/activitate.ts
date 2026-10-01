@@ -144,6 +144,14 @@ export type ActivityDataset = {
     /** Cât de aproape e: 0 luna asta, 1 gata de cumpărare, 2 în 1–3 luni, 3 utilaj vechi. */
     rank: number;
   }[];
+  /**
+   * Ofertele pierdute în perioadă (respinse sau expirate, la data deciziei), cu
+   * motivul notat. `reason` e null când nu s-a notat, sau până la migrația lui.
+   */
+  lost: {
+    number: string; client: string; agent: string; status: string; gross: number;
+    reason: string | null; note: string | null;
+  }[];
   /** Firme calde fără pas stabilit, la care a trecut termenul de revenire. Starea de acum. */
   slipping: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[];
   /** `answered`: câte firme au răspuns la întrebare, ca „4 firme” să aibă o bază. */
@@ -197,7 +205,9 @@ function bucketOf(date: string, g: Granularity): { key: string; label: string } 
 }
 
 /** O ofertă care a primit răspuns: acceptată, respinsă sau expirată, la data deciziei. */
-type Decizie = { status: string; date: string; gross: number; agentId: string | null; clientId: string };
+type Decizie = {
+  id: string; number: string; status: string; date: string; gross: number; agentId: string | null; clientId: string;
+};
 
 /** Stările în care o ofertă și-a primit răspunsul. */
 const DECISE = ["accepted", "rejected", "expired"];
@@ -442,6 +452,8 @@ export async function buildActivity(
       const date = s ? (s.status === q.status ? s.date : null) : (q.issue_date as string);
       if (!date) return [];
       return [{
+        id: q.id as string,
+        number: q.number as string,
         status: q.status as string,
         date,
         gross: totaluri.get(q.id as string)?.gross ?? 0,
@@ -474,6 +486,25 @@ export async function buildActivity(
       (!domainFilter || domeniuFirma.get(d.clientId) === domainFilter),
   );
   const deciziiPerioada = decizii.filter((d) => inInterval(d.date, from, to));
+
+  // Motivele pierderilor din perioadă. Coloanele lipsesc până la migrația lor:
+  // atunci raportul arată pierderile fără motiv, nu se oprește.
+  const pierdute = deciziiPerioada.filter((d) => d.status !== "accepted");
+  const { data: motive } = pierdute.length
+    ? await supabase.from("quotes").select("id, loss_reason, loss_note").in("id", pierdute.map((d) => d.id))
+    : { data: [] };
+  const motivDe = new Map((motive ?? []).map((m) => [m.id as string, m]));
+  const lost: ActivityDataset["lost"] = pierdute
+    .map((d) => ({
+      number: d.number,
+      client: numeClient.get(d.clientId) ?? "—",
+      agent: numeAgent(d.agentId),
+      status: d.status,
+      gross: d.gross,
+      reason: (motivDe.get(d.id)?.loss_reason as string | null) ?? null,
+      note: (motivDe.get(d.id)?.loss_note as string | null) ?? null,
+    }))
+    .sort((a, b) => b.gross - a.gross);
   const deciziiPrecedent = decizii.filter((d) => inInterval(d.date, prevFrom, prevTo));
 
   // Pașii restanți la o dată: pași ai vizitelor de până atunci, cu termenul
@@ -746,7 +777,7 @@ export async function buildActivity(
   return {
     from, to, granularity, agentFilter, domainFilter, members,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
-    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations, opportunities, slipping,
+    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations, opportunities, slipping, lost,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);
       return {

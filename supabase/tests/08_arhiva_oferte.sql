@@ -72,6 +72,21 @@ do $$ begin
 end $$;
 
 reset role;
+
+\echo '--- 6. motivul pierderii: din listă, cu notă ---'
+update public.quotes set status = 'rejected', loss_reason = 'pret', loss_note = 'Are ofertă cu 15% mai ieftin.';
+do $$ begin
+  if (select count(*) from public.quotes where loss_reason = 'pret') = 0 then
+    raise exception 'PROBLEMĂ: motivul pierderii nu s-a salvat';
+  end if;
+  begin
+    update public.quotes set loss_reason = 'ghinion';
+    raise exception 'PROBLEMĂ: s-a salvat un motiv care nu e în listă';
+  exception when check_violation then
+    raise notice 'OK: motivul pierderii e din listă';
+  end;
+end $$;
+
 drop table public._a;
 
 \echo '--- toate verificările pe arhiva ofertelor au trecut ---'
