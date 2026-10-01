@@ -67,6 +67,9 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
     "Bună ziua,",
     "",
     ...(r.summary?.trim() ? [r.summary.trim(), ""] : []),
+    ...(r.data.highlights?.length && r.sections.includes("retine")
+      ? ["De reținut:", ...r.data.highlights.map((h) => `• ${h.text}`), ""]
+      : []),
     `Pe scurt, ${r.data.label}:`,
     ...r.data.kpis.filter((k) => ["vizite", "firmeNoi", "oferte", "valoare", "acceptate"].includes(k.key)).map(kpiLine),
     "",

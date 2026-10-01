@@ -115,6 +115,21 @@ export type ActivityDataset = {
     nextStepDate: string | null;
     late: boolean;
   }[];
+  /** Oferte trimise și fără răspuns la data raportului: banii care așteaptă. */
+  pending: {
+    number: string;
+    client: string;
+    agent: string;
+    date: string;
+    validUntil: string | null;
+    gross: number;
+    /** Zile de la emitere până la sfârșitul perioadei (sau azi). */
+    zile: number;
+  }[];
+  /** Pașii restanți la sfârșitul perioadei, pe firmă: aceiași pe care îi numără `pasiRestanti`. */
+  overdue: { client: string; agent: string; step: string | null; date: string; zile: number }[];
+  /** Întrebările tehnice încă fără răspuns, puse în vizite până la sfârșitul perioadei. */
+  escalations: { client: string; agent: string; date: string; items: string[] }[];
   /** `answered`: câte firme au răspuns la întrebare, ca „4 firme” să aibă o bază. */
   market: { groupId: string; group: string; option: string; firms: number; answered: number }[];
 };
@@ -248,6 +263,7 @@ export async function buildActivity(
   type PasVizita = {
     client_id: string; agent_id: string | null; visit_date: string;
     next_step_date: string | null; next_step_done_at: string | null;
+    urmator: string | null; esc: unknown; escalation_done_at: string | null;
   };
   const [
     allVisitDates,
@@ -259,13 +275,16 @@ export async function buildActivity(
     { data: groupRows },
     { data: optionRows },
     { data: decisionRows },
+    { data: pendingRows },
   ] = await Promise.all([
     // Tot istoricul vizitelor: prima vizită pe firmă și pașii restanți. Trece
     // ușor de 1.000 de rânduri, așa că se citește pe pagini.
     allRows<PasVizita>((a, b) =>
       supabase
         .from("visits")
-        .select("client_id, agent_id, visit_date, next_step_date, next_step_done_at")
+        .select(
+          "client_id, agent_id, visit_date, next_step_date, next_step_done_at, urmator:answers->>urmator, esc:answers->esc, escalation_done_at",
+        )
         .eq("org_id", orgId)
         .order("id")
         .range(a, b),
@@ -307,6 +326,14 @@ export async function buildActivity(
       .eq("kind", "oferta_stare")
       .gte("occurred_at", `${adauga(prevFrom, -1)}T00:00:00Z`)
       .order("occurred_at"),
+    // Ofertele trimise care încă așteaptă răspuns, oricând ar fi fost emise.
+    supabase
+      .from("quotes")
+      .select("id, number, issue_date, valid_until, client_id, created_by")
+      .eq("org_id", orgId)
+      .is("archived_at", null)
+      .eq("status", "sent")
+      .lte("issue_date", to),
   ]);
 
   const domenii = await getDomains(orgId);
@@ -351,7 +378,13 @@ export async function buildActivity(
         .in("id", deCitit)
     : { data: [] };
 
-  const idsTotaluri = [...emiseInPerioada, ...(olderRows ?? []).map((q) => q.id as string)];
+  const idsTotaluri = [
+    ...new Set([
+      ...emiseInPerioada,
+      ...(olderRows ?? []).map((q) => q.id as string),
+      ...(pendingRows ?? []).map((q) => q.id as string),
+    ]),
+  ];
   const { data: totalRows } = await supabase
     .from("quote_totals")
     .select("quote_id, net_total, vat_total")
@@ -399,6 +432,10 @@ export async function buildActivity(
       }];
     });
 
+  const etichete = new Map((optionRows ?? []).map((o) => [`${o.group_id}|${o.id}`, o.label as string]));
+  const numeGrup = new Map((groupRows ?? []).map((g) => [g.id as string, g.label as string]));
+  const eticheta = (gid: string, oid: string) => etichete.get(`${gid}|${oid}`) ?? oid;
+
   const inInterval = (d: string, a: string, b: string) => d >= a && d <= b;
   const filtruAgent = <T extends { agent_id?: string | null; agentId?: string | null }>(rows: T[]) =>
     agentFilter ? rows.filter((r) => (r.agent_id ?? r.agentId) === agentFilter) : rows;
@@ -440,6 +477,59 @@ export async function buildActivity(
         (!v.next_step_done_at || todayRo(new Date(v.next_step_done_at)) > la),
     ).length;
   };
+
+  // Aceleași reguli, pe nume: ce firmă, al cui pas, de câte zile.
+  const laSfarsit = to < azi ? to : azi;
+  const overdue = pasi
+    .filter(
+      (v) =>
+        v.visit_date <= laSfarsit &&
+        (v.next_step_date as string) < laSfarsit &&
+        (!v.next_step_done_at || todayRo(new Date(v.next_step_done_at)) > laSfarsit),
+    )
+    .map((v) => ({
+      client: numeClient.get(v.client_id) ?? "—",
+      agent: numeAgent(v.agent_id),
+      step: v.urmator ? eticheta("urmator", v.urmator) : null,
+      date: v.next_step_date as string,
+      zile: diferentaZile(v.next_step_date as string, laSfarsit),
+    }))
+    .sort((a, b) => b.zile - a.zile);
+
+  const escalations = allVisitDates
+    .filter(
+      (v) =>
+        Array.isArray(v.esc) &&
+        v.esc.length > 0 &&
+        v.visit_date <= to &&
+        (!v.escalation_done_at || todayRo(new Date(v.escalation_done_at)) > laSfarsit) &&
+        (!agentFilter || v.agent_id === agentFilter) &&
+        (!domainFilter || domeniuFirma.get(v.client_id) === domainFilter),
+    )
+    .sort((a, b) => a.visit_date.localeCompare(b.visit_date))
+    .map((v) => ({
+      client: numeClient.get(v.client_id) ?? "—",
+      agent: numeAgent(v.agent_id),
+      date: v.visit_date,
+      items: (v.esc as string[]).map((e) => eticheta("esc", e)),
+    }));
+
+  const pending = (pendingRows ?? [])
+    .filter(
+      (q) =>
+        (!agentFilter || q.created_by === agentFilter) &&
+        (!domainFilter || domeniuFirma.get(q.client_id as string) === domainFilter),
+    )
+    .map((q) => ({
+      number: q.number as string,
+      client: numeClient.get(q.client_id as string) ?? "—",
+      agent: numeAgent(q.created_by as string | null),
+      date: q.issue_date as string,
+      validUntil: (q.valid_until as string | null) ?? null,
+      gross: totaluri.get(q.id as string)?.gross ?? 0,
+      zile: Math.max(0, diferentaZile(q.issue_date as string, laSfarsit)),
+    }))
+    .sort((a, b) => b.gross - a.gross);
 
   const firmeNoiIn = (a: string, b: string) =>
     clients.filter((c) => {
@@ -548,9 +638,6 @@ export async function buildActivity(
       };
     });
 
-  const etichete = new Map((optionRows ?? []).map((o) => [`${o.group_id}|${o.id}`, o.label as string]));
-  const numeGrup = new Map((groupRows ?? []).map((g) => [g.id as string, g.label as string]));
-  const eticheta = (gid: string, oid: string) => etichete.get(`${gid}|${oid}`) ?? oid;
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
 
@@ -585,7 +672,7 @@ export async function buildActivity(
   return {
     from, to, granularity, agentFilter, domainFilter, members,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
-    total, previous, perAgent, perDomain, perPeriod,
+    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);
       return {

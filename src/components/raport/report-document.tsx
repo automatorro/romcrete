@@ -2,7 +2,8 @@ import { BarList, Funnel } from "@/app/(app)/raport/charts";
 import { Logo } from "@/components/logo";
 import { StatusBadge } from "@/components/status-badge";
 import type { Kpi, ReportSection, ReportSnapshot } from "@/lib/raport-perioada";
-import { ALL_SECTIONS, SCOPE_LABELS, SECTION_LABELS, scopeOf } from "@/lib/raport-perioada";
+import type { Highlight } from "@/lib/raport-perioada";
+import { ALL_SECTIONS, PRIMARY_KPIS, SCOPE_LABELS, SECTION_LABELS, scopeOf } from "@/lib/raport-perioada";
 import { formatDate, formatMoney } from "@/lib/totals";
 import type { QuoteStatus } from "@/lib/types";
 
@@ -21,6 +22,7 @@ function formatKpi(k: Pick<Kpi, "format">, value: number): string {
  * spun direcția, iar „mai bine / mai rău” se citește din context.
  */
 function Delta({ k, prevLabel }: { k: Kpi; prevLabel: string }) {
+  if (k.noCompare) return <span>starea de la data raportului</span>;
   if (k.format === "pct") {
     const diff = Math.round((k.value - k.prev) * 100);
     return (
@@ -96,8 +98,13 @@ export function ReportDocument({
   const shown = ALL_SECTIONS.filter((id) => sections.includes(id));
   const at = (id: ReportSection) => ({ id, index: shown.indexOf(id) + 1, note: sectionNotes[id] });
 
-  const maxVizite = Math.max(1, ...data.evolution.map((e) => e.vizite));
-  const maxOferte = Math.max(1, ...data.evolution.map((e) => e.oferte));
+  // Indicatorii mari ai tipului de raport; ceilalți, pe un rând dedesubt.
+  const primaryKeys = PRIMARY_KPIS[data.type] ?? [];
+  const primary = primaryKeys
+    .map((key) => data.kpis.find((k) => k.key === key))
+    .filter((k): k is Kpi => Boolean(k));
+  const secondary = data.kpis.filter((k) => !primaryKeys.includes(k.key));
+  const echipa = scope === "echipa";
 
   return (
     <article className="text-[13px] leading-snug text-neutral-900">
@@ -129,12 +136,27 @@ export function ReportDocument({
         </div>
       ) : null}
 
+      <Section {...at("retine")}>
+        <Highlights items={data.highlights} />
+      </Section>
+
       <Section {...at("kpi")}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {data.kpis.map((k) => (
+          {(primary.length ? primary : data.kpis).map((k) => (
             <KpiTile key={k.key} k={k} prevLabel={data.prevLabel} />
           ))}
         </div>
+        {primary.length && secondary.length ? (
+          <p className="mt-2 text-xs text-neutral-600">
+            <span className="text-neutral-500">Și: </span>
+            {secondary.map((k, i) => (
+              <span key={k.key} className="whitespace-nowrap">
+                {i ? " · " : ""}
+                {k.label} <b className="font-semibold tabular-nums text-neutral-900">{formatKpi(k, k.value)}</b>
+              </span>
+            ))}
+          </p>
+        ) : null}
       </Section>
 
       <Section {...at("agenti")}>
@@ -181,32 +203,7 @@ export function ReportDocument({
       </Section>
 
       <Section {...at("evolutie")}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
-              <th className="py-1.5 pr-2">Perioada</th>
-              <th className="py-1.5 pr-2">Vizite</th>
-              <th className="py-1.5 pr-2">Oferte</th>
-              <th className="hidden py-1.5 text-right sm:table-cell print:table-cell">Valoare</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.evolution.map((e) => (
-              <tr key={e.label} className="border-b border-neutral-100">
-                <td className="py-1.5 pr-2 whitespace-nowrap">{e.label}</td>
-                <td className="w-[35%] py-1.5 pr-2">
-                  <Bar value={e.vizite} max={maxVizite} />
-                </td>
-                <td className="w-[30%] py-1.5 pr-2">
-                  <Bar value={e.oferte} max={maxOferte} light />
-                </td>
-                <td className="hidden py-1.5 text-right tabular-nums sm:table-cell print:table-cell">
-                  {formatMoney(e.valoare)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <VisitsVsTarget rows={data.evolution} />
       </Section>
 
       <Section {...at("palnie")}>
@@ -218,6 +215,69 @@ export function ReportDocument({
             { label: "Oferte acceptate", value: data.funnel.acceptate },
           ]}
         />
+      </Section>
+
+      <Section {...at("asteptare")}>
+        <PendingQuotes pending={data.pending} echipa={echipa} />
+      </Section>
+
+      <Section {...at("restante")}>
+        {!data.overdue ? (
+          <p className="text-sm text-neutral-500">Raport salvat înainte de lista restanțelor.</p>
+        ) : data.overdue.count === 0 ? (
+          <p className="text-sm text-neutral-500">Niciun pas restant la sfârșitul perioadei.</p>
+        ) : (
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+                  <th className="py-1.5 pr-2">Firma</th>
+                  <th className="py-1.5 pr-2">Pasul</th>
+                  <th className="py-1.5 pr-2 whitespace-nowrap">Termen</th>
+                  <th className="py-1.5 text-right whitespace-nowrap">Întârziere</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.overdue.rows.map((x, i) => (
+                  <tr key={i} className="border-b border-neutral-100 align-top">
+                    <td className="py-1.5 pr-2">
+                      {x.client}
+                      {echipa ? <span className="block text-xs text-neutral-500">{x.agent}</span> : null}
+                    </td>
+                    <td className="py-1.5 pr-2">{x.step ?? "—"}</td>
+                    <td className="py-1.5 pr-2 whitespace-nowrap">{formatDate(x.date)}</td>
+                    <td className="py-1.5 text-right tabular-nums whitespace-nowrap">{zile(x.zile)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.overdue.count > data.overdue.rows.length ? (
+              <p className="mt-1.5 text-xs text-neutral-500">
+                Cele mai vechi {data.overdue.rows.length} din {data.overdue.count}. Lista completă e în Excel, foaia „Firme”.
+              </p>
+            ) : null}
+          </>
+        )}
+      </Section>
+
+      <Section {...at("owner")}>
+        {!data.escalations ? (
+          <p className="text-sm text-neutral-500">Raport salvat înainte de lista întrebărilor.</p>
+        ) : data.escalations.length === 0 ? (
+          <p className="text-sm text-neutral-500">Nicio întrebare deschisă.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {data.escalations.map((e, i) => (
+              <li key={i} className="border-l-2 border-[var(--color-warn)] pl-3 break-inside-avoid">
+                <p className="text-xs text-neutral-500">
+                  {e.client} · {formatDate(e.date)}
+                  {echipa ? ` · ${e.agent}` : ""}
+                </p>
+                <p>{e.items.join(", ")}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section {...at("vizite")}>
@@ -358,16 +418,156 @@ function Section({
   );
 }
 
-function Bar({ value, max, light }: { value: number; max: number; light?: boolean }) {
+const zile = (n: number) => (n === 1 ? "1 zi" : `${n} zile`);
+
+/** Ce e de reținut, cu tonul scris în cuvânt, nu doar în culoare. */
+function Highlights({ items }: { items?: Highlight[] }) {
+  if (!items) return <p className="text-sm text-neutral-500">Raport salvat înainte de această secțiune.</p>;
+  if (!items.length) return <p className="text-sm text-neutral-500">Nimic deosebit în perioadă.</p>;
+  const TONE: Record<Highlight["tone"], { label: string; border: string }> = {
+    atentie: { label: "De urmărit", border: "border-[var(--color-warn)]" },
+    bine: { label: "Bine", border: "border-[var(--color-ok)]" },
+    info: { label: "De știut", border: "border-neutral-300" },
+  };
   return (
-    <span className="flex items-center gap-2">
-      <span className="block h-2.5 flex-1 overflow-hidden rounded-sm bg-neutral-100">
-        <span
-          className={`block h-full rounded-e-sm ${light ? "bg-brand-300" : "bg-brand-600"}`}
-          style={{ width: `${Math.round((value / max) * 100)}%` }}
-        />
-      </span>
-      <span className="w-7 text-right tabular-nums">{value}</span>
-    </span>
+    <ul className="space-y-1.5">
+      {items.map((h, i) => (
+        <li key={i} className={`border-l-4 pl-3 text-sm ${TONE[h.tone].border}`}>
+          <span className="mr-1.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">{TONE[h.tone].label}</span>
+          {h.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Vizitele pe zi (sau pe săptămână) față de țintă. O singură serie: coloanele
+ * sunt vizitele, linia punctată e ținta fiecărei coloane. Valoarea stă deasupra,
+ * ca graficul să se citească și tipărit, fără mouse.
+ */
+function VisitsVsTarget({ rows }: { rows: ReportSnapshot["evolution"] }) {
+  if (!rows.length) return <p className="text-sm text-neutral-500">Nicio zi în perioadă.</p>;
+  const max = Math.max(1, ...rows.map((r) => Math.max(r.vizite, r.tinta ?? 0)));
+  const hasTarget = rows.some((r) => r.tinta);
+  const oferte = rows.reduce((n, r) => n + r.oferte, 0);
+  const valoare = rows.reduce((n, r) => n + r.valoare, 0);
+
+  return (
+    <figure className="break-inside-avoid">
+      <div className="flex h-36 items-end gap-1.5 border-b border-neutral-400 pt-5" role="img" aria-label="Vizite față de țintă">
+        {rows.map((r) => {
+          const h = Math.round((r.vizite / max) * 100);
+          const t = r.tinta ? Math.round((r.tinta / max) * 100) : null;
+          // Cifra stă pe coloană; doar când ar atinge linia țintei urcă deasupra ei.
+          const labelAt = t !== null && t >= h && t - h < 14 ? t : h;
+          return (
+            <div
+              key={r.label}
+              className="relative h-full flex-1"
+              title={`${r.label}: ${r.vizite} vizite${r.tinta ? ` din ținta de ${r.tinta}` : ""} · ${r.oferte} oferte, ${formatMoney(r.valoare)}`}
+            >
+              {r.vizite > 0 ? (
+                <span
+                  className="absolute inset-x-[22%] bottom-0 rounded-t-[4px] bg-brand-600"
+                  style={{ height: `${h}%` }}
+                />
+              ) : null}
+              {t !== null ? (
+                <span
+                  aria-hidden
+                  className={`absolute inset-x-0 border-t-2 border-dashed ${r.viitor ? "border-neutral-300" : "border-neutral-900"}`}
+                  style={{ bottom: `${t}%` }}
+                />
+              ) : null}
+              {!r.viitor ? (
+                <span
+                  className="absolute inset-x-0 text-center text-[11px] font-medium text-neutral-900 tabular-nums"
+                  style={{ bottom: `calc(${labelAt}% + 3px)` }}
+                >
+                  {r.vizite}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex gap-1.5">
+        {rows.map((r) => (
+          <span key={r.label} className={`flex-1 truncate text-center text-[11px] ${r.viitor ? "text-neutral-400" : "text-neutral-600"}`}>
+            {r.short ?? r.label}
+          </span>
+        ))}
+      </div>
+      <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-600" /> Vizite
+        </span>
+        {hasTarget ? (
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-block w-4 border-t-2 border-dashed border-neutral-900" /> Ținta
+          </span>
+        ) : null}
+        <span>
+          Oferte emise în perioadă: <b className="tabular-nums">{oferte}</b>, {formatMoney(valoare)}
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Banii care așteaptă un răspuns: cele care expiră întâi, apoi cele mai mari. */
+function PendingQuotes({ pending, echipa }: { pending?: ReportSnapshot["pending"]; echipa: boolean }) {
+  if (!pending) return <p className="text-sm text-neutral-500">Raport salvat înainte de această secțiune.</p>;
+  if (!pending.count) return <p className="text-sm text-neutral-500">Nicio ofertă trimisă nu așteaptă răspuns.</p>;
+  return (
+    <>
+      <p className="mb-2 text-sm">
+        <b className="tabular-nums">{pending.count}</b> {pending.count === 1 ? "ofertă" : "oferte"} trimise, în valoare de{" "}
+        <b className="tabular-nums">{formatMoney(pending.total)}</b>
+        {pending.expiring ? (
+          <>
+            ; <b className="tabular-nums">{pending.expiring}</b> expiră în 7 zile ({formatMoney(pending.expiringValue)})
+          </>
+        ) : null}
+        .
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+            <th className="py-1.5 pr-2">Oferta</th>
+            <th className="py-1.5 pr-2 text-right whitespace-nowrap">Așteaptă</th>
+            <th className="py-1.5 pr-2 whitespace-nowrap">Valabilă până</th>
+            <th className="py-1.5 text-right">Valoare cu TVA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pending.rows.map((q) => (
+            <tr key={q.number} className="border-b border-neutral-100 align-top">
+              <td className="py-1.5 pr-2">
+                {q.client}
+                <span className="block text-xs text-neutral-500">
+                  {q.number}
+                  {echipa ? ` · ${q.agent}` : ""}
+                </span>
+              </td>
+              <td className={`py-1.5 pr-2 text-right tabular-nums whitespace-nowrap ${q.zile > 30 ? "font-semibold" : ""}`}>
+                {zile(q.zile)}
+              </td>
+              <td className="py-1.5 pr-2 whitespace-nowrap">
+                {q.validUntil ? formatDate(q.validUntil) : "—"}
+                {q.expira ? <span className="block text-xs font-semibold text-[var(--color-warn)]">expiră curând</span> : null}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{formatMoney(q.gross)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {pending.count > pending.rows.length ? (
+        <p className="mt-1.5 text-xs text-neutral-500">
+          Primele {pending.rows.length} din {pending.count}: cele care expiră curând, apoi cele mai mari.
+        </p>
+      ) : null}
+    </>
   );
 }

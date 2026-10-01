@@ -5,15 +5,21 @@
 import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
-export type ReportSection = "kpi" | "agenti" | "evolutie" | "palnie" | "vizite" | "oferte" | "piata" | "note";
+export type ReportSection =
+  | "retine" | "kpi" | "agenti" | "evolutie" | "palnie" | "asteptare" | "restante" | "owner"
+  | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
+  retine: "De reținut",
   kpi: "Indicatori cheie",
   agenti: "Activitatea pe agenți",
-  evolutie: "Evoluția în perioadă",
+  evolutie: "Vizitele față de țintă",
   palnie: "De la vizită la client",
+  asteptare: "Oferte care așteaptă răspuns",
+  restante: "Pași restanți",
+  owner: "Întrebări pentru conducere",
   vizite: "Vizitele perioadei",
-  oferte: "Ofertele perioadei",
+  oferte: "Ofertele emise în perioadă",
   piata: "Ce spune piața",
   note: "Ce au spus clienții",
 };
@@ -34,10 +40,22 @@ export const SCOPE_LABELS: Record<ReportScope, string> = {
 
 /** Ce intră implicit în fiecare tip de raport: operativ zilnic, strategic trimestrial. */
 const DEFAULTS: Record<ReportType, ReportSection[]> = {
-  zi: ["kpi", "agenti", "vizite", "oferte", "note"],
-  saptamana: ["kpi", "agenti", "evolutie", "palnie", "oferte", "note"],
-  luna: ["kpi", "agenti", "evolutie", "palnie", "oferte", "piata"],
-  trimestru: ["kpi", "agenti", "evolutie", "palnie", "piata"],
+  zi: ["kpi", "agenti", "vizite", "oferte", "restante", "note"],
+  saptamana: ["retine", "kpi", "agenti", "evolutie", "palnie", "asteptare", "restante", "owner", "note"],
+  luna: ["retine", "kpi", "agenti", "evolutie", "palnie", "asteptare", "oferte", "piata"],
+  trimestru: ["retine", "kpi", "agenti", "evolutie", "palnie", "piata"],
+};
+
+/**
+ * Indicatorii mari, pe tip de raport: cei după care se iau decizii la nivelul
+ * perioadei. Restul apar pe un singur rând dedesubt, ca raportul să nu fie un
+ * zid de cifre egale ca importanță.
+ */
+export const PRIMARY_KPIS: Record<ReportType, string[]> = {
+  zi: ["vizite", "firmeNoi", "telefoane", "oferte", "valoare", "restante"],
+  saptamana: ["vizite", "oferte", "valoare", "acceptate", "asteptare", "restante"],
+  luna: ["vizite", "oferte", "valoare", "acceptate", "castig", "asteptare"],
+  trimestru: ["vizite", "oferte", "valoare", "acceptate", "castig", "asteptare"],
 };
 
 /** Secțiunile care au sens pentru cine e raportul: tabelul pe agenți e doar al echipei. */
@@ -48,6 +66,9 @@ export const defaultSections = (type: ReportType, scope: ReportScope): ReportSec
   DEFAULTS[type].filter((s) => sectionsFor(scope).includes(s));
 
 export type KpiFormat = "int" | "money" | "pct" | "dec";
+
+/** Un lucru de reținut, cu tonul lui: bine, de urmărit sau doar de știut. */
+export type Highlight = { tone: "bine" | "atentie" | "info"; text: string };
 
 export type Kpi = {
   key: string;
@@ -61,6 +82,8 @@ export type Kpi = {
   lowerIsBetter?: boolean;
   /** Ce anume se numără, când numele singur poate fi citit greșit. */
   hint?: string;
+  /** Starea de acum, fără perioadă anterioară cu care să se compare. */
+  noCompare?: boolean;
 };
 
 export type ReportSnapshot = {
@@ -90,7 +113,34 @@ export type ReportSnapshot = {
     acceptate: number;
     tinta: number | null;
   }[];
-  evolution: { label: string; vizite: number; oferte: number; valoare: number }[];
+  /** `tinta` și `viitor` lipsesc la rapoartele salvate înainte de grafic. */
+  evolution: {
+    label: string;
+    /** Eticheta scurtă de sub coloană: „Lu 29”, „22–28.09”, „sept.”. */
+    short?: string;
+    vizite: number;
+    oferte: number;
+    valoare: number;
+    tinta?: number | null;
+    /** Perioadă care n-a venit încă: coloana goală nu e o zi proastă. */
+    viitor?: boolean;
+  }[];
+  /** Cele de mai jos lipsesc la rapoartele salvate înainte să existe secțiunile lor. */
+  highlights?: Highlight[];
+  pending?: {
+    total: number;
+    count: number;
+    /** Câte expiră în 7 zile de la data raportului, și valoarea lor. */
+    expiring: number;
+    expiringValue: number;
+    rows: {
+      number: string; client: string; agent: string; date: string; validUntil: string | null; gross: number; zile: number;
+      /** Expiră în 7 zile de la data raportului (sau a expirat deja, fără răspuns). */
+      expira?: boolean;
+    }[];
+  };
+  overdue?: { count: number; rows: { client: string; agent: string; step: string | null; date: string; zile: number }[] };
+  escalations?: { client: string; agent: string; date: string; items: string[] }[];
   funnel: { vizite: number; cuPas: number; oferteDinVizite: number; acceptate: number };
   visits: { date: string; agent: string; client: string; city: string | null; prima: boolean; nextStepDate: string | null }[];
   quotes: { number: string; date: string; client: string; agent: string; status: string; gross: number }[];
