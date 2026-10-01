@@ -4,6 +4,7 @@ import type { ReportRow } from "@/components/raport/report-editor";
 import { ReportDocument } from "@/components/raport/report-document";
 import { PrintButton } from "@/components/print-button";
 import { requireOrg } from "@/lib/auth";
+import { readReportDecisions } from "@/lib/decizii";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Raport" };
@@ -19,6 +20,8 @@ export default async function PrintRaportPage(props: PageProps<"/print/raport/[i
   ]);
   if (!row) notFound();
   const r = row as ReportRow;
+  // Raportul trimis are deciziile înghețate; ciorna le citește pe loc.
+  const decisions = r.status === "trimis" && r.data.decisions ? r.data.decisions : await readReportDecisions(r);
 
   return (
     <div className="min-h-screen bg-neutral-200 py-6 print:min-h-0 print:bg-white print:py-0">
@@ -37,6 +40,7 @@ export default async function PrintRaportPage(props: PageProps<"/print/raport/[i
             sections={r.sections}
             sectionNotes={r.section_notes ?? {}}
             reflection={r.reflection ?? {}}
+            decisions={decisions}
             author={members?.find((m) => m.user_id === r.created_by)?.full_name ?? null}
           />
         </div>

@@ -1,5 +1,6 @@
 import { buildActivity } from "@/lib/activitate";
 import { addDays, todayRo } from "@/lib/agenda";
+import { overdueDecisions } from "@/lib/decizii";
 import { getDomains } from "@/lib/domenii";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
 import { scopeOf, type Highlight, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
@@ -65,8 +66,17 @@ function buildHighlights(
   acceptedValue: number,
   /** Cât din zilele lucrătoare ale perioadei au trecut (0–1), pentru ritmul vânzărilor. */
   elapsed: number,
+  /** Decizii deschise cu termenul trecut, pe aceeași țintă. */
+  lateDecisions = 0,
 ): Highlight[] {
   const out: Highlight[] = [];
+
+  if (lateDecisions > 0) {
+    out.push({
+      tone: "atentie",
+      text: `${nr(lateDecisions, "decizie a trecut", "decizii au trecut")} de termen și nu ${lateDecisions === 1 ? "e închisă" : "sunt închise"}.`,
+    });
+  }
   const k = (key: string) => s.kpis.find((x) => x.key === key);
 
   // Vânzările față de ținta lunii: în luna curentă, față de cât din lună a trecut.
@@ -595,6 +605,7 @@ export async function buildReportSnapshot(
     asOf === todayRo() && p.to >= todayRo(),
     t.valoareAcceptata,
     totalDays ? days / totalDays : 1,
+    await overdueDecisions(orgId, agentId, asOf),
   );
   return snapshot;
 }

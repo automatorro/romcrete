@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg } from "@/lib/auth";
+import { isDecisionStatus, readReportDecisions } from "@/lib/decizii";
 import { isReportType } from "@/lib/perioade";
 import {
   ALL_SECTIONS,
@@ -178,12 +179,91 @@ export async function refreshReportData(formData: FormData) {
   refresh(id);
 }
 
-/** Înainte să se deschidă Outlook: raportul trece în „Trimis”, cu data trimiterii. */
+/**
+ * Înainte să se deschidă Outlook: raportul trece în „Trimis”, cu data trimiterii.
+ * Deciziile se îngheață în raport, ca cifrele: PDF-ul rămâne cel citit de
+ * destinatar, chiar dacă deciziile se închid între timp.
+ */
 export async function markReportSent(id: string) {
   await requireOrg();
   const supabase = await createClient();
-  await supabase.from("reports").update({ status: "trimis", sent_at: new Date().toISOString() }).eq("id", id);
+  const { data: r } = await supabase
+    .from("reports")
+    .select("id, agent_filter, period_from, created_at, data")
+    .eq("id", id)
+    .maybeSingle();
+  const decisions = r ? await readReportDecisions(r as Parameters<typeof readReportDecisions>[0]) : null;
+  await supabase
+    .from("reports")
+    .update({
+      status: "trimis",
+      sent_at: new Date().toISOString(),
+      ...(r && decisions ? { data: { ...(r.data as object), decisions } } : {}),
+    })
+    .eq("id", id);
   refresh(id);
+}
+
+/** O decizie nouă, luată pe baza raportului: pentru aceeași țintă ca raportul. */
+export async function addDecision(reportId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { orgId } = await requireOrg();
+  const text = String(formData.get("text") ?? "").trim();
+  if (!text) return { error: "Scrie ce s-a hotărât." };
+  const due = String(formData.get("due_date") ?? "");
+  if (due && !ISO_DAY.test(due)) return { error: "Termenul nu e o dată validă." };
+
+  const supabase = await createClient();
+  const { data: report } = await supabase.from("reports").select("id, agent_filter").eq("id", reportId).maybeSingle();
+  if (!report) return { error: "Raportul nu mai există." };
+
+  const { error } = await supabase.from("report_decisions").insert({
+    org_id: orgId,
+    report_id: reportId,
+    agent_filter: report.agent_filter,
+    text,
+    owner: String(formData.get("owner") ?? "").trim() || null,
+    due_date: due || null,
+  });
+  if (error) {
+    return {
+      error: /report_decisions/.test(error.message)
+        ? "Deciziile se pot nota după ce se aplică migrația 20261001180000_decizii.sql în Supabase."
+        : error.message,
+    };
+  }
+  refresh(reportId);
+  return { success: "Decizia a fost notată." };
+}
+
+/** Starea unei decizii și ce a ieșit; „făcută” și „renunțăm” o închid. */
+export async function updateDecision(formData: FormData) {
+  await requireOrg();
+  const id = String(formData.get("id") ?? "");
+  const status = formData.get("status");
+  if (!id || !isDecisionStatus(status)) return;
+  const closed = status === "facuta" || status === "renuntat";
+
+  const supabase = await createClient();
+  // O decizie deja închisă își păstrează data: adăugarea rezultatului nu o redeschide.
+  const { data: cur } = await supabase.from("report_decisions").select("closed_at").eq("id", id).maybeSingle();
+  await supabase
+    .from("report_decisions")
+    .update({
+      status,
+      outcome: String(formData.get("outcome") ?? "").trim() || null,
+      closed_at: closed ? ((cur?.closed_at as string | null) ?? new Date().toISOString()) : null,
+    })
+    .eq("id", id);
+  refresh(String(formData.get("report_id") ?? "") || undefined);
+}
+
+export async function deleteDecision(formData: FormData) {
+  await requireOrg();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from("report_decisions").delete().eq("id", id);
+  refresh(String(formData.get("report_id") ?? "") || undefined);
 }
 
 /** Ce spune `delete_report` când refuză, pe înțelesul celui care a apăsat. */

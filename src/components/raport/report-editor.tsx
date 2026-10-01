@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { deleteReport, refreshReportData } from "@/app/(app)/rapoarte/actions";
+import { DecisionsPanel } from "@/components/raport/decisions-panel";
 import { ReportDocument } from "@/components/raport/report-document";
 import { ReportForm } from "@/components/raport/report-form";
 import { ReportStatus } from "@/components/raport/reports-hub";
@@ -9,6 +10,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
+import { DECISION_STATUS_LABELS, readReportDecisions, type ReportDecisions } from "@/lib/decizii";
 import { periodFor } from "@/lib/perioade";
 import {
   REFLECTION_QUESTIONS,
@@ -39,6 +41,7 @@ export type ReportRow = {
   created_by: string | null;
   period_from: string;
   period_to: string;
+  created_at: string;
   agent_filter: string | null;
   domain_filter: string | null;
 };
@@ -53,6 +56,31 @@ function kpiLine(k: Kpi): string {
         : String(k.value);
   const target = k.target ? (k.format === "money" ? formatMoney(k.target) : String(k.target)) : null;
   return `• ${k.label}: ${v}${target ? ` (țintă ${target}${k.targetNote ? ` ${k.targetNote}` : ""})` : ""}`;
+}
+
+/** Deciziile în textul emailului: ce s-a făcut din cele vechi, ce se hotărăște acum. */
+function decisionLines(d?: ReportDecisions | null): string[] {
+  if (!d || (!d.followUp.length && !d.created.length)) return [];
+  return [
+    ...(d.followUp.length
+      ? [
+          "Ce s-a hotărât data trecută:",
+          ...d.followUp.map(
+            (x) => `• ${x.text} — ${DECISION_STATUS_LABELS[x.status].toLowerCase()}${x.outcome ? ` (${x.outcome})` : ""}`,
+          ),
+        ]
+      : []),
+    ...(d.created.length
+      ? [
+          "Ce hotărâm acum:",
+          ...d.created.map(
+            (x) =>
+              `• ${x.text}${x.owner ? ` — ${x.owner}` : ""}${x.due_date ? `, până pe ${formatDate(x.due_date)}` : ""}`,
+          ),
+        ]
+      : []),
+    "",
+  ];
 }
 
 /** Răspunsurile din teren în textul emailului, cu cererea către conducere prima. */
@@ -73,6 +101,9 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
   if (!row) notFound();
 
   const r = row as ReportRow;
+  // Deciziile pe loc, pentru panou; în document, cele înghețate dacă raportul a fost trimis.
+  const live = await readReportDecisions(r);
+  const docDecisions = r.status === "trimis" && r.data.decisions ? r.data.decisions : live;
   const root = zona === "teren" ? "/teren/rapoarte" : "/rapoarte";
   const author = members?.find((m) => m.user_id === r.created_by)?.full_name ?? null;
 
@@ -87,6 +118,7 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
     ...(r.summary?.trim() ? [r.summary.trim(), ""] : []),
     // Ce cere autorul de la conducere stă primul: e singurul rând care așteaptă un răspuns.
     ...(r.sections.includes("reflectie") ? reflectionLines(r.reflection) : []),
+    ...(r.sections.includes("decizii") ? decisionLines(docDecisions) : []),
     ...(r.data.highlights?.length && r.sections.includes("retine")
       ? ["De reținut:", ...r.data.highlights.map((h) => `• ${h.text}`), ""]
       : []),
@@ -173,6 +205,13 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
               available={sectionsFor(scopeOf(r.data))}
             />
           </section>
+          <section className="card p-4">
+            <h2 className="mb-1 text-base font-semibold">Decizii</h2>
+            <p className="mb-3 text-xs text-neutral-500">
+              Ce se hotărăște pe baza raportului, cine se ocupă și până când. Reapar în raportul următor până se închid.
+            </p>
+            <DecisionsPanel reportId={r.id} decisions={live} />
+          </section>
           {r.data.type === "zi" ? (
             <p className="notice">
               Raport zilnic salvat înainte ca ziua să devină doar fișă de centralizare. Nu se mai trimite: cifrele
@@ -197,6 +236,7 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
             sections={r.sections}
             sectionNotes={r.section_notes ?? {}}
             reflection={r.reflection ?? {}}
+            decisions={docDecisions}
             author={author}
           />
         </section>

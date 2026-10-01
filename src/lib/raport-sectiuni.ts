@@ -2,16 +2,18 @@
  * Structura unui raport salvat: secțiunile și forma cifrelor înghețate. Fără
  * acces la baza de date, ca s-o poată folosi și formularele din browser.
  */
+import type { ReportDecisions } from "@/lib/decizii";
 import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
 export type ReportSection =
-  | "retine" | "reflectie" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "pierderi" | "asteptare" | "fereastra"
+  | "retine" | "reflectie" | "decizii" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "pierderi" | "asteptare" | "fereastra"
   | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
   retine: "De reținut",
   reflectie: "Din teren, pe scurt",
+  decizii: "Decizii și urmărirea lor",
   kpi: "Indicatori cheie",
   agenti: "Activitatea pe agenți",
   tendinta: "Tendința pe 6 luni",
@@ -47,13 +49,17 @@ export const SCOPE_LABELS: Record<ReportScope, string> = {
 const DEFAULTS: Record<ReportType, ReportSection[]> = {
   zi: ["kpi", "agenti", "vizite", "oferte", "restante", "note"],
   saptamana: [
-    "retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante", "uitate", "owner",
+    "retine", "reflectie", "decizii", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante",
+    "uitate", "owner",
   ],
   luna: [
-    "retine", "reflectie", "kpi", "agenti", "tendinta", "evolutie", "palnie", "pierderi", "asteptare", "fereastra", "piata",
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "evolutie", "palnie", "pierderi", "asteptare",
+    "fereastra", "piata",
   ],
   // Pe trimestru, tendința pe luni ține locul evoluției din interior.
-  trimestru: ["retine", "reflectie", "kpi", "agenti", "tendinta", "palnie", "pierderi", "asteptare", "fereastra", "piata"],
+  trimestru: [
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "palnie", "pierderi", "asteptare", "fereastra", "piata",
+  ],
 };
 
 /**
@@ -154,6 +160,8 @@ export type ReportSnapshot = {
     /** Perioadă care n-a venit încă: coloana goală nu e o zi proastă. */
     viitor?: boolean;
   }[];
+  /** Deciziile, înghețate la trimitere; până atunci se citesc pe loc. */
+  decisions?: ReportDecisions;
   /** Cele de mai jos lipsesc la rapoartele salvate înainte să existe secțiunile lor. */
   /** Ultimele 6 luni, cu luna raportului ultima: încotro merge activitatea. */
   trend?: {

@@ -13,6 +13,7 @@ import {
   SECTION_LABELS,
   scopeOf,
 } from "@/lib/raport-perioada";
+import { DECISION_STATUS_LABELS, type Decision, type ReportDecisions } from "@/lib/decizii";
 import { lossReasonLabel } from "@/lib/pierderi";
 import { formatDate, formatMoney } from "@/lib/totals";
 import type { QuoteStatus } from "@/lib/types";
@@ -91,6 +92,7 @@ export function ReportDocument({
   sections,
   sectionNotes = {},
   reflection,
+  decisions,
   author,
 }: {
   data: ReportSnapshot;
@@ -100,6 +102,8 @@ export function ReportDocument({
   sectionNotes?: Partial<Record<ReportSection, string>>;
   /** Răspunsurile la cele patru întrebări; secțiunea lipsește cât sunt goale. */
   reflection?: Reflection | null;
+  /** Deciziile: înghețate în raportul trimis, citite pe loc în ciornă. Secțiunea lipsește cât nu sunt. */
+  decisions?: ReportDecisions | null;
   author?: string | null;
 }) {
   const scope = scopeOf(data);
@@ -109,7 +113,10 @@ export function ReportDocument({
   ].join(" · ");
   // Numerotarea urmează ordinea fixă a secțiunilor, doar pentru cele alese.
   const shown = ALL_SECTIONS.filter(
-    (id) => sections.includes(id) && (id !== "reflectie" || hasReflection(reflection)),
+    (id) =>
+      sections.includes(id) &&
+      (id !== "reflectie" || hasReflection(reflection)) &&
+      (id !== "decizii" || Boolean(decisions && (decisions.followUp.length || decisions.created.length))),
   );
   const at = (id: ReportSection) => ({ id, index: shown.indexOf(id) + 1, note: sectionNotes[id] });
 
@@ -167,6 +174,10 @@ export function ReportDocument({
             </div>
           ))}
         </dl>
+      </Section>
+
+      <Section {...at("decizii")}>
+        {decisions ? <Decisions d={decisions} asOf={data.generatedAt.slice(0, 10)} /> : null}
       </Section>
 
       <Section {...at("kpi")}>
@@ -900,5 +911,65 @@ function Losses({ losses, echipa }: { losses?: ReportSnapshot["losses"]; echipa:
         <p className="mt-1.5 text-xs text-neutral-500">Cele mai mari {losses.rows.length} din {losses.count}.</p>
       ) : null}
     </>
+  );
+}
+
+/** Ce s-a hotărât data trecută și ce s-a întâmplat, apoi ce se hotărăște acum. */
+function Decisions({ d, asOf }: { d: ReportDecisions; asOf: string }) {
+  const intarziata = (x: Decision) =>
+    (x.status === "deschisa" || x.status === "in_lucru") && Boolean(x.due_date && x.due_date < asOf);
+  const cine = (x: Decision) =>
+    [x.owner, x.due_date ? `termen ${formatDate(x.due_date)}` : null].filter(Boolean).join(" · ");
+
+  return (
+    <div className="space-y-4">
+      {d.followUp.length ? (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+            Ce s-a hotărât data trecută și ce s-a întâmplat
+          </p>
+          <table className="w-full text-sm">
+            <tbody>
+              {d.followUp.map((x) => (
+                <tr key={x.id} className="border-b border-neutral-100 align-top">
+                  <td className="py-1.5 pr-2">
+                    {x.text}
+                    {cine(x) ? <span className="block text-xs text-neutral-500">{cine(x)}</span> : null}
+                    {x.outcome ? <span className="block text-xs text-neutral-700">→ {x.outcome}</span> : null}
+                  </td>
+                  <td className="py-1.5 text-right whitespace-nowrap">
+                    <span
+                      className={`text-xs font-semibold ${
+                        x.status === "facuta"
+                          ? "text-[var(--color-ok)]"
+                          : intarziata(x)
+                            ? "text-[var(--color-warn)]"
+                            : "text-neutral-600"
+                      }`}
+                    >
+                      {DECISION_STATUS_LABELS[x.status]}
+                      {intarziata(x) ? " · după termen" : ""}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {d.created.length ? (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">Ce hotărâm acum</p>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm">
+            {d.created.map((x) => (
+              <li key={x.id}>
+                {x.text}
+                {cine(x) ? <span className="block text-xs text-neutral-500">{cine(x)}</span> : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </div>
   );
 }
