@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { requireOrg } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatMoney } from "@/lib/totals";
@@ -65,7 +66,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
         description={echipa ? "Ofertele echipei" : "Ofertele emise de tine"}
         actions={
           conducere ? (
-            <FilterChips
+            <Segmented
               label="Ofertele cui"
               items={[
                 { label: "Ale mele", href: href({ cine: null }), active: !echipa },
@@ -78,6 +79,7 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
 
       <FilterChips
         label="Filtrează după stare"
+        scroll
         items={[
           { label: "Toate", href: href({ status: null }), active: !activeStatus && !arhiva, count: all.length },
           ...(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[])

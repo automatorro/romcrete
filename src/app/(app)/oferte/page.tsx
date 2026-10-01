@@ -74,6 +74,7 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
 
       <FilterChips
         label="Filtrează după stare"
+        scroll
         items={[
           { label: "Toate", href: "/oferte", active: !activeStatus, count: active.length },
           ...(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[]).map((value) => ({

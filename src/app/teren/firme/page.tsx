@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StepActions } from "@/app/teren/step-actions";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
@@ -62,17 +63,14 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
   const today = todayRo();
   const due = rows.filter((r) => r.next_step_date === today).length;
 
-  const chipHref = (patch: Record<string, string | null>) => {
-    const p = new URLSearchParams();
-    const base: Record<string, string> = {
+  // Filtrele aplicate, așa cum stau în adresă; bara le arată și le schimbă.
+  const current: Record<string, string> = Object.fromEntries(
+    Object.entries({
       q: search, etapa: stage, prio: priority,
       restante: onlyLate ? "1" : "", focus: focusFilter, city: oras,
       domeniu: domainFilter,
-    };
-    for (const [k, v] of Object.entries({ ...base, ...patch })) if (v) p.set(k, v);
-    const s = p.toString();
-    return s ? `/teren/firme?${s}` : "/teren/firme";
-  };
+    }).filter(([, v]) => v),
+  );
 
   return (
     <div>
@@ -86,76 +84,47 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
         }
       />
 
-      <form className="my-3">
-        {stage ? <input type="hidden" name="etapa" value={stage} /> : null}
-        {priority ? <input type="hidden" name="prio" value={priority} /> : null}
-        {onlyLate ? <input type="hidden" name="restante" value="1" /> : null}
-        <input
-          type="search"
-          name="q"
-          defaultValue={search}
-          placeholder="Caută firmă, persoană, CUI, telefon"
-          className="input"
-        />
-      </form>
-
-      <div className="mb-2 flex flex-wrap gap-2">
-        {domains.map((d) => (
-          <Link
-            key={d.id}
-            href={chipHref({ domeniu: domainFilter === d.id ? null : d.id })}
-            className={`chip chip-s ${domainFilter === d.id ? "chip-on" : ""}`}
-          >
-            {d.short_label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="mb-2 flex flex-wrap gap-2">
-        {(["urmareste", "deblocheaza", "educa"] as Focus[]).map((f) => (
-          <Link
-            key={f}
-            href={chipHref({ focus: focusFilter === f ? null : f })}
-            className={`chip chip-s ${focusFilter === f ? "chip-on" : ""}`}
-          >
-            {FOCUS_LABELS[f]}
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {(stageGroup?.options ?? []).map((o) => (
-          <Link
-            key={o.id}
-            href={chipHref({ etapa: stage === o.id ? null : o.id })}
-            className={`chip chip-s ${stage === o.id ? "chip-on" : ""}`}
-          >
-            {o.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Link
-          href={chipHref({ restante: onlyLate ? null : "1" })}
-          className={`chip chip-s ${onlyLate ? "chip-on" : ""}`}
-        >
-          Pași restanți
-        </Link>
-        {["A", "B", "C"].map((p) => (
-          <Link
-            key={p}
-            href={chipHref({ prio: priority === p ? null : p })}
-            className={`chip chip-s ${priority === p ? "chip-on" : ""}`}
-          >
-            Prioritate {p}
-          </Link>
-        ))}
-      </div>
+      <FilterBar
+        path="/teren/firme"
+        params={current}
+        search={{ param: "q", placeholder: "Caută firmă, persoană, CUI, telefon" }}
+        groups={[
+          ...(domains.length > 1 || domainFilter
+            ? [{ param: "domeniu", label: "Domeniul", allLabel: "Toate", options: domains.map((d) => ({ value: d.id, label: d.short_label })) }]
+            : []),
+          {
+            param: "etapa",
+            label: "Etapa",
+            allLabel: "Toate",
+            options: (stageGroup?.options ?? []).map((o) => ({ value: o.id, label: o.label })),
+          },
+          {
+            param: "focus",
+            label: "Ce faci cu firma",
+            allLabel: "Oricare",
+            options: (["urmareste", "deblocheaza", "educa"] as Focus[]).map((f) => ({ value: f, label: FOCUS_LABELS[f] })),
+          },
+          {
+            param: "prio",
+            label: "Prioritate",
+            allLabel: "Oricare",
+            pillPrefix: "Prioritate",
+            options: ["A", "B", "C"].map((p) => ({ value: p, label: p })),
+          },
+          { param: "restante", label: "Pașii", toggle: true, options: [{ value: "1", label: "Doar pașii restanți" }] },
+        ]}
+        extra={oras ? [{ param: "city", label: oras }] : []}
+        presets={[
+          { label: "Pași restanți", params: { restante: "1" } },
+          { label: "Prioritate A", params: { prio: "A" } },
+          { label: FOCUS_LABELS.urmareste, params: { focus: "urmareste" } },
+          { label: FOCUS_LABELS.deblocheaza, params: { focus: "deblocheaza" } },
+        ]}
+      />
 
       {rows.length === 0 ? (
         <div className="card mt-3 p-4 text-sm text-neutral-500">
-          {search || stage || priority || onlyLate || domainFilter
+          {search || stage || priority || onlyLate || domainFilter || focusFilter || oras
             ? "Nicio firmă pentru filtrul ales."
             : "Încă nicio firmă. Apasă „＋ Vizită” după prima întâlnire."}
         </div>

@@ -77,6 +77,11 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
   const [status, setStatus] = useState<Status>("idle");
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState("");
+  // Întrebările cu un singur răspuns se strâng într-un rând după ce ai ales;
+  // aici stau cele redeschise cu „Schimbă”.
+  const [editing, setEditing] = useState<Set<string>>(() => new Set());
+  // Listele lungi arată întâi câteva opțiuni; aici, cele desfăcute cu „Încă…”.
+  const [showAll, setShowAll] = useState<Set<string>>(() => new Set());
 
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,6 +164,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
         : "";
     if (missing) {
       setFinishError(missing);
+      if (!step) reopen("urmator");
       const field = document.getElementById(step ? "grup-cuand" : "grup-urmator");
       const section = field?.closest("details");
       if (section) section.open = true;
@@ -180,8 +186,16 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     setFinishing(false);
   };
 
-  const pickSingle = (gid: string, oid: string) =>
+  const pickSingle = (gid: string, oid: string) => {
     update({ answers: { ...form.answers, [gid]: form.answers[gid] === oid ? "" : oid } });
+    setEditing((cur) => {
+      const next = new Set(cur);
+      next.delete(gid);
+      return next;
+    });
+  };
+
+  const reopen = (gid: string) => setEditing((cur) => new Set(cur).add(gid));
 
   const pickMulti = (gid: string, oid: string) => {
     const cur = Array.isArray(form.answers[gid]) ? (form.answers[gid] as string[]) : [];
@@ -289,39 +303,30 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
                     />
                   ) : g.kind === "pump_picker" ? (
                     <PumpPicker pumps={pumps} selected={form.pumpSkus} onToggle={togglePump} />
+                  ) : g.kind === "single" && typeof form.answers[g.id] === "string" && form.answers[g.id] && !editing.has(g.id) ? (
+                    <button type="button" onClick={() => reopen(g.id)} className="answered">
+                      <span aria-hidden className="text-[var(--color-ok)]">✓</span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {g.options.find((o) => o.id === form.answers[g.id])?.label ?? String(form.answers[g.id])}
+                        {g.allows_note && form.notes[g.id] ? (
+                          <span className="font-normal text-neutral-500"> · {form.notes[g.id]}</span>
+                        ) : null}
+                      </span>
+                      <span className="text-sm text-brand-700">Schimbă</span>
+                    </button>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {g.options.map((o) => {
-                        const on =
-                          g.kind === "multi"
-                            ? (Array.isArray(form.answers[g.id])
-                                ? (form.answers[g.id] as string[])
-                                : []
-                              ).includes(o.id)
-                            : form.answers[g.id] === o.id;
-                        const level =
-                          g.options_source === "pump_categories" ? suggested.get(o.id) : undefined;
-                        return (
-                          <button
-                            key={o.id}
-                            type="button"
-                            title={
-                              level === 2
-                                ? "Sugerat: materialul e trecut în fișa produsului"
-                                : level === 1
-                                  ? "Sugerat: dedus după consistența materialului — de confirmat tehnic"
-                                  : undefined
-                            }
-                            onClick={() =>
-                              g.kind === "multi" ? pickMulti(g.id, o.id) : pickSingle(g.id, o.id)
-                            }
-                            className={`chip ${on ? "chip-on" : level ? "chip-sug" : ""}`}
-                          >
-                            {o.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <OptionChips
+                      group={g}
+                      isOn={(oid) =>
+                        g.kind === "multi"
+                          ? (Array.isArray(form.answers[g.id]) ? (form.answers[g.id] as string[]) : []).includes(oid)
+                          : form.answers[g.id] === oid
+                      }
+                      levelOf={(oid) => (g.options_source === "pump_categories" ? suggested.get(oid) : undefined)}
+                      expanded={showAll.has(g.id)}
+                      onExpand={() => setShowAll((cur) => new Set(cur).add(g.id))}
+                      onPick={(oid) => (g.kind === "multi" ? pickMulti(g.id, oid) : pickSingle(g.id, oid))}
+                    />
                   )}
 
                   {g.options_source === "pump_categories" && suggested.size > 0 ? (
@@ -331,7 +336,8 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
                     </p>
                   ) : null}
 
-                  {g.allows_note ? (
+                  {g.allows_note &&
+                  !(g.kind === "single" && form.answers[g.id] && !editing.has(g.id)) ? (
                     <input
                       type="text"
                       value={form.notes[g.id] ?? ""}
@@ -445,6 +451,68 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
         ) : null}
       </div>
     </>
+  );
+}
+
+/** Peste câte opțiuni lista se scurtează: restul stau după „Încă…”. */
+const SHORT_LIST = 8;
+const SHOWN_FIRST = 6;
+
+/**
+ * Opțiunile unei întrebări. Listele lungi arată întâi primele, plus ce e ales
+ * sau sugerat; restul apar cu „Încă N…”, ca ecranul să nu se umple de butoane rare.
+ */
+function OptionChips({
+  group,
+  isOn,
+  levelOf,
+  expanded,
+  onExpand,
+  onPick,
+}: {
+  group: QuestionGroup;
+  isOn: (optionId: string) => boolean;
+  levelOf: (optionId: string) => MatchLevel | undefined;
+  expanded: boolean;
+  onExpand: () => void;
+  onPick: (optionId: string) => void;
+}) {
+  const short = !expanded && group.options.length > SHORT_LIST;
+  const visible = short
+    ? group.options.filter((o, i) => i < SHOWN_FIRST || isOn(o.id) || levelOf(o.id))
+    : group.options;
+  const hidden = group.options.length - visible.length;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {visible.map((o) => {
+        const on = isOn(o.id);
+        const level = levelOf(o.id);
+        return (
+          <button
+            key={o.id}
+            type="button"
+            aria-pressed={on}
+            title={
+              level === 2
+                ? "Sugerat: materialul e trecut în fișa produsului"
+                : level === 1
+                  ? "Sugerat: dedus după consistența materialului — de confirmat tehnic"
+                  : undefined
+            }
+            onClick={() => onPick(o.id)}
+            className={`chip ${on ? "chip-on" : level ? "chip-sug" : ""}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+      {hidden > 0 ? (
+        <button type="button" onClick={onExpand} className="chip chip-alt">
+          Încă {hidden}…
+        </button>
+      ) : null}
+    </div>
   );
 }
 

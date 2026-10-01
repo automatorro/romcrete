@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { deleteActivity, deleteVisit, logContactFromList } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
-import { FilterChips } from "@/components/ui/filter-chips";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { addDays, shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { HISTORY_LABELS } from "@/lib/istoric";
@@ -169,7 +169,7 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
         description="Vizitele, telefoanele și emailurile, pe zi sau pe săptămână — exact ce intră în raport. Trece aici agenda, corectează ce e greșit, apoi trimite raportul."
         actions={
           conducere ? (
-            <FilterChips
+            <Segmented
               label="Ale cui"
               items={[
                 { label: "Ale mele", href: href({ cine: null }), active: !echipa },
@@ -187,7 +187,7 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
         </p>
       ) : null}
 
-      <FilterChips
+      <Segmented
         label="Perioada"
         items={[
           { label: "Zilnic", href: href({ tip: "zi", data: today }), active: type === "zi" },
