@@ -10,7 +10,9 @@ import {
   buildReportSnapshot,
   defaultSections,
   defaultTitle,
+  REFLECTION_QUESTIONS,
   scopeOf,
+  type Reflection,
   type ReportSection,
 } from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
@@ -118,21 +120,35 @@ export async function updateReport(id: string, _prev: ActionState, formData: For
     if (text) notes[s] = text;
   }
 
+  const reflection: Reflection = {};
+  for (const q of REFLECTION_QUESTIONS) {
+    const text = String(formData.get(`refl_${q.key}`) ?? "").trim();
+    if (text) reflection[q.key] = text;
+  }
+
   const { ok, bad } = parseRecipients(String(formData.get("recipients") ?? ""));
   if (bad.length) return { error: `Adrese de email greșite: ${bad.join(", ")}` };
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("reports")
-    .update({
-      title,
-      summary: String(formData.get("summary") ?? "").trim() || null,
-      sections,
-      section_notes: notes,
-      recipients: ok,
-    })
-    .eq("id", id);
-  if (error) return { error: error.message };
+  const fields = {
+    title,
+    summary: String(formData.get("summary") ?? "").trim() || null,
+    sections,
+    section_notes: notes,
+    recipients: ok,
+  };
+  const { error } = await supabase.from("reports").update({ ...fields, reflection }).eq("id", id);
+  if (error) {
+    // Până se aplică migrația câmpului nou, restul raportului se salvează oricum.
+    if (!/reflection/.test(error.message)) return { error: error.message };
+    const { error: again } = await supabase.from("reports").update(fields).eq("id", id);
+    if (again) return { error: again.message };
+    refresh(id);
+    return {
+      error:
+        "Raportul s-a salvat, fără cele patru întrebări: aplică migrația 20261001090000_raport_din_teren.sql în Supabase.",
+    };
+  }
 
   refresh(id);
   return { success: "Raportul a fost salvat." };

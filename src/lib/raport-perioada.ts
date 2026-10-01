@@ -8,10 +8,12 @@ import { createClient } from "@/lib/supabase/server";
 
 // Tipurile și secțiunile stau separat, ca formularele din browser să le poată folosi.
 export {
-  ALL_SECTIONS, defaultSections, SCOPE_LABELS, SECTION_LABELS, sectionsFor, scopeOf,
+  ALL_SECTIONS, defaultSections, hasReflection, REFLECTION_QUESTIONS, SCOPE_LABELS, SECTION_LABELS, sectionsFor, scopeOf,
 } from "@/lib/raport-sectiuni";
 export { PRIMARY_KPIS } from "@/lib/raport-sectiuni";
-export type { Highlight, Kpi, KpiFormat, ReportScope, ReportSection, ReportSnapshot } from "@/lib/raport-sectiuni";
+export type {
+  Highlight, Kpi, KpiFormat, Reflection, ReportScope, ReportSection, ReportSnapshot,
+} from "@/lib/raport-sectiuni";
 
 /** Întrebările din vizită care spun ceva despre piață, nu despre o firmă anume. */
 const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "utilaj"];
@@ -39,7 +41,7 @@ const nr = (n: number, unu: string, multe: string) => `${n} ${n === 1 ? unu : mu
  * așteaptă, restanțele și întrebările deschise. Cel mult cinci rânduri.
  */
 function buildHighlights(
-  s: Pick<ReportSnapshot, "kpis" | "pending" | "overdue" | "escalations" | "prevLabel">,
+  s: Pick<ReportSnapshot, "kpis" | "pending" | "overdue" | "escalations" | "prevLabel" | "opportunities" | "slipping">,
   isCurrent: boolean,
   acceptedValue: number,
 ): Highlight[] {
@@ -93,6 +95,22 @@ function buildHighlights(
     out.push({
       tone: res.value > res.prev ? "atentie" : "info",
       text: `${nr(res.value, "pas restant", "pași restanți")} (${res.prev} față de ${s.prevLabel}).`,
+    });
+  }
+
+  const uitate = s.slipping?.count ?? 0;
+  if (uitate > 0) {
+    out.push({
+      tone: "atentie",
+      text: `${nr(uitate, "firmă caldă n-a mai fost contactată", "firme calde n-au mai fost contactate")} la timp și nu au un pas stabilit.`,
+    });
+  }
+
+  const curand = s.opportunities?.count ?? 0;
+  if (curand > 0) {
+    out.push({
+      tone: "info",
+      text: `${nr(curand, "firmă are", "firme au")} o vânzare care se deschide: spun că ar cumpăra curând sau au utilajul de schimbat.`,
     });
   }
 
@@ -328,6 +346,19 @@ export async function buildReportSnapshot(
     })),
     pending,
     overdue: { count: ds.overdue.length, rows: ds.overdue.slice(0, ACTION_LIMIT) },
+    // Privirea înainte: starea de acum a firmelor, nu a perioadei.
+    opportunities: {
+      count: ds.opportunities.length,
+      rows: ds.opportunities.slice(0, ACTION_LIMIT).map((o) => ({
+        client: o.client,
+        agent: o.agent,
+        reasons: o.reasons,
+        interest: o.interest,
+        nextStep: o.nextStep,
+        nextStepDate: o.nextStepDate,
+      })),
+    },
+    slipping: { count: ds.slipping.length, rows: ds.slipping.slice(0, ACTION_LIMIT) },
     // Toate: sunt puține și fiecare așteaptă un răspuns de la conducere.
     escalations: ds.escalations,
     // Pâlnia urmărește aceleași oferte de la un pas la altul: acceptate sunt

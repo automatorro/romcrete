@@ -6,17 +6,20 @@ import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
 export type ReportSection =
-  | "retine" | "kpi" | "agenti" | "evolutie" | "palnie" | "asteptare" | "restante" | "owner"
-  | "vizite" | "oferte" | "piata" | "note";
+  | "retine" | "reflectie" | "kpi" | "agenti" | "evolutie" | "palnie" | "asteptare" | "fereastra"
+  | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
   retine: "De reținut",
+  reflectie: "Din teren, pe scurt",
   kpi: "Indicatori cheie",
   agenti: "Activitatea pe agenți",
   evolutie: "Vizitele față de țintă",
   palnie: "De la vizită la client",
   asteptare: "Oferte care așteaptă răspuns",
+  fereastra: "Ce se deschide în curând",
   restante: "Pași restanți",
+  uitate: "Firme calde fără contact",
   owner: "Întrebări pentru conducere",
   vizite: "Vizitele perioadei",
   oferte: "Ofertele emise în perioadă",
@@ -41,9 +44,11 @@ export const SCOPE_LABELS: Record<ReportScope, string> = {
 /** Ce intră implicit în fiecare tip de raport: operativ zilnic, strategic trimestrial. */
 const DEFAULTS: Record<ReportType, ReportSection[]> = {
   zi: ["kpi", "agenti", "vizite", "oferte", "restante", "note"],
-  saptamana: ["retine", "kpi", "agenti", "evolutie", "palnie", "asteptare", "restante", "owner", "note"],
-  luna: ["retine", "kpi", "agenti", "evolutie", "palnie", "asteptare", "oferte", "piata"],
-  trimestru: ["retine", "kpi", "agenti", "evolutie", "palnie", "piata"],
+  saptamana: [
+    "retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante", "uitate", "owner",
+  ],
+  luna: ["retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "oferte", "piata"],
+  trimestru: ["retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "fereastra", "piata"],
 };
 
 /**
@@ -66,6 +71,23 @@ export const defaultSections = (type: ReportType, scope: ReportScope): ReportSec
   DEFAULTS[type].filter((s) => sectionsFor(scope).includes(s));
 
 export type KpiFormat = "int" | "money" | "pct" | "dec";
+
+/**
+ * Partea scrisă de om, pe patru întrebări fixe. Ultima e cea mai importantă:
+ * face din raport un dialog cu conducerea, nu doar un control al agentului.
+ */
+export const REFLECTION_QUESTIONS = [
+  { key: "amers", label: "Ce a mers", placeholder: "O demonstrație reușită, o firmă câștigată, un argument care a prins." },
+  { key: "nuamers", label: "Ce n-a mers și de ce", placeholder: "O ofertă pierdută, o firmă care s-a răcit, o zi pierdută pe drum." },
+  { key: "piata", label: "Ce văd în piață", placeholder: "Prețuri, concurență, ce cer clienții, ce s-a schimbat față de luna trecută." },
+  { key: "nevoie", label: "De ce am nevoie de la conducere", placeholder: "Un preț, o decizie, un utilaj de demonstrație, o vizită împreună." },
+] as const;
+
+export type ReflectionKey = (typeof REFLECTION_QUESTIONS)[number]["key"];
+export type Reflection = Partial<Record<ReflectionKey, string>>;
+
+export const hasReflection = (r?: Reflection | null): boolean =>
+  Boolean(r && Object.values(r).some((t) => t?.trim()));
 
 /** Un lucru de reținut, cu tonul lui: bine, de urmărit sau doar de știut. */
 export type Highlight = { tone: "bine" | "atentie" | "info"; text: string };
@@ -140,6 +162,13 @@ export type ReportSnapshot = {
     }[];
   };
   overdue?: { count: number; rows: { client: string; agent: string; step: string | null; date: string; zile: number }[] };
+  /** Firme care spun că ar cumpăra curând sau au utilajul de schimbat: privirea înainte. */
+  opportunities?: {
+    count: number;
+    rows: { client: string; agent: string; reasons: string[]; interest: string | null; nextStep: string | null; nextStepDate: string | null }[];
+  };
+  /** Firme calde, fără pas stabilit, la care a trecut termenul de revenire. */
+  slipping?: { count: number; rows: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[] };
   escalations?: { client: string; agent: string; date: string; items: string[] }[];
   funnel: { vizite: number; cuPas: number; oferteDinVizite: number; acceptate: number };
   visits: { date: string; agent: string; client: string; city: string | null; prima: boolean; nextStepDate: string | null }[];

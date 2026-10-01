@@ -5,7 +5,13 @@ import { useActionState } from "react";
 import { updateReport } from "@/app/(app)/rapoarte/actions";
 import { FormMessage } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
-import { ALL_SECTIONS, SECTION_LABELS, type ReportSection } from "@/lib/raport-sectiuni";
+import {
+  ALL_SECTIONS,
+  REFLECTION_QUESTIONS,
+  SECTION_LABELS,
+  type Reflection,
+  type ReportSection,
+} from "@/lib/raport-sectiuni";
 
 /**
  * Ce scrie omul peste cifre: titlul, rezumatul, ce secțiuni intră, o observație
@@ -18,6 +24,7 @@ export function ReportForm({
   sections,
   notes,
   recipients,
+  reflection = {},
   available = ALL_SECTIONS,
 }: {
   id: string;
@@ -26,6 +33,7 @@ export function ReportForm({
   sections: ReportSection[];
   notes: Partial<Record<ReportSection, string>>;
   recipients: string[];
+  reflection?: Reflection;
   /** Secțiunile care au sens pentru raport: tabelul pe agenți e doar al echipei. */
   available?: ReportSection[];
 }) {
@@ -49,10 +57,32 @@ export function ReportForm({
           name="summary"
           rows={5}
           defaultValue={summary ?? ""}
-          placeholder="Pe scurt: ce a mers, ce nu, ce urmează. Apare sus, înaintea cifrelor."
+          placeholder="Opțional: o frază de deschidere. Apare sus, înaintea cifrelor."
           className="input"
         />
       </div>
+
+      <fieldset className="space-y-3">
+        <legend className="label">Din teren, pe scurt</legend>
+        <p className="-mt-1 text-xs text-neutral-500">
+          Patru întrebări, câte o frază-două. Apar în raport și în email; ultima ajunge direct la conducere.
+        </p>
+        {REFLECTION_QUESTIONS.map((q) => (
+          <div key={q.key}>
+            <label htmlFor={`refl-${q.key}`} className="mb-1 block text-sm font-medium">
+              {q.label}
+            </label>
+            <textarea
+              id={`refl-${q.key}`}
+              name={`refl_${q.key}`}
+              rows={2}
+              defaultValue={reflection[q.key] ?? ""}
+              placeholder={q.placeholder}
+              className="input text-sm"
+            />
+          </div>
+        ))}
+      </fieldset>
 
       <fieldset>
         <legend className="label">Secțiuni și observații</legend>

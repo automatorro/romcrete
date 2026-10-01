@@ -10,7 +10,15 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireOrg } from "@/lib/auth";
 import { periodFor } from "@/lib/perioade";
-import { scopeOf, sectionsFor, type Kpi, type ReportSection, type ReportSnapshot } from "@/lib/raport-perioada";
+import {
+  REFLECTION_QUESTIONS,
+  scopeOf,
+  sectionsFor,
+  type Kpi,
+  type Reflection,
+  type ReportSection,
+  type ReportSnapshot,
+} from "@/lib/raport-perioada";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatMoney } from "@/lib/totals";
 
@@ -22,6 +30,8 @@ export type ReportRow = {
   summary: string | null;
   sections: ReportSection[];
   section_notes: Partial<Record<ReportSection, string>>;
+  /** Lipsește până se aplică migrația câmpului. */
+  reflection?: Reflection | null;
   data: ReportSnapshot;
   status: "ciorna" | "trimis";
   recipients: string[];
@@ -42,6 +52,13 @@ function kpiLine(k: Kpi): string {
         ? `${Math.round(k.value * 100)}%`
         : String(k.value);
   return `• ${k.label}: ${v}${k.target ? ` (țintă ${k.target})` : ""}`;
+}
+
+/** Răspunsurile din teren în textul emailului, cu cererea către conducere prima. */
+function reflectionLines(reflection?: Reflection | null): string[] {
+  const order = [...REFLECTION_QUESTIONS].sort((a, b) => Number(b.key === "nevoie") - Number(a.key === "nevoie"));
+  const lines = order.filter((q) => reflection?.[q.key]?.trim()).map((q) => `${q.label}: ${reflection?.[q.key]?.trim()}`);
+  return lines.length ? [...lines, ""] : [];
 }
 
 /** Editarea unui raport salvat: textele, trimiterea și previzualizarea exactă. */
@@ -67,6 +84,8 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
     "Bună ziua,",
     "",
     ...(r.summary?.trim() ? [r.summary.trim(), ""] : []),
+    // Ce cere autorul de la conducere stă primul: e singurul rând care așteaptă un răspuns.
+    ...(r.sections.includes("reflectie") ? reflectionLines(r.reflection) : []),
     ...(r.data.highlights?.length && r.sections.includes("retine")
       ? ["De reținut:", ...r.data.highlights.map((h) => `• ${h.text}`), ""]
       : []),
@@ -149,6 +168,7 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
               sections={r.sections}
               notes={r.section_notes ?? {}}
               recipients={r.recipients ?? []}
+              reflection={r.reflection ?? {}}
               available={sectionsFor(scopeOf(r.data))}
             />
           </section>
@@ -175,6 +195,7 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
             summary={r.summary}
             sections={r.sections}
             sectionNotes={r.section_notes ?? {}}
+            reflection={r.reflection ?? {}}
             author={author}
           />
         </section>

@@ -130,6 +130,22 @@ export type ActivityDataset = {
   overdue: { client: string; agent: string; step: string | null; date: string; zile: number }[];
   /** Întrebările tehnice încă fără răspuns, puse în vizite până la sfârșitul perioadei. */
   escalations: { client: string; agent: string; date: string; items: string[] }[];
+  /**
+   * Firme care spun că ar cumpăra curând, sunt gata de cumpărare sau au un
+   * utilaj de peste 5 ani: unde se deschide o vânzare. Starea de acum.
+   */
+  opportunities: {
+    client: string;
+    agent: string;
+    reasons: string[];
+    interest: string | null;
+    nextStep: string | null;
+    nextStepDate: string | null;
+    /** Cât de aproape e: 0 luna asta, 1 gata de cumpărare, 2 în 1–3 luni, 3 utilaj vechi. */
+    rank: number;
+  }[];
+  /** Firme calde fără pas stabilit, la care a trecut termenul de revenire. Starea de acum. */
+  slipping: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[];
   /** `answered`: câte firme au răspuns la întrebare, ca „4 firme” să aibă o bază. */
   market: { groupId: string; group: string; option: string; firms: number; answered: number }[];
 };
@@ -669,10 +685,59 @@ export async function buildActivity(
     .eq("id", orgId)
     .maybeSingle();
 
+  // Privirea înainte, din starea de acum a firmelor, pe aceleași filtre.
+  const stari = (stateRows ?? [])
+    .filter((c) => !agentFilter || c.owner_agent_id === agentFilter)
+    .filter((c) => !domainFilter || ((c.domain as string) ?? "constructii") === domainFilter)
+    // O firmă deja client sau pierdută nu mai e o vânzare care se deschide.
+    .filter((c) => c.stage !== "client" && c.stage !== "pierdut");
+
+  const opportunities: ActivityDataset["opportunities"] = stari
+    .flatMap((c) => {
+      const a = (c.answers ?? {}) as Answers;
+      if (c.interest === "nu") return [];
+      const reasons: string[] = [];
+      let rank = 9;
+      if (a.cand === "acum" || a.cand === "l13") {
+        reasons.push(`Ar cumpăra: ${eticheta("cand", a.cand as string).toLowerCase()}`);
+        rank = a.cand === "acum" ? 0 : 2;
+      }
+      if (c.interest === "gata") {
+        reasons.push(eticheta("interes", "gata"));
+        rank = Math.min(rank, 1);
+      }
+      if (a.utilaj === "peste5") {
+        reasons.push("Utilajul are peste 5 ani");
+        rank = Math.min(rank, 3);
+      }
+      if (!reasons.length) return [];
+      return [{
+        client: c.name as string,
+        agent: numeAgent(c.owner_agent_id as string | null),
+        reasons,
+        interest: c.interest ? eticheta("interes", c.interest as string) : null,
+        nextStep: c.next_step ? eticheta("urmator", c.next_step as string) : null,
+        nextStepDate: (c.next_step_date as string | null) ?? null,
+        rank,
+      }];
+    })
+    .sort((x, y) => x.rank - y.rank || x.client.localeCompare(y.client, "ro"));
+
+  const slipping: ActivityDataset["slipping"] = stari
+    .filter((c) => c.is_warm && c.needs_recontact && c.recontact_due)
+    .map((c) => ({
+      client: c.name as string,
+      agent: numeAgent(c.owner_agent_id as string | null),
+      lastVisit: (c.last_visit as string | null) ?? null,
+      zile: Math.max(0, diferentaZile(c.recontact_due as string, azi)),
+      interest: c.interest ? eticheta("interes", c.interest as string) : null,
+    }))
+    .sort((x, y) => y.zile - x.zile);
+
   return {
     from, to, granularity, agentFilter, domainFilter, members,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
-    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations,
+    total, previous, perAgent, perDomain, perPeriod, pending, overdue, escalations, opportunities, slipping,
     visits: vizitePerioada.map((v) => {
       const c = clientById.get(v.client_id);
       return {

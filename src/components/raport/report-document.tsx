@@ -2,8 +2,16 @@ import { BarList, Funnel } from "@/app/(app)/raport/charts";
 import { Logo } from "@/components/logo";
 import { StatusBadge } from "@/components/status-badge";
 import type { Kpi, ReportSection, ReportSnapshot } from "@/lib/raport-perioada";
-import type { Highlight } from "@/lib/raport-perioada";
-import { ALL_SECTIONS, PRIMARY_KPIS, SCOPE_LABELS, SECTION_LABELS, scopeOf } from "@/lib/raport-perioada";
+import type { Highlight, Reflection } from "@/lib/raport-perioada";
+import {
+  ALL_SECTIONS,
+  hasReflection,
+  PRIMARY_KPIS,
+  REFLECTION_QUESTIONS,
+  SCOPE_LABELS,
+  SECTION_LABELS,
+  scopeOf,
+} from "@/lib/raport-perioada";
 import { formatDate, formatMoney } from "@/lib/totals";
 import type { QuoteStatus } from "@/lib/types";
 
@@ -80,6 +88,7 @@ export function ReportDocument({
   summary,
   sections,
   sectionNotes = {},
+  reflection,
   author,
 }: {
   data: ReportSnapshot;
@@ -87,6 +96,8 @@ export function ReportDocument({
   summary?: string | null;
   sections: ReportSection[];
   sectionNotes?: Partial<Record<ReportSection, string>>;
+  /** Răspunsurile la cele patru întrebări; secțiunea lipsește cât sunt goale. */
+  reflection?: Reflection | null;
   author?: string | null;
 }) {
   const scope = scopeOf(data);
@@ -95,7 +106,9 @@ export function ReportDocument({
     data.filters.domain ?? "Toate domeniile",
   ].join(" · ");
   // Numerotarea urmează ordinea fixă a secțiunilor, doar pentru cele alese.
-  const shown = ALL_SECTIONS.filter((id) => sections.includes(id));
+  const shown = ALL_SECTIONS.filter(
+    (id) => sections.includes(id) && (id !== "reflectie" || hasReflection(reflection)),
+  );
   const at = (id: ReportSection) => ({ id, index: shown.indexOf(id) + 1, note: sectionNotes[id] });
 
   // Indicatorii mari ai tipului de raport; ceilalți, pe un rând dedesubt.
@@ -138,6 +151,20 @@ export function ReportDocument({
 
       <Section {...at("retine")}>
         <Highlights items={data.highlights} />
+      </Section>
+
+      <Section {...at("reflectie")}>
+        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          {REFLECTION_QUESTIONS.filter((q) => reflection?.[q.key]?.trim()).map((q) => (
+            <div
+              key={q.key}
+              className={`break-inside-avoid ${q.key === "nevoie" ? "rounded-lg border-2 border-neutral-900 p-3 sm:col-span-2" : ""}`}
+            >
+              <dt className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">{q.label}</dt>
+              <dd className="mt-0.5 text-sm whitespace-pre-line">{reflection?.[q.key]?.trim()}</dd>
+            </div>
+          ))}
+        </dl>
       </Section>
 
       <Section {...at("kpi")}>
@@ -221,6 +248,54 @@ export function ReportDocument({
         <PendingQuotes pending={data.pending} echipa={echipa} />
       </Section>
 
+      <Section {...at("fereastra")}>
+        {!data.opportunities ? (
+          <p className="text-sm text-neutral-500">Raport salvat înainte de această secțiune.</p>
+        ) : data.opportunities.count === 0 ? (
+          <p className="text-sm text-neutral-500">
+            Nicio firmă nu a spus că ar cumpăra curând. Întrebarea „Când ar cumpăra” din vizită hrănește această listă.
+          </p>
+        ) : (
+          <>
+            <p className="mb-2 text-xs text-neutral-500">
+              Firme care spun că ar cumpăra în cel mult 3 luni, sunt gata de cumpărare sau au un utilaj de peste 5 ani.
+              Starea de la data raportului.
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+                  <th className="py-1.5 pr-2">Firma</th>
+                  <th className="py-1.5 pr-2">De ce acum</th>
+                  <th className="py-1.5">Pasul următor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.opportunities.rows.map((o, i) => (
+                  <tr key={i} className="border-b border-neutral-100 align-top">
+                    <td className="py-1.5 pr-2">
+                      {o.client}
+                      <span className="block text-xs text-neutral-500">
+                        {[o.interest, echipa ? o.agent : null].filter(Boolean).join(" · ")}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-2">{o.reasons.join("; ")}</td>
+                    <td className="py-1.5">
+                      {o.nextStep ?? <span className="font-semibold text-[var(--color-warn)]">niciunul stabilit</span>}
+                      {o.nextStepDate ? <span className="block text-xs text-neutral-500">{formatDate(o.nextStepDate)}</span> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.opportunities.count > data.opportunities.rows.length ? (
+              <p className="mt-1.5 text-xs text-neutral-500">
+                Cele mai apropiate {data.opportunities.rows.length} din {data.opportunities.count}.
+              </p>
+            ) : null}
+          </>
+        )}
+      </Section>
+
       <Section {...at("restante")}>
         {!data.overdue ? (
           <p className="text-sm text-neutral-500">Raport salvat înainte de lista restanțelor.</p>
@@ -254,6 +329,49 @@ export function ReportDocument({
             {data.overdue.count > data.overdue.rows.length ? (
               <p className="mt-1.5 text-xs text-neutral-500">
                 Cele mai vechi {data.overdue.rows.length} din {data.overdue.count}. Lista completă e în Excel, foaia „Firme”.
+              </p>
+            ) : null}
+          </>
+        )}
+      </Section>
+
+      <Section {...at("uitate")}>
+        {!data.slipping ? (
+          <p className="text-sm text-neutral-500">Raport salvat înainte de această secțiune.</p>
+        ) : data.slipping.count === 0 ? (
+          <p className="text-sm text-neutral-500">Toate firmele calde au fost contactate la timp sau au un pas stabilit.</p>
+        ) : (
+          <>
+            <p className="mb-2 text-xs text-neutral-500">
+              Firme interesate, fără un pas stabilit, la care a trecut termenul de revenire din Setări. Starea de la data
+              raportului.
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+                  <th className="py-1.5 pr-2">Firma</th>
+                  <th className="py-1.5 pr-2 whitespace-nowrap">Ultima vizită</th>
+                  <th className="py-1.5 text-right whitespace-nowrap">Peste termen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.slipping.rows.map((x, i) => (
+                  <tr key={i} className="border-b border-neutral-100 align-top">
+                    <td className="py-1.5 pr-2">
+                      {x.client}
+                      <span className="block text-xs text-neutral-500">
+                        {[x.interest, echipa ? x.agent : null].filter(Boolean).join(" · ")}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-2 whitespace-nowrap">{x.lastVisit ? formatDate(x.lastVisit) : "—"}</td>
+                    <td className="py-1.5 text-right tabular-nums whitespace-nowrap">{zile(x.zile)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.slipping.count > data.slipping.rows.length ? (
+              <p className="mt-1.5 text-xs text-neutral-500">
+                Cele mai vechi {data.slipping.rows.length} din {data.slipping.count}.
               </p>
             ) : null}
           </>

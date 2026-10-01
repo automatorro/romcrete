@@ -36,6 +36,7 @@ export default async function PrintRaportPage(props: PageProps<"/print/raport/[i
             summary={r.summary}
             sections={r.sections}
             sectionNotes={r.section_notes ?? {}}
+            reflection={r.reflection ?? {}}
             author={members?.find((m) => m.user_id === r.created_by)?.full_name ?? null}
           />
         </div>
