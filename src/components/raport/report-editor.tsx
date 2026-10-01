@@ -51,7 +51,8 @@ function kpiLine(k: Kpi): string {
       : k.format === "pct"
         ? `${Math.round(k.value * 100)}%`
         : String(k.value);
-  return `• ${k.label}: ${v}${k.target ? ` (țintă ${k.target})` : ""}`;
+  const target = k.target ? (k.format === "money" ? formatMoney(k.target) : String(k.target)) : null;
+  return `• ${k.label}: ${v}${target ? ` (țintă ${target}${k.targetNote ? ` ${k.targetNote}` : ""})` : ""}`;
 }
 
 /** Răspunsurile din teren în textul emailului, cu cererea către conducere prima. */
@@ -90,7 +91,7 @@ export async function ReportEditor({ id, zona, eroare }: { id: string; zona: Zon
       ? ["De reținut:", ...r.data.highlights.map((h) => `• ${h.text}`), ""]
       : []),
     `Pe scurt, ${r.data.label}:`,
-    ...r.data.kpis.filter((k) => ["vizite", "firmeNoi", "oferte", "valoare", "acceptate"].includes(k.key)).map(kpiLine),
+    ...r.data.kpis.filter((k) => ["vizite", "firmeNoi", "oferte", "valoare", "vanzari", "acceptate"].includes(k.key)).map(kpiLine),
     "",
     "Raportul complet este atașat, în PDF.",
     "",

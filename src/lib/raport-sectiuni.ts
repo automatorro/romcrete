@@ -6,7 +6,7 @@ import type { ReportType } from "@/lib/perioade";
 
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
 export type ReportSection =
-  | "retine" | "reflectie" | "kpi" | "agenti" | "evolutie" | "palnie" | "asteptare" | "fereastra"
+  | "retine" | "reflectie" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "asteptare" | "fereastra"
   | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
@@ -14,6 +14,7 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   reflectie: "Din teren, pe scurt",
   kpi: "Indicatori cheie",
   agenti: "Activitatea pe agenți",
+  tendinta: "Tendința pe 6 luni",
   evolutie: "Vizitele față de țintă",
   palnie: "De la vizită la client",
   asteptare: "Oferte care așteaptă răspuns",
@@ -47,8 +48,9 @@ const DEFAULTS: Record<ReportType, ReportSection[]> = {
   saptamana: [
     "retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante", "uitate", "owner",
   ],
-  luna: ["retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "oferte", "piata"],
-  trimestru: ["retine", "reflectie", "kpi", "agenti", "evolutie", "palnie", "fereastra", "piata"],
+  luna: ["retine", "reflectie", "kpi", "agenti", "tendinta", "evolutie", "palnie", "asteptare", "fereastra", "piata"],
+  // Pe trimestru, tendința pe luni ține locul evoluției din interior.
+  trimestru: ["retine", "reflectie", "kpi", "agenti", "tendinta", "palnie", "asteptare", "fereastra", "piata"],
 };
 
 /**
@@ -59,8 +61,8 @@ const DEFAULTS: Record<ReportType, ReportSection[]> = {
 export const PRIMARY_KPIS: Record<ReportType, string[]> = {
   zi: ["vizite", "firmeNoi", "telefoane", "oferte", "valoare", "restante"],
   saptamana: ["vizite", "oferte", "valoare", "acceptate", "asteptare", "restante"],
-  luna: ["vizite", "oferte", "valoare", "acceptate", "castig", "asteptare"],
-  trimestru: ["vizite", "oferte", "valoare", "acceptate", "castig", "asteptare"],
+  luna: ["vizite", "oferte", "valoare", "vanzari", "castig", "asteptare"],
+  trimestru: ["vizite", "oferte", "valoare", "vanzari", "castig", "asteptare"],
 };
 
 /** Secțiunile care au sens pentru cine e raportul: tabelul pe agenți e doar al echipei. */
@@ -106,6 +108,8 @@ export type Kpi = {
   hint?: string;
   /** Starea de acum, fără perioadă anterioară cu care să se compare. */
   noCompare?: boolean;
+  /** Ce fel de țintă e: „până azi”, „pe lună”. Implicit „până azi”. */
+  targetNote?: string;
 };
 
 export type ReportSnapshot = {
@@ -148,6 +152,20 @@ export type ReportSnapshot = {
     viitor?: boolean;
   }[];
   /** Cele de mai jos lipsesc la rapoartele salvate înainte să existe secțiunile lor. */
+  /** Ultimele 6 luni, cu luna raportului ultima: încotro merge activitatea. */
+  trend?: {
+    label: string;
+    short: string;
+    vizite: number;
+    oferte: number;
+    vanzari: number;
+    /** Acceptate din ofertele cu răspuns în lună; null când n-a fost niciun răspuns. */
+    castig: number | null;
+    /** Luna raportului, evidențiată. */
+    curent: boolean;
+    /** Lună care n-a venit încă (în trimestrul curent). */
+    viitor: boolean;
+  }[];
   highlights?: Highlight[];
   pending?: {
     total: number;
@@ -155,6 +173,8 @@ export type ReportSnapshot = {
     /** Câte expiră în 7 zile de la data raportului, și valoarea lor. */
     expiring: number;
     expiringValue: number;
+    /** Toate ofertele care așteaptă, pe vechime: cât de reci sunt banii. */
+    aging?: { label: string; count: number; value: number }[];
     rows: {
       number: string; client: string; agent: string; date: string; validUntil: string | null; gross: number; zile: number;
       /** Expiră în 7 zile de la data raportului (sau a expirat deja, fără răspuns). */
@@ -173,8 +193,18 @@ export type ReportSnapshot = {
   funnel: { vizite: number; cuPas: number; oferteDinVizite: number; acceptate: number };
   visits: { date: string; agent: string; client: string; city: string | null; prima: boolean; nextStepDate: string | null }[];
   quotes: { number: string; date: string; client: string; agent: string; status: string; gross: number }[];
-  /** `answered`: câte firme au răspuns la întrebare; lipsește la rapoartele mai vechi. */
-  market: { group: string; rows: [string, number][]; answered?: number }[];
+  /**
+   * `answered`: câte firme au răspuns la întrebare; `prevAnswered` și `prev`
+   * (firme pe răspuns, după etichetă): aceleași în perioada anterioară.
+   * Lipsesc la rapoartele mai vechi.
+   */
+  market: {
+    group: string;
+    rows: [string, number][];
+    answered?: number;
+    prevAnswered?: number;
+    prev?: Record<string, number>;
+  }[];
   notes: { date: string; client: string; agent: string; text: string }[];
 };
 

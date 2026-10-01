@@ -12,6 +12,8 @@ export type AgentTarget = {
   role: string;
   target_visits_per_day: number | null;
   target_quotes_per_month: number | null;
+  /** Lipsește până la migrația țintei de vânzări. */
+  target_sales_per_month?: number | null;
 };
 
 /** Ținte personale. Gol = se folosește ținta firmei, deci nu trebuie completat nimic. */
@@ -25,12 +27,13 @@ export function TinteAgentiForm({ agents }: { agents: AgentTarget[] }) {
   return (
     <form action={formAction} className="space-y-4">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
               <th className="py-2">Persoană</th>
               <th className="py-2 text-right">Vizite / zi</th>
               <th className="py-2 text-right">Oferte / lună</th>
+              <th className="py-2 text-right">Vânzări / lună (lei)</th>
             </tr>
           </thead>
           <tbody>
@@ -62,6 +65,18 @@ export function TinteAgentiForm({ agents }: { agents: AgentTarget[] }) {
                     placeholder="ca firma"
                     className="input w-28 text-right tabular-nums"
                     aria-label={`Oferte pe lună pentru ${a.full_name ?? "agent"}`}
+                  />
+                </td>
+                <td className="py-2 text-right">
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    name={`vanzari_${a.user_id}`}
+                    defaultValue={a.target_sales_per_month ?? ""}
+                    placeholder="ca firma"
+                    className="input w-32 text-right tabular-nums"
+                    aria-label={`Vânzări pe lună, în lei, pentru ${a.full_name ?? "agent"}`}
                   />
                 </td>
               </tr>

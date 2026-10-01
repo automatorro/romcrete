@@ -148,6 +148,8 @@ export type ActivityDataset = {
   slipping: { client: string; agent: string; lastVisit: string | null; zile: number; interest: string | null }[];
   /** `answered`: câte firme au răspuns la întrebare, ca „4 firme” să aibă o bază. */
   market: { groupId: string; group: string; option: string; firms: number; answered: number }[];
+  /** Aceleași răspunsuri, pe perioada anterioară. */
+  marketPrevious: { groupId: string; group: string; option: string; firms: number; answered: number }[];
 };
 
 
@@ -657,27 +659,34 @@ export async function buildActivity(
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
 
-  const market: ActivityDataset["market"] = [];
-  const perGrup = new Map<string, Map<string, Set<string>>>();
-  for (const v of vizitePerioada) {
-    for (const [gid, raw] of Object.entries(v.answers ?? {})) {
-      const values = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
-      if (!values.length) continue;
-      const g = perGrup.get(gid) ?? new Map<string, Set<string>>();
-      for (const val of values) {
-        const set = g.get(val) ?? new Set<string>();
-        set.add(v.client_id);
-        g.set(val, set);
+  // Răspunsurile din piață, numărate pe firmă: o firmă contează o dată pe răspuns.
+  const piataDin = (vizite: RawVisit[]): ActivityDataset["market"] => {
+    const out: ActivityDataset["market"] = [];
+    const perGrup = new Map<string, Map<string, Set<string>>>();
+    for (const v of vizite) {
+      for (const [gid, raw] of Object.entries(v.answers ?? {})) {
+        const values = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
+        if (!values.length) continue;
+        const g = perGrup.get(gid) ?? new Map<string, Set<string>>();
+        for (const val of values) {
+          const set = g.get(val) ?? new Set<string>();
+          set.add(v.client_id);
+          g.set(val, set);
+        }
+        perGrup.set(gid, g);
       }
-      perGrup.set(gid, g);
     }
-  }
-  for (const [gid, opts] of perGrup) {
-    const answered = new Set([...opts.values()].flatMap((set) => [...set])).size;
-    for (const [oid, firms] of [...opts.entries()].sort((a, b) => b[1].size - a[1].size)) {
-      market.push({ groupId: gid, group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size, answered });
+    for (const [gid, opts] of perGrup) {
+      const answered = new Set([...opts.values()].flatMap((set) => [...set])).size;
+      for (const [oid, firms] of [...opts.entries()].sort((a, b) => b[1].size - a[1].size)) {
+        out.push({ groupId: gid, group: numeGrup.get(gid) ?? gid, option: eticheta(gid, oid), firms: firms.size, answered });
+      }
     }
-  }
+    return out;
+  };
+  const market = piataDin(vizitePerioada);
+  // Aceeași numărătoare pe perioada anterioară: piața se citește ca tendință.
+  const marketPrevious = piataDin(vizitePrecedent);
 
   const { data: orgRow } = await supabase
     .from("organizations")
@@ -794,5 +803,6 @@ export async function buildActivity(
         late: Boolean(s.next_step_late),
       })),
     market,
+    marketPrevious,
   };
 }

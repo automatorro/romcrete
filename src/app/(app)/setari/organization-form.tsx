@@ -89,6 +89,24 @@ export function OrganizationForm({ organization }: { organization: Organization 
         </div>
 
         <div>
+          <label className="label" htmlFor="target_sales_per_month">
+            Țintă vânzări pe lună (lei)
+          </label>
+          <input
+            id="target_sales_per_month"
+            name="target_sales_per_month"
+            type="number"
+            step="100"
+            min="0"
+            defaultValue={organization.target_sales_per_month ?? 0}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Pe agent: valoarea ofertelor acceptate într-o lună, cu TVA. 0 = fără țintă.
+          </p>
+        </div>
+
+        <div>
           <label className="label" htmlFor="recontact_days_warm">
             Reluare firmă caldă (zile)
           </label>

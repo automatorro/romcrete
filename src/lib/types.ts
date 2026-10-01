@@ -32,6 +32,8 @@ export type Organization = {
   join_domains: string[];
   target_visits_per_day: number;
   target_quotes_per_month: number;
+  /** Ținta lunară de vânzări (oferte acceptate, cu TVA); 0 = fără țintă. Lipsește până la migrație. */
+  target_sales_per_month?: number;
   recontact_days_warm: number;
   recontact_days_cold: number;
   productivity_factor: number;

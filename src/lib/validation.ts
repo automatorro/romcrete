@@ -54,6 +54,7 @@ export const organizationSchema = z.object({
   ),
   target_visits_per_day: numberField(5).pipe(z.number().int().min(0).max(50)),
   target_quotes_per_month: numberField(10).pipe(z.number().int().min(0).max(500)),
+  target_sales_per_month: numberField(0).pipe(z.number().min(0).max(100_000_000)),
   recontact_days_warm: numberField(7).pipe(z.number().int().min(1).max(365)),
   recontact_days_cold: numberField(30).pipe(z.number().int().min(1).max(365)),
   // Lista se scrie ca text, câte un domeniu pe linie sau separate prin virgulă.

@@ -16,7 +16,21 @@ export type {
 } from "@/lib/raport-sectiuni";
 
 /** Întrebările din vizită care spun ceva despre piață, nu despre o firmă anume. */
-const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "utilaj"];
+const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "utilaj", "oameni"];
+
+/** Sub atâtea firme care au răspuns, o schimbare de procent e zgomot, nu semnal. */
+export const MARKET_MIN_BASE = 5;
+
+const LUNI_LUNG = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
+  "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
+
+/** Vechimea ofertelor care așteaptă: cât de reci sunt banii. */
+const AGING: { label: string; max: number }[] = [
+  { label: "0–15 zile", max: 15 },
+  { label: "16–30 zile", max: 30 },
+  { label: "31–60 zile", max: 60 },
+  { label: "peste 60 de zile", max: Infinity },
+];
 
 const LIST_LIMIT = 80;
 /** Listele de acțiune se citesc într-o ședință: primele, nu toate. */
@@ -41,12 +55,31 @@ const nr = (n: number, unu: string, multe: string) => `${n} ${n === 1 ? unu : mu
  * așteaptă, restanțele și întrebările deschise. Cel mult cinci rânduri.
  */
 function buildHighlights(
-  s: Pick<ReportSnapshot, "kpis" | "pending" | "overdue" | "escalations" | "prevLabel" | "opportunities" | "slipping">,
+  s: Pick<
+    ReportSnapshot,
+    "kpis" | "pending" | "overdue" | "escalations" | "prevLabel" | "opportunities" | "slipping" | "market" | "type"
+  >,
   isCurrent: boolean,
   acceptedValue: number,
+  /** Cât din zilele lucrătoare ale perioadei au trecut (0–1), pentru ritmul vânzărilor. */
+  elapsed: number,
 ): Highlight[] {
   const out: Highlight[] = [];
   const k = (key: string) => s.kpis.find((x) => x.key === key);
+
+  // Vânzările față de ținta lunii: în luna curentă, față de cât din lună a trecut.
+  const sales = k("vanzari");
+  if (sales?.target) {
+    const pct = Math.round((sales.value / sales.target) * 100);
+    const ritm = Math.round(elapsed * 100);
+    const perioada = s.type === "trimestru" ? "trimestrului" : "lunii";
+    out.push({
+      tone: pct >= 100 ? "bine" : isCurrent ? (pct >= ritm - 10 ? "info" : "atentie") : "atentie",
+      text:
+        `Vânzări: ${formatMoney(sales.value)} din ținta ${perioada} de ${formatMoney(sales.target)} (${pct}%)` +
+        (isCurrent && pct < 100 ? `, după ${ritm}% din zilele lucrătoare ale ${perioada}.` : "."),
+    });
+  }
 
   const viz = k("vizite");
   if (viz?.target) {
@@ -63,7 +96,7 @@ function buildHighlights(
 
   const acc = k("acceptate");
   const castig = k("castig");
-  if (acc && acc.value > 0) {
+  if (acc && acc.value > 0 && !sales?.target) {
     out.push({
       tone: "bine",
       text:
@@ -114,6 +147,24 @@ function buildHighlights(
     });
   }
 
+  // Cea mai mare schimbare din piață față de perioada anterioară, pe o bază destul de mare.
+  let shift: { text: string; size: number } | null = null;
+  for (const g of s.market) {
+    if (!g.answered || !g.prevAnswered || g.answered < MARKET_MIN_BASE || g.prevAnswered < MARKET_MIN_BASE) continue;
+    for (const [option, firms] of g.rows) {
+      const now = firms / g.answered;
+      const before = (g.prev?.[option] ?? 0) / g.prevAnswered;
+      const size = Math.abs(now - before);
+      if (size >= 0.15 && (!shift || size > shift.size)) {
+        shift = {
+          size,
+          text: `Piața: „${option}” (${g.group.toLowerCase()}) ${now > before ? "a crescut" : "a scăzut"} de la ${Math.round(before * 100)}% la ${Math.round(now * 100)}% din firme, față de ${s.prevLabel}.`,
+        };
+      }
+    }
+  }
+  if (shift) out.push({ tone: "info", text: shift.text });
+
   const esc = s.escalations?.length ?? 0;
   if (esc > 0) {
     out.push({ tone: "atentie", text: `${nr(esc, "întrebare tehnică așteaptă", "întrebări tehnice așteaptă")} răspunsul conducerii.` });
@@ -122,6 +173,16 @@ function buildHighlights(
   // Ordinea: ce cere acțiune întâi, apoi veștile bune, apoi restul.
   const rank = { atentie: 0, bine: 1, info: 2 } as const;
   return out.sort((a, b) => rank[a.tone] - rank[b.tone]).slice(0, 5);
+}
+
+/** Zile lucrătoare din tot intervalul, capetele incluse. */
+function workingDaysBetween(from: string, to: string): number {
+  let n = 0;
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const wd = new Date(`${d}T12:00:00Z`).getUTCDay();
+    if (wd >= 1 && wd <= 5) n++;
+  }
+  return n;
 }
 
 /** Zile lucrătoare din interval, până azi: ținta nu cere vizite în zile care n-au venit. */
@@ -133,6 +194,29 @@ function workingDaysUntilToday(from: string, to: string): number {
     if (wd >= 1 && wd <= 5) n++;
   }
   return n;
+}
+
+/**
+ * Țintele lunare de vânzări: a firmei și ale fiecărui om. Până se aplică
+ * migrația lor, coloanele lipsesc și raportul merge mai departe fără țintă.
+ */
+async function readSalesTargets(orgId: string): Promise<{ org: number; byUser: Map<string, number | null> }> {
+  const supabase = await createClient();
+  const [{ data: org, error: orgError }, { data: members, error: memberError }] = await Promise.all([
+    supabase.from("organizations").select("target_sales_per_month").eq("id", orgId).maybeSingle(),
+    supabase.from("memberships").select("user_id, target_sales_per_month").eq("org_id", orgId),
+  ]);
+  return {
+    org: orgError ? 0 : Number(org?.target_sales_per_month ?? 0),
+    byUser: new Map(
+      memberError
+        ? []
+        : (members ?? []).map((m) => [
+            m.user_id as string,
+            m.target_sales_per_month === null ? null : Number(m.target_sales_per_month),
+          ]),
+    ),
+  };
 }
 
 /**
@@ -150,7 +234,15 @@ export async function buildReportSnapshot(
   const p = periodFor(type, anchor);
   const supabase = await createClient();
 
-  const [ds, domains, { data: activityRows }] = await Promise.all([
+  // Raportul lunar și cel trimestrial se uită și în urmă: ultimele 6 luni, pe luni.
+  const lunar = type === "luna" || type === "trimestru";
+  const trendFrom = (() => {
+    const [y, m] = p.to.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 - 5, 1));
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const [ds, domains, { data: activityRows }, trendDs, salesTargets] = await Promise.all([
     buildActivity(orgId, p.from, p.to, p.granularity, agentId, domainId, { from: p.prevFrom, to: p.prevTo }),
     getDomains(orgId),
     supabase
@@ -160,6 +252,8 @@ export async function buildReportSnapshot(
       .in("kind", ["telefon", "email", "whatsapp"])
       .gte("occurred_at", `${p.prevFrom}T00:00:00Z`)
       .lt("occurred_at", `${addDays(p.to, 1)}T00:00:00Z`),
+    lunar ? buildActivity(orgId, trendFrom, p.to, "luna", agentId, domainId) : Promise.resolve(null),
+    readSalesTargets(orgId),
   ]);
 
   // Telefoanele și emailurile vin din istoricul firmelor, pe aceleași filtre.
@@ -195,11 +289,26 @@ export async function buildReportSnapshot(
   const t = ds.total;
   const v = ds.previous;
 
+  // Ținta de vânzări pe lună a celor numărați; pe trimestru, de trei ori.
+  const salesTarget = (id: string) => salesTargets.byUser.get(id) ?? salesTargets.org;
+  const monthlySales = agentId
+    ? salesTarget(agentId)
+    : ds.perAgent.filter((a) => a.agentId !== "necunoscut").reduce((s, a) => s + salesTarget(a.agentId), 0) ||
+      salesTargets.org;
+  const salesTargetPeriod = lunar && monthlySales > 0 ? monthlySales * (type === "trimestru" ? 3 : 1) : null;
+  const isCurrent = p.to >= todayRo();
+
   // Banii care așteaptă: ofertele trimise, fără răspuns, la data raportului.
   const asOf = p.to < todayRo() ? p.to : todayRo();
   const inSapteZile = addDays(asOf, 7);
   const expiring = ds.pending.filter((q) => q.validUntil && q.validUntil <= inSapteZile);
+  const aging = AGING.map((b, i) => {
+    const min = i ? AGING[i - 1].max + 1 : 0;
+    const rows = ds.pending.filter((q) => q.zile >= min && q.zile <= b.max);
+    return { label: b.label, count: rows.length, value: Math.round(rows.reduce((s, q) => s + q.gross, 0) * 100) / 100 };
+  });
   const pending = {
+    aging,
     total: Math.round(ds.pending.reduce((s, q) => s + q.gross, 0) * 100) / 100,
     count: ds.pending.length,
     expiring: expiring.length,
@@ -220,7 +329,15 @@ export async function buildReportSnapshot(
     : ds.perAgent.filter((a) => a.agentId !== "necunoscut").reduce((s, a) => s + dailyTarget(a.agentId), 0) ||
       ds.orgTargetVisitsPerDay;
   const kpis: Kpi[] = [
-    { key: "vizite", label: "Vizite", value: t.vizite, prev: v.vizite, format: "int", target: teamTarget || null },
+    {
+      key: "vizite",
+      label: "Vizite",
+      value: t.vizite,
+      prev: v.vizite,
+      format: "int",
+      target: teamTarget || null,
+      targetNote: isCurrent ? "până azi" : "pe perioadă",
+    },
     { key: "firmeNoi", label: "Firme noi", value: t.firmeNoi, prev: v.firmeNoi, format: "int" },
     {
       key: "telefoane",
@@ -258,6 +375,16 @@ export async function buildReportSnapshot(
       prev: v.valoareOferte,
       format: "money",
       hint: "ofertele emise, cu TVA",
+    },
+    {
+      key: "vanzari",
+      label: "Vânzări",
+      value: t.valoareAcceptata,
+      prev: v.valoareAcceptata,
+      format: "money",
+      hint: "oferte acceptate în perioadă, cu TVA",
+      target: salesTargetPeriod,
+      targetNote: type === "trimestru" ? "pe trimestru" : "pe lună",
     },
     {
       key: "acceptate",
@@ -298,12 +425,20 @@ export async function buildReportSnapshot(
     },
   ];
 
-  const byGroup = new Map<string, { group: string; rows: [string, number][]; answered: number }>();
+  type MarketGroup = ReportSnapshot["market"][number];
+  const byGroup = new Map<string, MarketGroup>();
   for (const m of ds.market) {
     if (!MARKET_GROUPS.includes(m.groupId)) continue;
-    const g = byGroup.get(m.groupId) ?? { group: m.group, rows: [], answered: m.answered };
+    const g = byGroup.get(m.groupId) ?? { group: m.group, rows: [], answered: m.answered, prevAnswered: 0, prev: {} };
     if (g.rows.length < 5) g.rows.push([m.option, m.firms]);
     byGroup.set(m.groupId, g);
+  }
+  // Perioada anterioară, pentru aceleași răspunsuri: piața ca tendință.
+  for (const m of ds.marketPrevious) {
+    const g = byGroup.get(m.groupId);
+    if (!g) continue;
+    g.prevAnswered = m.answered;
+    g.prev![m.option] = m.firms;
   }
 
   const agentName = agentId ? (member(agentId)?.full_name ?? "Agent fără nume") : null;
@@ -344,6 +479,19 @@ export async function buildReportSnapshot(
       tinta: dailyTeamTarget * b.metrics.zileLucratoare || null,
       viitor: (p.granularity === "luna" ? `${b.key}-01` : b.key) > todayRo(),
     })),
+    trend: trendDs?.perPeriod.map((b) => {
+      const [y, m] = b.key.split("-").map(Number);
+      return {
+        label: `${LUNI_LUNG[m - 1]} ${y}`,
+        short: shortLabel(b.key, "luna"),
+        vizite: b.metrics.vizite,
+        oferte: b.metrics.oferteEmise,
+        vanzari: b.metrics.valoareAcceptata,
+        castig: b.metrics.oferteDecise ? b.metrics.oferteAcceptate / b.metrics.oferteDecise : null,
+        curent: `${b.key}-01` >= p.from.slice(0, 8) + "01" && `${b.key}-01` <= p.to,
+        viitor: `${b.key}-01` > todayRo(),
+      };
+    }),
     pending,
     overdue: { count: ds.overdue.length, rows: ds.overdue.slice(0, ACTION_LIMIT) },
     // Privirea înainte: starea de acum a firmelor, nu a perioadei.
@@ -398,7 +546,13 @@ export async function buildReportSnapshot(
       )
       .slice(0, 25),
   };
-  snapshot.highlights = buildHighlights(snapshot, asOf === todayRo() && p.to >= todayRo(), t.valoareAcceptata);
+  const totalDays = workingDaysBetween(p.from, p.to);
+  snapshot.highlights = buildHighlights(
+    snapshot,
+    asOf === todayRo() && p.to >= todayRo(),
+    t.valoareAcceptata,
+    totalDays ? days / totalDays : 1,
+  );
   return snapshot;
 }
 

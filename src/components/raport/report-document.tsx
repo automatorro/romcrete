@@ -6,6 +6,7 @@ import type { Highlight, Reflection } from "@/lib/raport-perioada";
 import {
   ALL_SECTIONS,
   hasReflection,
+  MARKET_MIN_BASE,
   PRIMARY_KPIS,
   REFLECTION_QUESTIONS,
   SCOPE_LABELS,
@@ -70,7 +71,7 @@ function KpiTile({ k, prevLabel }: { k: Kpi; prevLabel: string }) {
             <span className="block h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
           </span>
           <p className="mt-0.5 text-[11px] text-neutral-600">
-            {pct}% din ținta de {intFmt.format(k.target)} până azi
+            {Math.round((k.value / k.target) * 100)}% din ținta de {formatKpi(k, k.target)} {k.targetNote ?? "până azi"}
           </p>
         </div>
       ) : null}
@@ -227,6 +228,10 @@ export function ReportDocument({
             </table>
           </div>
         )}
+      </Section>
+
+      <Section {...at("tendinta")}>
+        <Trend rows={data.trend} />
       </Section>
 
       <Section {...at("evolutie")}>
@@ -465,22 +470,17 @@ export function ReportDocument({
         {data.market.length === 0 ? (
           <p className="text-sm text-neutral-500">Nu s-au notat încă răspunsuri despre piață.</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {data.market.map((g) => (
-              <div key={g.group} className="break-inside-avoid">
-                <p className="mb-1.5 text-sm font-medium">
-                  {g.group}
-                  {g.answered ? (
-                    <span className="font-normal text-neutral-500">
-                      {" "}
-                      · din {g.answered} {g.answered === 1 ? "firmă care a răspuns" : "firme care au răspuns"}
-                    </span>
-                  ) : null}
-                </p>
-                <BarList rows={g.rows} limit={5} />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              {data.market.map((g) => (
+                <MarketGroup key={g.group} g={g} prevLabel={data.prevLabel} />
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-neutral-500">
+              Procentele sunt din firmele care au răspuns la întrebare. Schimbarea față de {data.prevLabel} apare doar când
+              ambele perioade au cel puțin {MARKET_MIN_BASE} firme care au răspuns; sub atât, e zgomot.
+            </p>
+          </>
         )}
       </Section>
 
@@ -650,6 +650,7 @@ function PendingQuotes({ pending, echipa }: { pending?: ReportSnapshot["pending"
         ) : null}
         .
       </p>
+      {pending.aging && pending.count > 2 ? <Aging rows={pending.aging} /> : null}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
@@ -687,5 +688,145 @@ function PendingQuotes({ pending, echipa }: { pending?: ReportSnapshot["pending"
         </p>
       ) : null}
     </>
+  );
+}
+
+/** Banii care așteaptă, pe vechime: o singură nuanță, valoarea scrisă lângă bară. */
+function Aging({ rows }: { rows: NonNullable<NonNullable<ReportSnapshot["pending"]>["aging"]> }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <div className="mb-3 break-inside-avoid">
+      <p className="mb-1.5 text-xs font-medium text-neutral-600">Pe vechime, de la emitere</p>
+      <ul className="space-y-1">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center gap-3 text-sm" title={`${r.label}: ${r.count} oferte, ${formatMoney(r.value)}`}>
+            <span className="w-28 shrink-0 text-neutral-700">{r.label}</span>
+            <span className="h-3 flex-1 overflow-hidden rounded-sm bg-neutral-100">
+              {r.value > 0 ? (
+                <span
+                  className="block h-full rounded-e-[4px] bg-brand-600"
+                  style={{ width: `${Math.max(2, Math.round((r.value / max) * 100))}%` }}
+                />
+              ) : null}
+            </span>
+            <span className="w-40 shrink-0 text-right text-xs text-neutral-600 tabular-nums">
+              {r.count} · {formatMoney(r.value)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Tendința pe 6 luni: patru grafice mici, fiecare pe scara lui — niciodată
+ * două mărimi pe aceeași axă. Luna raportului e plină, celelalte estompate.
+ */
+function Trend({ rows }: { rows?: ReportSnapshot["trend"] }) {
+  if (!rows) return <p className="text-sm text-neutral-500">Tendința apare în rapoartele lunare și trimestriale.</p>;
+  const pctFmt0 = (v: number) => `${Math.round(v * 100)}%`;
+  const panels: { title: string; get: (r: NonNullable<typeof rows>[number]) => number | null; fmt: (v: number) => string }[] = [
+    { title: "Vizite", get: (r) => r.vizite, fmt: (v) => intFmt.format(v) },
+    { title: "Oferte emise", get: (r) => r.oferte, fmt: (v) => intFmt.format(v) },
+    { title: "Vânzări (acceptate, cu TVA)", get: (r) => r.vanzari, fmt: (v) => formatMoney(v) },
+    { title: "Rată de câștig", get: (r) => r.castig, fmt: pctFmt0 },
+  ];
+  const last = [...rows].reverse().find((r) => r.curent && !r.viitor) ?? rows[rows.length - 1];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {panels.map((panel) => {
+        const values = rows.map((r) => panel.get(r));
+        const max = Math.max(...values.map((v) => v ?? 0), panel.title === "Rată de câștig" ? 0.01 : 1);
+        const now = last ? panel.get(last) : null;
+        return (
+          <figure key={panel.title} className="break-inside-avoid">
+            <figcaption className="flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-neutral-600">{panel.title}</span>
+              <span className="text-sm font-semibold tabular-nums">{now === null ? "—" : panel.fmt(now)}</span>
+            </figcaption>
+            <div className="mt-1 flex h-16 items-end gap-1.5 border-b border-neutral-300">
+              {rows.map((r, i) => {
+                const v = values[i];
+                return (
+                  <div
+                    key={r.label}
+                    className="flex h-full flex-1 items-end justify-center"
+                    title={`${r.label}: ${v === null ? "fără oferte cu răspuns" : panel.fmt(v)}`}
+                  >
+                    {v ? (
+                      <span
+                        className={`block w-[70%] rounded-t-[4px] ${r.curent ? "bg-brand-600" : "bg-brand-300"}`}
+                        style={{ height: `${Math.max(3, Math.round((v / max) * 100))}%` }}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-0.5 flex gap-1.5">
+              {rows.map((r) => (
+                <span
+                  key={r.label}
+                  className={`flex-1 text-center text-[10px] ${r.curent ? "font-semibold text-neutral-900" : r.viitor ? "text-neutral-400" : "text-neutral-500"}`}
+                >
+                  {r.short}
+                </span>
+              ))}
+            </div>
+          </figure>
+        );
+      })}
+    </div>
+  );
+}
+
+/** O întrebare despre piață: procentul de acum și, pe o bază destul de mare, schimbarea. */
+function MarketGroup({ g, prevLabel }: { g: ReportSnapshot["market"][number]; prevLabel: string }) {
+  const base = g.answered ?? 0;
+  const comparabil = Boolean(g.prev && base >= MARKET_MIN_BASE && (g.prevAnswered ?? 0) >= MARKET_MIN_BASE);
+  // Rapoartele vechi nu au baza: rămân la barele cu număr de firme.
+  if (!base) {
+    return (
+      <div className="break-inside-avoid">
+        <p className="mb-1.5 text-sm font-medium">{g.group}</p>
+        <BarList rows={g.rows} limit={5} />
+      </div>
+    );
+  }
+  return (
+    <div className="break-inside-avoid">
+      <p className="mb-1.5 text-sm font-medium">
+        {g.group}
+        <span className="font-normal text-neutral-500">
+          {" "}
+          · din {base} {base === 1 ? "firmă" : "firme"}
+          {g.prevAnswered ? ` (${g.prevAnswered} în ${prevLabel})` : ""}
+        </span>
+      </p>
+      <ul className="space-y-1.5">
+        {g.rows.map(([option, firms]) => {
+          const now = firms / base;
+          const before = comparabil ? (g.prev?.[option] ?? 0) / (g.prevAnswered as number) : null;
+          const diff = before === null ? null : Math.round((now - before) * 100);
+          return (
+            <li key={option} className="flex items-center gap-3 text-sm" title={`${option}: ${firms} din ${base} firme`}>
+              <span className="w-[34%] shrink-0 truncate text-neutral-700">{option}</span>
+              <span className="h-3 flex-1 overflow-hidden rounded-sm bg-neutral-100">
+                <span
+                  className="block h-full rounded-e-[4px] bg-brand-600"
+                  style={{ width: `${Math.max(2, Math.round(now * 100))}%` }}
+                />
+              </span>
+              <span className="w-8 shrink-0 text-right tabular-nums text-neutral-900">{Math.round(now * 100)}%</span>
+              <span className="w-11 shrink-0 text-right text-xs tabular-nums text-neutral-600">
+                {diff === null ? "" : diff === 0 ? "=" : `${diff > 0 ? "▲" : "▼"} ${Math.abs(diff)} pp`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
