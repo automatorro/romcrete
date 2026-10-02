@@ -70,6 +70,76 @@ function pune(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, g: Chart, col: number
   ws.addImage(id, { tl: { col, row }, ext: { width: g.width, height: g.height } });
 }
 
+/** Sub acest număr de firme care au răspuns, procentul e fragil și se marchează cu ⚠. */
+const PRAG_BAZA_MICA = 5;
+
+/**
+ * Foaia „Piața”: formatare condiționată, fără grafice. Rândul 1 = antet, 2 = notă,
+ * datele de la 3. Valorile celulelor rămân neatinse (întrebarea repetată rămâne în
+ * coloana A, ca filtrarea și sortarea să meargă); doar aspectul se schimbă.
+ *
+ * Ordinea regulilor contează: la proprietăți care se bat cap în cap (fundalul pe D),
+ * câștigă regula cu prioritate mai mică. Avertizarea de bază mică trebuie să bată
+ * fundalul de grup, deci are prioritățile cele mai mici.
+ */
+function formateazaPiata(ws: ExcelJS.Worksheet) {
+  const r0 = 3;
+  const last = ws.rowCount;
+  if (last < r0) return;
+
+  for (let r = r0; r <= last; r++) {
+    const c = ws.getCell(r, 5);
+    c.numFmt = "0%";
+    c.alignment = { horizontal: "right" };
+  }
+
+  const plin = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, bgColor: { argb } });
+  const mica = `AND(ISNUMBER($D${r0}),$D${r0}<${PRAG_BAZA_MICA})`;
+  const grupNou = `$A${r0}<>$A${r0 - 1}`;
+  let prioritate = 1;
+  const regula = (ref: string, formula: string, style: Record<string, unknown>) =>
+    ws.addConditionalFormatting({
+      ref,
+      rules: [{ type: "expression", priority: prioritate++, formulae: [formula], style } as never],
+    });
+
+  // 1) Bază mică: D galben cu ⚠, E cursiv.
+  regula(`D${r0}:D${last}`, mica, {
+    font: { bold: true, color: { argb: "FF9C5700" } },
+    fill: plin("FFFFF2CC"),
+    numFmt: '0" ⚠"',
+  });
+  regula(`E${r0}:E${last}`, mica, { font: { italic: true, color: { argb: "FF9C5700" } } });
+
+  // 2) Bare de date pe Pondere, scală fixă 0–1: comparabile între întrebări,
+  //    iar 100% umple celula (minLength 0 / maxLength 100, fără gradient).
+  ws.addConditionalFormatting({
+    ref: `E${r0}:E${last}`,
+    rules: [
+      {
+        type: "dataBar",
+        priority: prioritate++,
+        gradient: false,
+        minLength: 0,
+        maxLength: 100,
+        showValue: true,
+        cfvo: [{ type: "num", value: 0 }, { type: "num", value: 1 }],
+        color: { argb: "FF4F7BD9" },
+      } as never,
+    ],
+  });
+
+  // 3) Grupare pe întrebări.
+  regula(
+    `A${r0}:D${last}`,
+    `ISODD(SUMPRODUCT(--($A$${r0}:$A${r0}<>$A$${r0 - 1}:$A${r0 - 1})))`,
+    { fill: plin("FFEAF0FB") },
+  );
+  regula(`A${r0}:E${last}`, grupNou, { border: { top: { style: "thin", color: { argb: BRAND } } } });
+  if (last > r0) regula(`A${r0 + 1}:A${last}`, `$A${r0 + 1}=$A${r0}`, { font: { color: { argb: "FFB8C2D6" } } });
+  regula(`A${r0}:A${last}`, grupNou, { font: { bold: true } });
+}
+
 const PROCENT = (parte: number, intreg: number) => (intreg ? parte / intreg : 0);
 
 /** Indicatorii, în ordinea în care se citesc într-o ședință: activitate, calitate, rezultat. */
@@ -397,22 +467,26 @@ export async function GET(request: NextRequest) {
 
   // --------------------------------------------------------------- Piața
   const piata = sheet(wb, "Piața", [
-    { header: "Întrebare", key: "grup", width: 38 },
-    { header: "Răspuns", key: "optiune", width: 36 },
+    { header: "Întrebare", key: "grup", width: 50 },
+    { header: "Răspuns", key: "optiune", width: 44 },
     { header: "Firme", key: "firme", width: 10 },
     { header: "Din firme care au răspuns", key: "baza", width: 14 },
-    { header: "Pondere", key: "pondere", width: 10, format: "0%" },
+    { header: "Pondere", key: "pondere", width: 32, format: "0%" },
   ]);
-  piata.addRow({ grup: "Fiecare firmă se numără o singură dată per răspuns." }).font = {
+  piata.addRow({
+    grup: `Fiecare firmă se numără o singură dată per răspuns. ⚠ = sub ${PRAG_BAZA_MICA} firme au răspuns; interpretați cu prudență.`,
+  }).font = {
     italic: true, size: 10, color: { argb: "FF737373" },
   };
   for (const m of data.market) {
     piata.addRow({ grup: m.group, optiune: m.option, firme: m.firms, baza: m.answered, pondere: PROCENT(m.firms, m.answered) });
   }
   finish(piata);
+  formateazaPiata(piata);
 
   for (const ws of [sumar, peAgent, peDomeniu, evolutie, piata]) {
-    ws.getColumn(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: SOFT } };
+    // Piața își alternează singură fundalul pe întrebări (formatare condiționată).
+    if (ws !== piata) ws.getColumn(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: SOFT } };
     ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
   }
 
