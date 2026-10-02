@@ -17,4 +17,7 @@ declare module "opentype.js" {
     getPath(text: string, x: number, y: number, fontSize: number): Path;
   }
   export function parse(buffer: ArrayBuffer): Font;
+  // Varianta CommonJS (UMD) expune același obiect și sub `default`.
+  const defaultExport: { parse(buffer: ArrayBuffer): Font };
+  export { defaultExport as default };
 }

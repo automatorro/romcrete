@@ -6,7 +6,8 @@
  * curentă, gri neutru pentru cea anterioară, chihlimbar doar ca al treilea
  * semn distinct.
  */
-import { parse, type Font, type Path } from "opentype.js";
+import * as opentype from "opentype.js";
+import type { Font, Path } from "opentype.js";
 import sharp from "sharp";
 
 import { FONT_BOLD_B64, FONT_REGULAR_B64 } from "./raport-font";
@@ -25,13 +26,16 @@ export type Chart = { png: Buffer; width: number; height: number };
  * SVG cu fonturile sistemului, iar pe un server fără fonturi literele ies pătrățele.
  * Fontul e inclus în cod (raport-font.ts), deci rezultatul e același peste tot.
  */
+// ESM-ul pachetului exportă `parse`; varianta CommonJS îl pune și sub `default`.
+const parseazaFont: (b: ArrayBuffer) => Font = (opentype.parse ?? opentype.default.parse).bind(opentype);
+
 let fonturi: { normal: Font; bold: Font } | null = null;
 
 function font(bold: boolean): Font {
   if (!fonturi) {
     const incarca = (b64: string) => {
       const b = Buffer.from(b64, "base64");
-      return parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
+      return parseazaFont(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
     };
     fonturi = { normal: incarca(FONT_REGULAR_B64), bold: incarca(FONT_BOLD_B64) };
   }
