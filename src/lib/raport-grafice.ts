@@ -6,7 +6,10 @@
  * curentă, gri neutru pentru cea anterioară, chihlimbar doar ca al treilea
  * semn distinct.
  */
+import { parse, type Font, type Path } from "opentype.js";
 import sharp from "sharp";
+
+import { FONT_BOLD_B64, FONT_REGULAR_B64 } from "./raport-font";
 
 const BRAND = "#0033ab";
 const NEUTRAL = "#8a8a8a";
@@ -14,12 +17,58 @@ const AMBER = "#b45309";
 const INK = "#1a1a1a";
 const MUTED = "#737373";
 const GRID = "#e8e8e8";
-const FONT = "DejaVu Sans, Arial, Helvetica, sans-serif";
 
 export type Chart = { png: Buffer; width: number; height: number };
 
-const esc = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/**
+ * Textul se desenează ca forme vectoriale (<path>), nu ca <text>: sharp randează
+ * SVG cu fonturile sistemului, iar pe un server fără fonturi literele ies pătrățele.
+ * Fontul e inclus în cod (raport-font.ts), deci rezultatul e același peste tot.
+ */
+let fonturi: { normal: Font; bold: Font } | null = null;
+
+function font(bold: boolean): Font {
+  if (!fonturi) {
+    const incarca = (b64: string) => {
+      const b = Buffer.from(b64, "base64");
+      return parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
+    };
+    fonturi = { normal: incarca(FONT_REGULAR_B64), bold: incarca(FONT_BOLD_B64) };
+  }
+  return bold ? fonturi.bold : fonturi.normal;
+}
+
+const lungime = (s: string, size: number, bold = false) => font(bold).getAdvanceWidth(s, size);
+
+/**
+ * Datele căii, scrise cu separatori expliciți. `toPathData` din opentype.js poate
+ * lipi două numere („-37.09” + „0” → „-37.090”), iar parserul SVG citește altceva.
+ */
+function dePath(path: Path): string {
+  const n = (v = 0) => String(Math.round(v * 100) / 100);
+  return path.commands
+    .map((c) => {
+      if (c.type === "Z") return "Z";
+      if (c.type === "Q") return `Q${n(c.x1)},${n(c.y1)} ${n(c.x)},${n(c.y)}`;
+      if (c.type === "C") return `C${n(c.x1)},${n(c.y1)} ${n(c.x2)},${n(c.y2)} ${n(c.x)},${n(c.y)}`;
+      return `${c.type}${n(c.x)},${n(c.y)}`;
+    })
+    .join("");
+}
+
+function text(
+  x: number,
+  y: number,
+  s: string,
+  o: { size: number; fill: string; bold?: boolean; anchor?: "start" | "middle" | "end"; rotate?: number },
+): string {
+  const f = font(!!o.bold);
+  const w = f.getAdvanceWidth(s, o.size);
+  const dx = o.anchor === "middle" ? -w / 2 : o.anchor === "end" ? -w : 0;
+  const d = dePath(f.getPath(s, dx, 0, o.size));
+  const tr = `translate(${x} ${y})${o.rotate ? ` rotate(${o.rotate})` : ""}`;
+  return `<path transform="${tr}" d="${d}" fill="${o.fill}"/>`;
+}
 
 const trunc = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -45,15 +94,15 @@ async function rasterizeaza(svg: string, width: number, height: number): Promise
 function cadru(width: number, height: number, titlu: string, corp: string, legenda: [string, string][]) {
   const leg = legenda
     .map(([nume, culoare], i) => {
-      const x = 16 + legenda.slice(0, i).reduce((n, [t]) => n + t.length * 7 + 34, 0);
+      const x = 16 + legenda.slice(0, i).reduce((n, [t]) => n + lungime(t, 12) + 34, 0);
       return `<rect x="${x}" y="40" width="12" height="12" rx="2" fill="${culoare}"/>` +
-        `<text x="${x + 18}" y="50" font-size="12" fill="${INK}">${esc(nume)}</text>`;
+        text(x + 18, 50, nume, { size: 12, fill: INK });
     })
     .join("");
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
     `<rect width="${width}" height="${height}" fill="#fff"/>` +
-    `<text x="16" y="26" font-size="15" font-weight="bold" fill="${INK}">${esc(titlu)}</text>` +
+    text(16, 26, titlu, { size: 15, fill: INK, bold: true }) +
     leg +
     corp +
     `</svg>`
@@ -77,7 +126,7 @@ export async function barePeCategorii(
   for (let v = 0; v <= top + 1e-9; v += step) {
     const y = T + h - (v / top) * h;
     corp += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="${GRID}"/>` +
-      `<text x="${L - 6}" y="${y + 4}" font-size="11" text-anchor="end" fill="${MUTED}">${nr(v)}</text>`;
+      text(L - 6, y + 4, nr(v), { size: 11, fill: MUTED, anchor: "end" });
   }
 
   const gW = w / Math.max(1, categorii.length);
@@ -89,9 +138,9 @@ export async function barePeCategorii(
       const bh = (v / top) * h;
       const x = x0 + si * bW;
       corp += `<rect x="${x}" y="${T + h - bh}" width="${bW - 2}" height="${bh}" fill="${s.culoare ?? culori[si % 3]}"/>` +
-        `<text x="${x + (bW - 2) / 2}" y="${T + h - bh - 4}" font-size="11" text-anchor="middle" fill="${INK}">${nr(v)}</text>`;
+        text(x + (bW - 2) / 2, T + h - bh - 4, nr(v), { size: 11, fill: INK, anchor: "middle" });
     });
-    corp += `<text x="${L + ci * gW + gW / 2}" y="${T + h + 18}" font-size="11" text-anchor="middle" fill="${INK}">${esc(trunc(cat, 16))}</text>`;
+    corp += text(L + ci * gW + gW / 2, T + h + 18, trunc(cat, 16), { size: 11, fill: INK, anchor: "middle" });
   });
 
   const svg = cadru(W, H, titlu, corp, serii.map((s, i) => [s.nume, s.culoare ?? culori[i % 3]]));
@@ -116,7 +165,7 @@ export async function linii(
   for (let v = 0; v <= top + 1e-9; v += step) {
     const y = T + h - (v / top) * h;
     corp += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="${GRID}"/>` +
-      `<text x="${L - 6}" y="${y + 4}" font-size="11" text-anchor="end" fill="${MUTED}">${nr(v)}</text>`;
+      text(L - 6, y + 4, nr(v), { size: 11, fill: MUTED, anchor: "end" });
   }
 
   const n = etichete.length;
@@ -127,7 +176,7 @@ export async function linii(
   const salt = Math.max(1, Math.ceil(n / 10));
   etichete.forEach((e, i) => {
     if (i % salt !== 0 && i !== n - 1) return;
-    corp += `<text x="${px(i)}" y="${T + h + 18}" font-size="10" text-anchor="end" fill="${INK}" transform="rotate(-30 ${px(i)} ${T + h + 18})">${esc(trunc(e, 14))}</text>`;
+    corp += text(px(i), T + h + 18, trunc(e, 14), { size: 10, fill: INK, anchor: "end", rotate: -30 });
   });
 
   serii.forEach((s, si) => {
@@ -140,7 +189,7 @@ export async function linii(
     // Valoarea apare doar pe prima serie și doar când nu aglomerează.
     if (si === 0 && n <= 16) {
       s.valori.forEach((v, i) => {
-        corp += `<text x="${px(i)}" y="${py(v) - 8}" font-size="10" text-anchor="middle" fill="${INK}">${nr(v)}</text>`;
+        corp += text(px(i), py(v) - 8, nr(v), { size: 10, fill: INK, anchor: "middle" });
       });
     }
   });
@@ -166,9 +215,9 @@ export async function bareOrizontale(
   sortate.forEach(([eticheta, v], i) => {
     const y = T + i * rowH;
     const bw = (v / max) * (W - L - R);
-    corp += `<text x="${L - 8}" y="${y + 14}" font-size="12" text-anchor="end" fill="${INK}">${esc(trunc(eticheta, 30))}</text>` +
+    corp += text(L - 8, y + 14, trunc(eticheta, 30), { size: 12, fill: INK, anchor: "end" }) +
       `<rect x="${L}" y="${y + 2}" width="${Math.max(2, bw)}" height="16" fill="${BRAND}"/>` +
-      `<text x="${L + Math.max(2, bw) + 6}" y="${y + 14}" font-size="12" fill="${INK}">${nr(v)}</text>`;
+      text(L + Math.max(2, bw) + 6, y + 14, nr(v), { size: 12, fill: INK });
   });
 
   const svg = cadru(W, H, titlu, corp, [[nume, BRAND]]);
