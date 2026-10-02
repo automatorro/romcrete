@@ -5,6 +5,7 @@ import { requireOrg } from "@/lib/auth";
 import { buildActivity, type Granularity, type Metrics } from "@/lib/activitate";
 import { getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import { bareOrizontale, barePeCategorii, linii, type Chart } from "@/lib/raport-grafice";
 
 // exceljs are nevoie de Node, nu de runtime-ul edge.
 export const runtime = "nodejs";
@@ -61,6 +62,12 @@ function finish(ws: ExcelJS.Worksheet) {
       if (!cell.font?.bold) cell.font = { color: { argb: INK }, size: 11 };
     });
   });
+}
+
+/** Lipește graficul (PNG) în foaie, cu colțul stânga-sus la celula indicată (0-based). */
+function pune(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, g: Chart, col: number, row: number) {
+  const id = wb.addImage({ buffer: g.png as unknown as ExcelJS.Buffer, extension: "png" });
+  ws.addImage(id, { tl: { col, row }, ext: { width: g.width, height: g.height } });
 }
 
 const PROCENT = (parte: number, intreg: number) => (intreg ? parte / intreg : 0);
@@ -164,6 +171,24 @@ export async function GET(request: NextRequest) {
     row.getCell("i").font = { bold: true };
   }
   finish(sumar);
+  {
+    const alese = ["Vizite", "Firme vizitate", "Firme noi", "Oferte emise (fără ciorne)", "Oferte acceptate în perioadă"];
+    const ale = INDICATORI.filter((i) => alese.includes(i.label));
+    pune(
+      wb,
+      sumar,
+      await barePeCategorii(
+        "Perioada curentă față de cea anterioară",
+        ale.map((i) => i.label.replace(" (fără ciorne)", "").replace(" în perioadă", "")),
+        [
+          { nume: "Perioada curentă", valori: ale.map((i) => i.get(data.total) ?? 0) },
+          { nume: "Perioada anterioară", valori: ale.map((i) => i.get(data.previous) ?? 0) },
+        ],
+      ),
+      5,
+      0,
+    );
+  }
 
   // ------------------------------------------------------------- Pe agent
   const peAgent = sheet(wb, "Pe agent", [
@@ -190,6 +215,15 @@ export async function GET(request: NextRequest) {
     peAgent.addRow(row);
   }
   finish(peAgent);
+  if (data.perAgent.length > 0) {
+    pune(
+      wb,
+      peAgent,
+      await bareOrizontale("Vizite pe agent", data.perAgent.map((a) => [a.agent, a.metrics.vizite]), "Vizite"),
+      0,
+      data.perAgent.length + 3,
+    );
+  }
 
   // ---------------------------------------------------------- Pe domeniu
   // Romcrete vinde în toate domeniile, iar unitatea de măsură diferă de la unul
@@ -234,6 +268,23 @@ export async function GET(request: NextRequest) {
     evolutie.addRow(row);
   }
   finish(evolutie);
+  if (data.perPeriod.length > 0) {
+    const serie = (nume: string) => ({
+      nume,
+      valori: data.perPeriod.map((b) => INDICATORI.find((i) => i.label === nume)!.get(b.metrics) ?? 0),
+    });
+    pune(
+      wb,
+      evolutie,
+      await linii(
+        "Evoluția activității",
+        data.perPeriod.map((b) => b.label),
+        [serie("Vizite"), serie("Firme noi"), serie("Oferte emise (fără ciorne)")],
+      ),
+      0,
+      data.perPeriod.length + 3,
+    );
+  }
 
   // -------------------------------------------------------------- Vizite
   const groups = sections.flatMap((s) => s.groups).filter((g) => g.kind === "single" || g.kind === "multi");
