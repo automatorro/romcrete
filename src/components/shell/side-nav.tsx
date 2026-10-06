@@ -19,6 +19,7 @@ const AGENT: Group[] = [
     title: "Teren",
     items: [
       { href: "/teren", label: "Azi · agenda", exact: true },
+      { href: "/teren/vizite", label: "Vizitele mele" },
       { href: "/teren/firme", label: "Firme", also: ["/teren/firma"] },
     ],
   },
@@ -49,6 +50,7 @@ const MANAGEMENT: Group[] = [
     title: "Activitate",
     items: [
       { href: "/teren", label: "Azi · agenda", exact: true },
+      { href: "/teren/vizite", label: "Vizitele echipei" },
       { href: "/rapoarte", label: "Rapoarte", also: ["/teren/rapoarte"] },
       { href: "/raport", label: "Analiza pieței" },
     ],
