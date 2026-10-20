@@ -1,6 +1,7 @@
 import { type Domain, getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/toate-randurile";
 import type { Answers, Focus, Notes, QuestionSection } from "@/lib/teren";
 
 export type Period = "7" | "30" | "all";
@@ -28,8 +29,8 @@ export type Report = {
   orgTargetVisitsPerDay: number;
   visits: VisitRow[];
   clientCount: number;
-  quotesFromVisits: number;
-  acceptedQuotes: number;
+  quotesForVisitedClients: number;
+  acceptedQuotesForVisitedClients: number;
   quotedValue: number;
   /** Numărul de firme pe fiecare opțiune a unui grup, în ordine descrescătoare. */
   countBy: (groupId: string) => [string, number][];
@@ -78,29 +79,34 @@ export async function buildReport(
     domainId ? (domains.find((d) => d.id === domainId) ?? null) : null,
   );
 
-  let visitQuery = supabase
-    .from("visits")
-    .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, clients(name, domain)")
-    .eq("org_id", orgId)
-    .order("visit_date", { ascending: false });
-  if (cut) visitQuery = visitQuery.gte("visit_date", cut);
-  if (agentId) visitQuery = visitQuery.eq("agent_id", agentId);
-
-  const [{ data: visitRows }, { data: memberRows }, { data: quoteRows }, { data: itemRows }] =
-    await Promise.all([
-      visitQuery,
-      supabase
-        .from("memberships")
-        .select("user_id, full_name, target_visits_per_day")
-        .eq("org_id", orgId),
+  const [visitRows, { data: memberRows }, quoteRows, { data: itemRows }] = await Promise.all([
+    allRows((from, to) => {
+      let query = supabase
+        .from("visits")
+        .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, clients(name, domain)")
+        .eq("org_id", orgId)
+        .order("visit_date", { ascending: false })
+        .order("id");
+      if (cut) query = query.gte("visit_date", cut);
+      if (agentId) query = query.eq("agent_id", agentId);
+      return query.range(from, to);
+    }),
+    supabase
+      .from("memberships")
+      .select("user_id, full_name, target_visits_per_day")
+      .eq("org_id", orgId),
+    allRows((from, to) =>
       supabase
         .from("quotes")
-        .select("id, status, visit_id")
+        .select("id, status, visit_id, client_id")
         .eq("org_id", orgId)
         .is("archived_at", null)
-        .neq("status", "draft"),
-      supabase.from("catalog_items").select("sku, name").eq("org_id", orgId).not("sku", "is", null),
-    ]);
+        .neq("status", "draft")
+        .order("id")
+        .range(from, to),
+    ),
+    supabase.from("catalog_items").select("sku, name").eq("org_id", orgId).not("sku", "is", null),
+  ]);
 
   // Cadranele se citesc din view, care aplică aceleași reguli ca pe teren.
   let stateQuery = supabase.from("client_state").select("focus, answers, domain").eq("org_id", orgId);
@@ -115,15 +121,17 @@ export async function buildReport(
     : allVisits;
   const pumpName = new Map((itemRows ?? []).map((i) => [i.sku as string, i.name as string]));
 
-  const visitIds = new Set(visits.map((v) => v.id));
-  const fromVisits = (quoteRows ?? []).filter((q) => q.visit_id && visitIds.has(q.visit_id));
+  const visitedClientIds = new Set(visits.map((v) => v.client_id));
+  const quotesForVisitedClients = quoteRows.filter((q) => q.client_id && visitedClientIds.has(q.client_id));
 
   const { data: totalRows } = await supabase
     .from("quote_totals")
     .select("quote_id, net_total, vat_total")
     .in(
       "quote_id",
-      fromVisits.length ? fromVisits.map((q) => q.id) : ["00000000-0000-0000-0000-000000000000"],
+      quotesForVisitedClients.length
+        ? quotesForVisitedClients.map((q) => q.id)
+        : ["00000000-0000-0000-0000-000000000000"],
     );
 
   const countBy = (groupId: string): [string, number][] => {
@@ -211,8 +219,8 @@ export async function buildReport(
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
     visits,
     clientCount: new Set(visits.map((v) => v.client_id)).size,
-    quotesFromVisits: fromVisits.length,
-    acceptedQuotes: fromVisits.filter((q) => q.status === "accepted").length,
+    quotesForVisitedClients: quotesForVisitedClients.length,
+    acceptedQuotesForVisitedClients: quotesForVisitedClients.filter((q) => q.status === "accepted").length,
     quotedValue: (totalRows ?? []).reduce(
       (s, t) => s + Number(t.net_total) + Number(t.vat_total),
       0,

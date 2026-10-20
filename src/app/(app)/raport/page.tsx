@@ -95,17 +95,17 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Vizite" value={String(r.visits.length)} />
         <StatTile label="Firme vizitate" value={String(r.clientCount)} />
-        <StatTile label="Oferte din aceste vizite" value={String(r.quotesFromVisits)} hint="fără ciorne" />
+        <StatTile label="Oferte către firme vizitate" value={String(r.quotesForVisitedClients)} hint="fără ciorne sau arhivate" />
         <StatTile label="Valoarea lor" value={formatMoney(r.quotedValue)} hint="cu TVA" />
       </section>
 
       <section className="card p-4">
-        <h2 className="mb-3 text-base font-semibold">De la vizită la client</h2>
+        <h2 className="mb-3 text-base font-semibold">Oferte și acceptări la firme vizitate</h2>
         <Funnel
           steps={[
             { label: "Vizite", value: r.visits.length },
-            { label: "Oferte emise", value: r.quotesFromVisits },
-            { label: "Oferte acceptate", value: r.acceptedQuotes },
+            { label: "Oferte emise către firme vizitate", value: r.quotesForVisitedClients },
+            { label: "Acceptate", value: r.acceptedQuotesForVisitedClients },
           ]}
         />
       </section>
