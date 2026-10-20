@@ -217,6 +217,11 @@ export async function ReportsHub({ zona, search }: { zona: Zona; search: Search 
         <a href={`/raport/export?${excel.toString()}`} className="btn btn-secondary btn-lg">
           Descarcă Excel
         </a>
+        {type === "saptamana" ? (
+          <a href={`/raport/vizite/export?${excel.toString()}`} className="btn btn-secondary btn-lg">
+            Descarcă raportul simplu
+          </a>
+        ) : null}
       </div>
       )}
 

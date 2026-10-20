@@ -185,6 +185,12 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
           pumpSkus: visit.pump_skus ?? [],
           nextStepDate: visit.next_step_date ?? "",
           visitDate: visit.visit_date,
+          reportContact: visit.report_contact ?? "",
+          reportDiscussion: visit.report_discussion ?? "",
+          reportOutcome: visit.report_outcome ?? "",
+          reportProposalMade: visit.report_proposal_made,
+          reportNextVisitDate: visit.report_next_visit_date ?? "",
+          reportObservations: visit.report_observations ?? "",
         }}
       />
     </div>

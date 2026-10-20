@@ -43,6 +43,12 @@ type Props = {
     pumpSkus: string[];
     nextStepDate: string;
     visitDate: string;
+    reportContact: string;
+    reportDiscussion: string;
+    reportOutcome: string;
+    reportProposalMade: boolean | null;
+    reportNextVisitDate: string;
+    reportObservations: string;
   };
 };
 
@@ -54,6 +60,12 @@ type FormState = {
   pumpSkus: string[];
   nextStepDate: string;
   visitDate: string;
+  reportContact: string;
+  reportDiscussion: string;
+  reportOutcome: string;
+  reportProposalMade: boolean | null;
+  reportNextVisitDate: string;
+  reportObservations: string;
 };
 
 const STATUS_TEXT: Record<Status, string> = {
@@ -73,6 +85,12 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     pumpSkus: initial.pumpSkus,
     nextStepDate: initial.nextStepDate,
     visitDate: initial.visitDate,
+    reportContact: initial.reportContact,
+    reportDiscussion: initial.reportDiscussion,
+    reportOutcome: initial.reportOutcome,
+    reportProposalMade: initial.reportProposalMade,
+    reportNextVisitDate: initial.reportNextVisitDate,
+    reportObservations: initial.reportObservations,
   }));
   const [status, setStatus] = useState<Status>("idle");
   const [finishing, setFinishing] = useState(false);
@@ -99,6 +117,12 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
       pump_skus: form.pumpSkus,
       next_step_date: form.nextStepDate || null,
       visit_date: form.visitDate,
+      report_contact: form.reportContact,
+      report_discussion: form.reportDiscussion,
+      report_outcome: form.reportOutcome,
+      report_proposal_made: form.reportProposalMade,
+      report_next_visit_date: form.reportNextVisitDate || null,
+      report_observations: form.reportObservations,
     });
     if (res.ok) {
       dirty.current = false;
@@ -259,6 +283,13 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     return Array.isArray(v) ? v.length : v ? 1 : 0;
   };
 
+  const reportComplete = Boolean(
+    form.reportContact.trim() &&
+      form.reportDiscussion.trim() &&
+      form.reportOutcome.trim() &&
+      form.reportProposalMade !== null,
+  );
+
   return (
     <>
       <div className="card mb-3 flex items-center gap-3 p-3">
@@ -352,6 +383,93 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
           </details>
         );
       })}
+
+      <section className="sec mt-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Pentru raportul săptămânal</h2>
+          <span
+            className={`text-sm font-medium ${reportComplete ? "text-[var(--color-ok)]" : "text-neutral-500"}`}
+            aria-live="polite"
+          >
+            {reportComplete ? "Complet" : "Incomplet"}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-neutral-500">
+          Data, agentul și firma se preiau automat. Completează notele după discuție; nu sunt obligatorii pentru încheierea vizitei.
+        </p>
+
+        <div className="mt-4 grid gap-3">
+          <div>
+            <label className="label" htmlFor="report_contact">Cu cine ai discutat?</label>
+            <input
+              id="report_contact"
+              value={form.reportContact}
+              onChange={(e) => update({ reportContact: e.target.value })}
+              className="input"
+              maxLength={200}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="report_discussion">Ce ați discutat?</label>
+            <textarea
+              id="report_discussion"
+              rows={3}
+              value={form.reportDiscussion}
+              onChange={(e) => update({ reportDiscussion: e.target.value })}
+              className="input"
+              maxLength={3000}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="report_outcome">Care a fost rezultatul discuției?</label>
+            <textarea
+              id="report_outcome"
+              rows={2}
+              value={form.reportOutcome}
+              onChange={(e) => update({ reportOutcome: e.target.value })}
+              className="input"
+              maxLength={2000}
+            />
+          </div>
+          <fieldset>
+            <legend className="label">Ai făcut o propunere/ofertă?</legend>
+            <div className="flex gap-2">
+              {([true, false] as const).map((value) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  aria-pressed={form.reportProposalMade === value}
+                  onClick={() => update({ reportProposalMade: value })}
+                  className={`chip ${form.reportProposalMade === value ? "chip-on" : ""}`}
+                >
+                  {value ? "Da" : "Nu"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div>
+            <label className="label" htmlFor="report_next_visit_date">Data următoarei vizite (dacă este stabilită)</label>
+            <input
+              id="report_next_visit_date"
+              type="date"
+              value={form.reportNextVisitDate}
+              onChange={(e) => update({ reportNextVisitDate: e.target.value })}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="report_observations">Observațiile agentului (opțional)</label>
+            <textarea
+              id="report_observations"
+              rows={3}
+              value={form.reportObservations}
+              onChange={(e) => update({ reportObservations: e.target.value })}
+              className="input"
+              maxLength={3000}
+            />
+          </div>
+        </div>
+      </section>
 
       {payback ? (
         <section className="card mt-4 border-brand-200 p-4">

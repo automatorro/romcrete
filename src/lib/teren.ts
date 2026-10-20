@@ -46,6 +46,12 @@ export type Visit = {
   client_id: string;
   agent_id: string | null;
   visit_date: string;
+  report_contact: string | null;
+  report_discussion: string | null;
+  report_outcome: string | null;
+  report_proposal_made: boolean | null;
+  report_next_visit_date: string | null;
+  report_observations: string | null;
   answers: Answers;
   notes: Notes;
   pump_skus: string[];

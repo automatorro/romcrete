@@ -117,6 +117,12 @@ export async function saveVisit(
     pump_skus: string[];
     next_step_date: string | null;
     visit_date: string;
+    report_contact: string;
+    report_discussion: string;
+    report_outcome: string;
+    report_proposal_made: boolean | null;
+    report_next_visit_date: string | null;
+    report_observations: string;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireOrg();
@@ -134,6 +140,12 @@ export async function saveVisit(
       pump_skus: payload.pump_skus,
       next_step_date: payload.next_step_date || null,
       visit_date: payload.visit_date,
+      report_contact: payload.report_contact.trim() || null,
+      report_discussion: payload.report_discussion.trim() || null,
+      report_outcome: payload.report_outcome.trim() || null,
+      report_proposal_made: payload.report_proposal_made,
+      report_next_visit_date: payload.report_next_visit_date || null,
+      report_observations: payload.report_observations.trim() || null,
     })
     .eq("id", visitId)
     .select("client_id")
