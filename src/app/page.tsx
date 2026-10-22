@@ -48,6 +48,9 @@ export default async function HomePage() {
         <Link href="/inregistrare" className="btn btn-secondary">
           Creează cont
         </Link>
+        <Link href="/calculator-roi" className="btn btn-secondary">
+          Calculator investiție
+        </Link>
       </div>
 
       {supabaseConfigured ? null : (

@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseConfigured, supabaseKey, supabaseUrl } from "@/lib/env";
 
 /** Rute accesibile fără autentificare. */
-const PUBLIC_PATHS = ["/", "/login", "/inregistrare", "/auth"];
+const PUBLIC_PATHS = ["/", "/login", "/inregistrare", "/auth", "/calculator-roi"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(

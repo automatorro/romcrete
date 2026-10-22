@@ -66,6 +66,7 @@ const TABS = [
       p.startsWith("/teren/catalog") ||
       p.startsWith("/teren/ghid") ||
       p.startsWith("/teren/rapoarte") ||
+      p.startsWith("/teren/calculator-roi") ||
       p.startsWith("/newsletter"),
   },
 ] as const;

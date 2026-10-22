@@ -17,6 +17,7 @@ export default async function MaiMultPage() {
   const unelte: Item[] = [
     { href: "/teren/vizite", label: "Vizitele mele", hint: "Vizite, telefoane și emailuri pe zi și săptămână: trecute din agendă, corectate, apoi raportul" },
     { href: "/teren/catalog", label: "Catalog", hint: "Pompe și accesorii, cu prețuri fără TVA" },
+    { href: "/teren/calculator-roi", label: "Calculator investiție", hint: "Estimează economia de manoperă și recuperarea investiției" },
     { href: "/teren/rapoarte", label: "Rapoartele mele", hint: "Zilnic și săptămânal, de trimis prin Outlook" },
     { href: "/newsletter", label: "Newslettere", hint: "Noutăți și promoții către firme, pe email sau WhatsApp" },
     { href: "/teren/cont", label: "Datele mele pe ofertă", hint: "Nume, telefon, email și semnătură" },
