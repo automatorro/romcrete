@@ -27,7 +27,7 @@ select count(*) as domenii,
 from public.domains;
 
 \echo '--- 2. fiecare domeniu are întrebările lui de producție și de preț ---'
-\echo '    (aștept cel puțin 4 intervale de producție și 4 de manoperă peste tot)'
+\echo '    (aștept cel puțin 4 intervale de producție și 4 de manoperă, plus alimentare, peste tot)'
 select d.id,
        (select count(*) from public.question_options o
          where o.group_id = 'supr' and o.domains @> array[d.id]) as intervale_productie,
@@ -36,9 +36,23 @@ select d.id,
        (select count(*) from public.question_options o
          where o.group_id = 'tip' and o.domains @> array[d.id])  as tipuri_lucrare,
        (select count(*) from public.question_options o
-         where o.group_id = 'scule' and o.domains @> array[d.id]) as scule
+         where o.group_id = 'scule' and o.domains @> array[d.id]) as scule,
+       (select count(*) from public.question_groups g
+         where g.id = 'alimentare' and g.domains @> array[d.id]) as intrebare_alimentare
 from public.domains d
 order by d.position;
+
+do $$ begin
+  if exists (
+    select 1 from public.domains d
+    where not exists (
+      select 1 from public.question_groups g
+      where g.id = 'alimentare' and g.domains @> array[d.id]
+    )
+  ) then
+    raise exception 'Întrebarea despre alimentare trebuie să apară în toate domeniile';
+  end if;
+end $$;
 
 \echo '--- 3. intervalele de producție și de preț au toate valoare de calcul ---'
 \echo '    (aștept 0: fără valoare, calculul de amortizare n-ar porni)'
@@ -52,7 +66,7 @@ where group_id in ('supr', 'manopera')
 \echo '    (aștept „f” peste tot: nicio întrebare de vânzare legată de un domeniu)'
 select bool_or(domains is not null) as legate_de_domeniu
 from public.question_options
-where group_id in ('relatie','interes','decide','cand','plata','urmator','etapa','obiectii','atragere','oameni','utilaj','refuzat');
+where group_id in ('relatie','interes','decide','cand','plata','urmator','etapa','obiectii','atragere','oameni','utilaj','refuzat','capacitate');
 
 \echo '--- 5. firma nouă intră implicit pe construcții ---'
 insert into public.clients (org_id, name, city)
@@ -71,7 +85,7 @@ select (select v from public._d where k='org')::uuid,
        current_date,
        '{"supr":"mrc2000","manopera":"r36","interes":"gata","decide":"singur",
          "cand":"acum","volum":"l6","atragere":["maimult"],
-         "plata":"cash","santier":["230v"],"refuzat":"des"}'::jsonb;
+         "plata":"cash","capacitate":"des"}'::jsonb;
 
 select name, domain, priority, feasibility, focus
 from public.client_state where client_id = (select v from public._d where k='marcaje')::uuid;

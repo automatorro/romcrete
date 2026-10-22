@@ -61,7 +61,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
     productivityFactor: domain?.productivity_factor ?? Number(organization.productivity_factor ?? 2.5),
     workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
     pumpPrice: preturi.length ? Math.min(...preturi) : null,
-    hasDemand: demandFrom(state.answers.refuzat),
+    hasDemand: demandFrom(state.answers.capacitate),
   });
   const lipsuri = gaps(state.answers, domain?.unit_short);
   const allGroups = sections.flatMap((s) => s.groups);
@@ -223,7 +223,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
               ) : null}
               {payback.demandWarning ? (
                 <span className="mt-1 block text-xs text-neutral-500">
-                  A spus că nu refuză lucrări — calculul presupune o cerere pe care încă n-o are.
+                  A spus că nu refuză lucrări din lipsă de oameni sau capacitate — calculul presupune o cerere pe care încă n-o are.
                 </span>
               ) : null}
             </div>
@@ -250,7 +250,7 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
             <p className="hint mt-2">
               {state.pending_escalations}{" "}
               {state.pending_escalations === 1 ? "întrebare tehnică" : "întrebări tehnice"} în așteptare
-              pentru owner.
+              pentru echipă.
             </p>
           ) : null}
 

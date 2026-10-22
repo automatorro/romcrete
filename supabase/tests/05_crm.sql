@@ -109,29 +109,55 @@ select (select count(*) from public.clients) as firme,
        (select count(*) from public.visits)  as vizite;
 select name, priority, visit_count from public.client_state order by name;
 
-\echo '--- 11. praguri de prioritate ---'
+\echo '--- 11. prioritatea se bazează pe interes, rol, volum și termen ---'
 select public.client_priority('{"interes":"curios","decide":"nu"}'::jsonb) as doua_criterii_astept_intrebare,
        public.client_priority('{"interes":"curios","decide":"nu","volum":"l12"}'::jsonb) as astept_C,
-       public.client_priority('{"interes":"vezi","decide":"influ","volum":"l35","atragere":["termene"]}'::jsonb) as astept_B,
+       public.client_priority('{"interes":"vezi","decide":"influ","volum":"l35","cand":"l13","atragere":["termene"]}'::jsonb) as astept_B,
        public.client_priority('{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult","termene"]}'::jsonb) as astept_A,
-       -- „nu știu” nu se numără deloc; „nimic” se numără drept criteriu completat, dar aduce 0 puncte
-       public.client_priority('{"interes":"gata","decide":"singur","volum":"l6","cand":"nustiu","atragere":["nimic"]}'::jsonb) as patru_criterii_scor_8_astept_A;
+       -- „Nu am aflat” nu se numără; motivele de atracție nu schimbă prioritatea.
+       public.client_priority('{"interes":"gata","decide":"singur","volum":"l6","cand":"nustiu","atragere":["nimic"]}'::jsonb) as trei_criterii_scor_8_astept_A;
 
-\echo '--- 12. fezabilitatea: poate cumpăra și are unde folosi? ---'
+do $$ begin
+  if public.client_priority('{"interes":"curios","decide":"influ","volum":"l35","cand":"l13"}'::jsonb)
+     <> public.client_priority('{"interes":"curios","decide":"influ","volum":"l35","cand":"l13","atragere":["maimult","termene"]}'::jsonb) then
+    raise exception 'Motivele de atracție nu trebuie să crească prioritatea';
+  end if;
+  if (select counts_for_priority from public.question_groups where id = 'atragere') then
+    raise exception 'Întrebarea despre beneficii nu trebuie marcată drept criteriu de prioritate';
+  end if;
+  if not exists (
+    select 1 from public.question_options where group_id = 'etapa' and id = 'amanat'
+  ) then
+    raise exception 'Lipsește etapa pentru oportunitatea amânată';
+  end if;
+  if public.client_feasibility('{"plata":"cash","capacitate":"des"}'::jsonb)
+     <> public.client_feasibility('{"plata":"cash","capacitate":"des","alimentare":"faracurent"}'::jsonb) then
+    raise exception 'Lipsa curentului nu trebuie să reducă fezabilitatea comercială';
+  end if;
+end $$;
+
+\echo '--- 12. fezabilitatea: plată, alimentarea lucrării și cerere neacoperită ---'
 select
   public.client_feasibility('{"plata":"cash"}'::jsonb)                                as un_criteriu_astept_intrebare,
-  public.client_feasibility('{"plata":"cash","refuzat":"des"}'::jsonb)                as scor_4_astept_da,
-  public.client_feasibility('{"plata":"rate","santier":["faracurent"]}'::jsonb)       as scor_2_astept_blocaj,
-  public.client_feasibility('{"plata":"nupoate","refuzat":"nu"}'::jsonb)              as scor_0_astept_nu,
-  public.client_feasibility('{"plata":"nustie","refuzat":"des"}'::jsonb)              as nustie_nu_se_numara_astept_intrebare,
-  public.client_feasibility('{"santier":["230v","distanta"],"refuzat":"cateva"}'::jsonb) as curent_plus_cerere_astept_da;
+  public.client_feasibility('{"plata":"cash","capacitate":"des"}'::jsonb)             as cerere_neacoperita_astept_da,
+  public.client_feasibility('{"plata":"cash","capacitate":"des","alimentare":"generator"}'::jsonb) as generator_astept_da,
+  public.client_feasibility('{"plata":"rate","alimentare":"faracurent"}'::jsonb)      as doar_plata_astept_intrebare,
+  public.client_feasibility('{"plata":"nupoate","capacitate":"nu"}'::jsonb)            as scor_0_astept_nu,
+  public.client_feasibility('{"plata":"nustie","capacitate":"des"}'::jsonb)            as nustie_nu_se_numara_astept_intrebare,
+  public.client_feasibility('{"plata":"cash","capacitate":"des","alimentare":"faracurent","santier":["230v"]}'::jsonb) as curentul_nu_schimba_fezabilitatea;
+
+do $$ begin
+  if public.client_feasibility('{"plata":"cash","capacitate":"des","alimentare":"faracurent","santier":["230v"]}'::jsonb) <> 'da' then
+    raise exception 'Lipsa curentului și condițiile generale nu trebuie să reducă fezabilitatea';
+  end if;
+end $$;
 
 \echo '--- 13. cadranele: ce e de făcut cu firma ---'
 with cazuri(descriere, a) as (values
-  ('vrea și poate',        '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult","termene"],"plata":"cash","refuzat":"des"}'::jsonb),
-  ('vrea, dar e blocat',   '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult"],"plata":"nupoate","santier":["faracurent"]}'::jsonb),
-  ('poate, dar nu vrea',   '{"interes":"curios","decide":"nu","volum":"l12","plata":"cash","refuzat":"des"}'::jsonb),
-  ('nici, nici',           '{"interes":"nu","decide":"nu","volum":"l12","plata":"nupoate","refuzat":"nu"}'::jsonb),
+  ('vrea și poate',        '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult","termene"],"plata":"cash","capacitate":"des","alimentare":"230v"}'::jsonb),
+  ('vrea, dar e blocat',   '{"interes":"gata","decide":"singur","volum":"l6","cand":"acum","atragere":["maimult"],"plata":"nupoate","alimentare":"faracurent"}'::jsonb),
+  ('poate, dar nu vrea',   '{"interes":"curios","decide":"nu","volum":"l12","plata":"cash","capacitate":"des"}'::jsonb),
+  ('nici, nici',           '{"interes":"nu","decide":"nu","volum":"l12","plata":"nupoate","capacitate":"nu"}'::jsonb),
   ('date insuficiente',    '{"interes":"gata","plata":"cash"}'::jsonb)
 )
 select descriere,
@@ -140,7 +166,19 @@ select descriere,
        public.client_focus(a)       as cadran
 from cazuri;
 
-\echo '--- 14. firme de reluat: caldă la 7 zile, rece la 30 ---'
+\echo '--- 14. etapa amânată rămâne distinctă de oportunitatea pierdută ---'
+insert into public.clients (org_id, name, city)
+select (select v from public._t where k='org')::uuid, 'Oportunitate amânată', 'Arad';
+insert into public.visits (org_id, client_id, visit_date, answers)
+select c.org_id, c.id, current_date, '{"etapa":"amanat"}'::jsonb
+from public.clients c where c.name = 'Oportunitate amânată';
+do $$ begin
+  if (select stage from public.client_state where name = 'Oportunitate amânată') <> 'amanat' then
+    raise exception 'Etapa amânată nu este păstrată în starea firmei';
+  end if;
+end $$;
+
+\echo '--- 15. firme de reluat: caldă la 7 zile, rece la 30 ---'
 insert into public.clients (org_id, name, city)
 select (select v from public._t where k='org')::uuid, 'Caldă recentă', 'Arad';
 insert into public.clients (org_id, name, city)
@@ -171,14 +209,14 @@ order by name;
 
 \echo '    (aștept: Caldă recentă = nu, Caldă uitată = DA, Rece 10 zile = nu, Rece 40 zile = DA)'
 
-\echo '--- 15. o firmă cu pas următor deschis nu intră la reluare ---'
+\echo '--- 16. o firmă cu pas următor deschis nu intră la reluare ---'
 insert into public.visits (org_id, client_id, visit_date, answers, next_step_date)
 select c.org_id, c.id, current_date - 40, '{"interes":"curios","urmator":"sun"}'::jsonb, current_date + 5
 from public.clients c where c.name = 'Rece uitată de 40 zile';
 select name, needs_recontact as de_reluat_dupa_ce_are_pas
 from public.client_state where name = 'Rece uitată de 40 zile';
 
-\echo '--- 16. agentul completează datele firmei lui și le vede în starea firmei ---'
+\echo '--- 17. agentul completează datele firmei lui și le vede în starea firmei ---'
 reset role; set role authenticated;
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', false);
 update public.clients

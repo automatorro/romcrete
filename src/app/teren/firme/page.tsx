@@ -178,7 +178,7 @@ export default async function TerenPage(props: PageProps<"/teren/firme">) {
                       <span className="text-neutral-500">{tradeLabel(r.trade_type)}</span>
                     ) : null}
                     <span className="text-neutral-500">apetit {r.priority}</span>
-                    {r.pending_escalations > 0 ? <Badge>întrebare owner</Badge> : null}
+                    {r.pending_escalations > 0 ? <Badge>întrebare pentru echipă</Badge> : null}
                   </div>
                 </Link>
 

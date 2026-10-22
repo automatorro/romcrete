@@ -177,11 +177,11 @@ export default async function RaportPage(props: PageProps<"/raport">) {
           <BarList rows={r.countBy("obiectii")} />
         </section>
         <section className="card p-4">
-          <h2 className="mb-3 text-base font-semibold">Ce i-ar atrage</h2>
+          <h2 className="mb-3 text-base font-semibold">Ce beneficiu i-ar convinge</h2>
           <BarList rows={r.countBy("atragere")} />
         </section>
         <section className="card p-4">
-          <h2 className="mb-3 text-base font-semibold">De ce lucrează manual</h2>
+          <h2 className="mb-3 text-base font-semibold">Ce îl împiedică să folosească un utilaj</h2>
           <BarList rows={r.countBy("dece")} />
         </section>
         <section className="card p-4">
@@ -207,11 +207,19 @@ export default async function RaportPage(props: PageProps<"/raport">) {
           <BarList rows={r.countBy("plata")} />
         </section>
         <section className="card p-4">
-          <h2 className="mb-1 text-base font-semibold">Condiții pe șantier</h2>
-          <p className="mb-3 text-xs text-neutral-500">
-            „Șantiere fără curent” înseamnă vânzare de generator înainte de pompă.
-          </p>
+          <h2 className="mb-1 text-base font-semibold">Condiții întâlnite pe șantiere</h2>
           <BarList rows={r.countBy("santier")} />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-1 text-base font-semibold">Variante de alimentare discutate</h2>
+          <p className="mb-3 text-xs text-neutral-500">
+            Context tehnic pentru alegerea unui model potrivit; lipsa curentului nu exclude vânzarea.
+          </p>
+          <BarList rows={r.countBy("alimentare")} />
+        </section>
+        <section className="card p-4">
+          <h2 className="mb-3 text-base font-semibold">Lucrări pierdute din lipsă de capacitate</h2>
+          <BarList rows={r.countBy("capacitate")} />
         </section>
       </div>
 
@@ -269,7 +277,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
 
       {r.escalations.length ? (
         <section className="card p-4">
-          <h2 className="mb-2 text-base font-semibold">Întrebări tehnice pentru owner</h2>
+          <h2 className="mb-2 text-base font-semibold">Întrebări escaladate către echipă</h2>
           <ul className="space-y-2 text-sm">
             {r.escalations.map((e) => (
               <li key={e.id} className="border-l-2 border-brand-200 pl-3">

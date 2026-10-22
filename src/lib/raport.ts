@@ -187,12 +187,12 @@ export async function buildReport(
 
     // Numim blocajul cu numele lui: altfel „deblochează” rămâne o etichetă fără acțiune.
     const a = (row.answers ?? {}) as Answers;
-    const santier = Array.isArray(a.santier) ? (a.santier as string[]) : [];
     if (a.plata === "nupoate") blocaje.set("Nu are cu ce plăti acum", (blocaje.get("Nu are cu ce plăti acum") ?? 0) + 1);
     if (!a.plata || a.plata === "nustie") blocaje.set("Nu se știe cum ar plăti", (blocaje.get("Nu se știe cum ar plăti") ?? 0) + 1);
-    if (santier.includes("faracurent") && !santier.includes("230v") && !santier.includes("trifazic"))
-      blocaje.set("Șantiere fără curent", (blocaje.get("Șantiere fără curent") ?? 0) + 1);
-    if (a.refuzat === "nu") blocaje.set("Nu are destule lucrări", (blocaje.get("Nu are destule lucrări") ?? 0) + 1);
+    if (a.capacitate === "nu") {
+      const motiv = "Nu are cerere neacoperită pentru capacitate suplimentară";
+      blocaje.set(motiv, (blocaje.get(motiv) ?? 0) + 1);
+    }
   }
 
   const { data: orgRow } = await supabase

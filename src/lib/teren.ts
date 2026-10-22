@@ -79,7 +79,7 @@ export const FOCUS_LABELS: Record<Focus, string> = {
 
 export const FOCUS_EXPLAIN: Record<Focus, string> = {
   urmareste: "Vrea și poate cumpăra. Aici se închid vânzările.",
-  deblocheaza: "Vrea, dar ceva îl oprește: banii, curentul pe șantier sau lipsa de lucrări.",
+  deblocheaza: "Vrea, dar ceva îl oprește: plata sau lipsa cererii pentru capacitate suplimentară.",
   educa: "Poate cumpăra, dar nu vede încă rostul. Arată-i calculul.",
   lasa: "Nici apetit, nici posibilitate. Revii peste câteva luni.",
   necunoscut: "Nu s-au aflat destule cât să se poată spune.",

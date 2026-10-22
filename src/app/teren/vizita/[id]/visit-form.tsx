@@ -273,7 +273,7 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
     productivityFactor: assumptions.productivityFactor,
     workingDaysPerMonth: assumptions.workingDaysPerMonth,
     pumpPrice: preturiAlese.length ? Math.min(...preturiAlese) : null,
-    hasDemand: demandFrom(form.answers.refuzat),
+    hasDemand: demandFrom(form.answers.capacitate),
   });
 
   const filled = (g: QuestionGroup) => {
@@ -368,12 +368,16 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
                   ) : null}
 
                   {g.allows_note &&
-                  !(g.kind === "single" && form.answers[g.id] && !editing.has(g.id)) ? (
+                  (g.id === "decide" || !(g.kind === "single" && form.answers[g.id] && !editing.has(g.id))) ? (
                     <input
                       type="text"
                       value={form.notes[g.id] ?? ""}
                       onChange={(e) => update({ notes: { ...form.notes, [g.id]: e.target.value } })}
-                      placeholder="Altele — scrie cu cuvintele lui"
+                      placeholder={
+                        g.id === "decide"
+                          ? "Numele sau funcția persoanei care decide"
+                          : "Altele — scrie cu cuvintele lui"
+                      }
                       className="input mt-2 text-sm"
                     />
                   ) : null}
@@ -524,9 +528,9 @@ export function VisitForm({ visitId, sections, pumps, suggestions, assumptions, 
 
           {payback.demandWarning ? (
             <p className="hint mt-3">
-              A spus că <b>nu refuză lucrări</b>. Calculul presupune că are de lucru cât să umple
-              capacitatea în plus — deocamdată n-are. Cu el, argumentul nu e viteza, ci efortul,
-              calitatea constantă sau oamenii pe care nu-i găsește.
+              A spus că <b>nu refuză lucrări din lipsă de oameni sau capacitate</b>. Calculul presupune
+              că are de lucru cât să umple capacitatea în plus — deocamdată n-are. Cu el, argumentul
+              nu e viteza, ci efortul, calitatea constantă sau oamenii pe care nu-i găsește.
             </p>
           ) : null}
         </section>

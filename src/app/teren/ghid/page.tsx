@@ -26,7 +26,7 @@ const CONVERSATIE: [string, string][] = [
   ],
   [
     "7. Dacă are de lucru",
-    "„Ai avut de refuzat ceva luna trecută?” Sună a laudă, nu a anchetă, și e cea mai importantă informație din toată vizita. Dacă refuză lucrări, mecanizarea se transformă direct în bani. Dacă nu refuză, viteza nu-l ajută cu nimic — și atunci vinzi altceva: efortul, calitatea constantă, oamenii pe care nu-i găsește.",
+    "„Ai avut lucrări pe care nu le-ai putut accepta fiindcă nu aveai destui oameni sau capacitate?” Asta arată dacă viteza în plus se poate transforma în venit. Dacă nu a pierdut lucrări din acest motiv, discută și despre efort, calitate constantă sau dificultatea de a găsi oameni.",
   ],
   [
     "8. Oamenii",
@@ -38,7 +38,7 @@ const CONVERSATIE: [string, string][] = [
   ],
   [
     "10. Șantierul și banii, la final",
-    "„Aveți curent tras pe șantierele voastre?” — dacă lucrează fără curent, îi trebuie generator înainte de pompă, altfel vinzi ceva ce nu poate porni. Iar la final, dacă discuția a mers bine: „dacă v-ați hotărî, ați lua din banii firmei sau în rate?”. Nu întrebi dacă are bani. Întrebi cum ar face.",
+    "„Pentru lucrarea asta, ce variantă de alimentare s-ar potrivi?” Notează dacă merge pe rețea, generator sau un utilaj cu motor pe benzină. E un detaliu pentru alegerea modelului, nu o condiție de vânzare. Iar la final, dacă discuția a mers bine: „dacă v-ați hotărî, ați lua din banii firmei sau în rate?”. Nu întrebi dacă are bani. Întrebi cum ar face.",
   ],
 ];
 
@@ -53,19 +53,19 @@ const CUM_FUNCTIONEAZA: [string, string][] = [
   ],
   [
     "Ce e de făcut cu firma",
-    "Aplicația măsoară două lucruri diferite. Apetitul — cât vrea — și fezabilitatea — cât poate: dacă are cu ce plăti, dacă are curent pe șantier, dacă are cerere pentru capacitatea în plus. Din ele iese o singură etichetă. „Urmărește acum” = vrea și poate; acolo se închid vânzările. „Deblochează” = vrea, dar ceva îl oprește; acolo te duci cu leasingul sau cu generatorul, nu cu încă o vizită de convingere. „Educă” = poate, dar nu vede rostul; acolo arăți calculul. „Lasă” = niciuna, revii peste câteva luni.",
+    "Aplicația măsoară două lucruri diferite. Apetitul — cât vrea — și fezabilitatea — dacă poate plăti și dacă a pierdut lucrări din lipsă de oameni sau capacitate. Sursa de alimentare este context tehnic pentru alegerea modelului, nu un criteriu care îl exclude. Din apetit și fezabilitate iese o singură etichetă. „Urmărește acum” = vrea și poate; acolo se închid vânzările. „Deblochează” = vrea, dar ceva îl oprește; clarifică finanțarea, nu repeta încă o vizită de convingere. „Educă” = poate, dar nu vede rostul; arată calculul. „Lasă” = niciuna, revino peste câteva luni.",
   ],
   [
     "Calculul de amortizare",
-    "Când ai bifat cât face pe zi și cât ia pe unitate, apare în vizită un calcul: cât ar face mecanizat, cât înseamnă în plus pe zi și pe lună, și în câte luni se plătește pompa aleasă. Randamentul nu e același peste tot: la marcaje rutiere mașina schimbă ordinul de mărime, la un atelier auto abia dublează — aplicația îl ia din domeniul firmei. E gândit ca să i-l arăți pe telefon. Dacă a spus că nu refuză lucrări, calculul apare cu avertisment — presupune o cerere pe care încă n-o are, iar dacă i-l arăți oricum, își va da seama singur și pierzi încrederea.",
+    "Când ai bifat cât produce pe zi și tariful de aplicare fără materiale, apare calculul: cât ar produce mecanizat, cât înseamnă în plus pe zi și pe lună și în câte luni se plătește pompa aleasă. Randamentul diferă după domeniu și aplicația îl ia din fișa firmei. Dacă nu a pierdut lucrări din lipsă de oameni sau capacitate, calculul apare cu avertisment: presupune o cerere pe care încă nu a confirmat-o.",
   ],
   [
     "Prioritatea A / B / C",
-    "Se adună puncte din cinci criterii: interes (0–4), cine decide (0–2), câte lucrări are pe lună (0–2), când ar cumpăra (0–2) și ce l-ar atrage (0–2, după câte motive reale a dat). A înseamnă 8 puncte sau mai mult, B între 5 și 7, C sub 5. Dacă ai completat mai puțin de trei criterii, prioritatea rămâne „?” — aplicația nu inventează un scor din date lipsă.",
+    "Se adună puncte din patru criterii: interes (0–4), rolul în decizia de cumpărare (0–2), câte lucrări are pe lună (0–2) și când ar cumpăra (0–2). Beneficiile care îl atrag ajută la alegerea argumentului, nu îi măresc prioritatea. A înseamnă 8 puncte sau mai mult, B între 5 și 7, C sub 5. Dacă ai completat mai puțin de trei criterii, prioritatea rămâne „?”.",
   ],
   [
     "„De aflat”",
-    "Sub fiecare firmă scrie ce nu s-a aflat încă: cum lucrează, cu ce materiale, cât face pe zi, ce scule are, de ce lucrează manual, cât e de interesat și cine decide. Sunt întrebările fără de care nu poți califica un meseriaș.",
+    "Sub fiecare firmă scrie ce nu s-a aflat încă: cum lucrează, cu ce materiale, cât produce pe zi, ce echipamente are, ce îl împiedică să mecanizeze, cât e de interesat și ce rol are în decizie. Sunt informațiile de bază pentru calificarea firmei.",
   ],
   [
     "Starea firmei",
@@ -108,7 +108,7 @@ export default function GhidPage() {
 
       <h2 className="mt-5 mb-1 text-base font-semibold">Când sunt mai mulți oameni de față</h2>
       <p className="card p-3.5 text-sm text-neutral-700">
-        Bifează la „Cine a fost prezent” pe toți, dar întrebările de bani și de decizie le pui
+        Bifează la „Ce roluri au fost prezente?” pe toți, dar întrebările de bani și de decizie le pui
         doar dacă patronul e singur cu tine. În fața echipei nimeni nu recunoaște că nu el decide.
       </p>
     </div>

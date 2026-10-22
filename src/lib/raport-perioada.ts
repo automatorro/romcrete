@@ -18,7 +18,7 @@ export type {
 } from "@/lib/raport-sectiuni";
 
 /** Întrebările din vizită care spun ceva despre piață, nu despre o firmă anume. */
-const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "utilaj", "oameni"];
+const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "alimentare", "capacitate", "utilaj", "oameni"];
 
 /** Sub atâtea firme care au răspuns, o schimbare de procent e zgomot, nu semnal. */
 export const MARKET_MIN_BASE = 5;

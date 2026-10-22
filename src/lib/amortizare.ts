@@ -20,7 +20,7 @@ export type PaybackInput = {
   workingDaysPerMonth: number;
   /** Prețul fără TVA al pompei discutate. */
   pumpPrice: number | null;
-  /** A refuzat lucrări: true = are cerere, false = nu, null = nu s-a aflat. */
+  /** A refuzat din lipsă de capacitate: true = are cerere neacoperită, false = nu. */
   hasDemand: boolean | null;
 };
 
@@ -34,7 +34,7 @@ export type Payback = {
   months: number | null;
   /**
    * Calculul presupune că are de lucru cât să umple capacitatea în plus.
-   * Dacă a spus că nu refuză lucrări, presupunerea e falsă și trebuie spus.
+  * Dacă nu refuză din lipsă de capacitate, presupunerea e falsă și trebuie spus.
    */
   demandWarning: boolean;
 };
@@ -68,9 +68,9 @@ export function computePayback(input: PaybackInput): Payback | null {
   };
 }
 
-/** „Are cerere?” din răspunsul la „A refuzat lucrări”. */
-export function demandFrom(refuzat: unknown): boolean | null {
-  if (refuzat === "des" || refuzat === "cateva") return true;
-  if (refuzat === "nu") return false;
+/** Cererea neacoperită din răspunsul la întrebarea despre lipsa de capacitate. */
+export function demandFrom(capacitate: unknown): boolean | null {
+  if (capacitate === "des" || capacitate === "cateva") return true;
+  if (capacitate === "nu") return false;
   return null;
 }
