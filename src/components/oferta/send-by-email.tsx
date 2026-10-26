@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import { markQuoteEmailed } from "@/app/(app)/oferte/actions";
 
 /**
@@ -22,8 +20,6 @@ export function SendByEmail({
   clientEmail: string | null;
   orgName: string;
 }) {
-  const [opening, setOpening] = useState(false);
-
   const subject = `Oferta ${number} – ${orgName}`;
   const body = [
     "Bună ziua,",
@@ -34,15 +30,13 @@ export function SendByEmail({
     "Cu stimă,",
   ].join("\n");
   const mailto = `mailto:${clientEmail ?? ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const outlookCompose = new URL("https://outlook.office.com/mail/deeplink/compose");
+  if (clientEmail) outlookCompose.searchParams.set("to", clientEmail);
+  outlookCompose.searchParams.set("subject", subject);
+  outlookCompose.searchParams.set("body", body);
 
-  const open = async () => {
-    setOpening(true);
-    try {
-      await markQuoteEmailed(quoteId);
-    } finally {
-      setOpening(false);
-      window.location.href = mailto;
-    }
+  const markSent = () => {
+    void markQuoteEmailed(quoteId).catch(() => {});
   };
 
   return (
@@ -54,16 +48,26 @@ export function SendByEmail({
         </span>
         Descarcă PDF-ul
       </a>
-      <button type="button" onClick={open} disabled={opening} className="btn btn-primary btn-lg w-full justify-start">
+      <a href={mailto} target="_blank" rel="noreferrer" onClick={markSent} className="btn btn-primary btn-lg w-full justify-start">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-semibold">
           2
         </span>
-        {opening ? "Se deschide…" : "Scrie emailul în Outlook"}
-      </button>
+        Deschide aplicația de email
+      </a>
+      <a
+        href={outlookCompose.toString()}
+        target="_blank"
+        rel="noreferrer"
+        onClick={markSent}
+        className="btn btn-secondary btn-lg w-full justify-start"
+      >
+        Deschide Outlook în browser
+      </a>
       <p className="text-xs text-neutral-500">
         {clientEmail
-          ? `Se deschide un email către ${clientEmail}, cu subiectul și textul completate. Atașează PDF-ul de la pasul 1.`
-          : "Firma nu are email în fișă: completează destinatarul în Outlook și atașează PDF-ul de la pasul 1."}{" "}
+          ? `Prima opțiune deschide aplicația de email configurată (Outlook dacă este setat ca implicit); alternativa deschide Outlook Web. Ambele completează destinatarul ${clientEmail}, subiectul și textul.`
+          : "Firma nu are email în fișă: completează destinatarul în aplicație sau în Outlook Web."}{" "}
+        Atașează PDF-ul descărcat la pasul 1; pe telefon îl găsești în Descărcări și îl alegi din agrafa emailului.{" "}
         Trimiterea se notează în istoricul firmei, iar o ciornă trece în „Trimisă”.
       </p>
     </div>
