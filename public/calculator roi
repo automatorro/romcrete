@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator recuperare investitie Graco - Romcrete</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; background: #fff; margin: auto; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1e293b; text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #475569; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; font-size: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #1d4ed8; }
+        .results { margin-top: 25px; background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 5px solid #2563eb; }
+        .results h3 { margin-top: 0; color: #1e293b; }
+        .metric { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+        .metric span:last-child { font-weight: bold; color: #0f172a; }
+        .highlight { color: #16a34a !important; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Calculator recuperare investitie si productivitate Graco</h2>
+    
+    <div class="form-group">
+        <label for="suprafata">Suprafața Proiectului (m²):</label>
+        <input type="number" id="suprafata" value="2000" step="100">
+    </div>
+
+    <div class="form-group">
+        <label for="costOm">Cost Manoperă / Om / Zi (Lei):</label>
+        <input type="number" id="costOm" value="400" step="50">
+    </div>
+
+    <div class="form-group">
+        <label for="pretPompa">Preț Pompă / Pachet Graco Ales (Lei):</label>
+        <select id="pretPompa">
+            <option value="4500">Graco GX 19 (Entry Level) - 4.500 Lei</option>
+            <option value="6000">Graco GX 21 (Zugrăvit) - 6.000 Lei</option>
+            <option value="32000" selected>Pachet Promo (ToughTek HP110 + GX 21) - 32.000 Lei</option>
+            <option value="50000">Graco RTX 5500 PX (Glet/Tencuială) - 50.000 Lei</option>
+            <option value="72000">Graco Mark XV XT ProContractor (Heavy-Duty) - 72.000 Lei</option>
+        </select>
+    </div>
+
+    <button onclick="calculeazaROI()">Calculează Economia & ROI</button>
+
+    <div class="results" id="rezultateDiv" style="display:none;">
+        <h3>Rezultate pentru Negociere pe Șantier</h3>
+        <div class="metric"><span>Zile de Lucru (Manual):</span> <span id="zileMan">0 zile</span></div>
+        <div class="metric"><span>Zile de Lucru (Graco):</span> <span id="zileGraco">0 zile</span></div>
+        <div class="metric"><span>Timp Câștigat / Economisit:</span> <span id="timpEconomisit" style="color: #2563eb;">0 zile</span></div>
+        <div class="metric"><span>Cost Manoperă (Manual):</span> <span id="costMan">0 Lei</span></div>
+        <div class="metric"><span>Cost Manoperă (Graco):</span> <span id="costGraco">0 Lei</span></div>
+        <div class="metric"><span>Economie Netă Manoperă:</span> <span id="economieBani" class="highlight">0 Lei</span></div>
+        <div class="metric"><span>Amortizare Echipament:</span> <span id="amortizare">0 proiecte</span></div>
+    </div>
+</div>
+
+<script>
+function calculeazaROI() {
+    let suprafata = parseFloat(document.getElementById('suprafata').value);
+    let costOm = parseFloat(document.getElementById('costOm').value);
+    let pretPompa = parseFloat(document.getElementById('pretPompa').value);
+
+    // Standarde: Manual = 150 mp / zi cu 4 oameni; Graco = 600 mp / zi cu 2 oameni
+    let zileManual = suprafata / 150;
+    let costManual = zileManual * 4 * costOm;
+
+    let zileGraco = suprafata / 600;
+    let costGraco = zileGraco * 2 * costOm;
+
+    let economieBani = costManual - costGraco;
+    let timpEconomisit = zileManual - zileGraco;
+    let proiecteAmortizare = pretPompa / economieBani;
+
+    document.getElementById('zileMan').innerText = zileManual.toFixed(1) + ' zile (4 oameni)';
+    document.getElementById('zileGraco').innerText = zileGraco.toFixed(1) + ' zile (2 oameni)';
+    document.getElementById('timpEconomisit').innerText = timpEconomisit.toFixed(1) + ' zile mai repede';
+    document.getElementById('costMan').innerText = costManual.toLocaleString('ro-RO') + ' Lei';
+    document.getElementById('costGraco').innerText = costGraco.toLocaleString('ro-RO') + ' Lei';
+    document.getElementById('economieBani').innerText = economieBani.toLocaleString('ro-RO') + ' Lei';
+    
+    if (proiecteAmortizare <= 1) {
+        document.getElementById('amortizare').innerText = 'Se amortizează din PRIMUL PROIECT!';
+    } else {
+        document.getElementById('amortizare').innerText = proiecteAmortizare.toFixed(2) + ' proiecte de această mărime';
+    }
+
+    document.getElementById('rezultateDiv').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
