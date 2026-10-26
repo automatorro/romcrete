@@ -2,6 +2,7 @@ import { buildActivity } from "@/lib/activitate";
 import { addDays, todayRo } from "@/lib/agenda";
 import { overdueDecisions } from "@/lib/decizii";
 import { getDomains } from "@/lib/domenii";
+import { getQuestionCatalogue } from "@/lib/questions";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
 import { scopeOf, type Highlight, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
 import { lossReasonLabel } from "@/lib/pierderi";
@@ -22,6 +23,7 @@ const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "alim
 
 /** Sub atâtea firme care au răspuns, o schimbare de procent e zgomot, nu semnal. */
 export const MARKET_MIN_BASE = 5;
+const MARKET_VOICE_LIMIT = 25;
 
 const LUNI_LUNG = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
   "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
@@ -368,6 +370,7 @@ export async function buildReportSnapshot(
       target: teamTarget || null,
       targetNote: isCurrent ? "până azi" : "pe perioadă",
     },
+    { key: "firmeVizitate", label: "Firme vizitate", value: t.firmeVizitate, prev: v.firmeVizitate, format: "int" },
     { key: "firmeNoi", label: "Firme noi", value: t.firmeNoi, prev: v.firmeNoi, format: "int" },
     {
       key: "telefoane",
@@ -474,6 +477,23 @@ export async function buildReportSnapshot(
   const agentName = agentId ? (member(agentId)?.full_name ?? "Agent fără nume") : null;
   const recente = [...ds.visits].reverse();
   const domainName = domainId ? (domains.find((d) => d.id === domainId)?.label ?? domainId) : null;
+  const questionSections = await getQuestionCatalogue(
+    orgId,
+    domainId ? (domains.find((d) => d.id === domainId) ?? null) : null,
+  );
+  const questionGroups = questionSections.flatMap((section) => section.groups);
+  const marketVoices = recente.flatMap((x) =>
+    Object.entries(x.notes ?? {})
+      .filter(([, text]) => text?.trim())
+      .map(([groupId, text]) => ({
+        date: x.date,
+        client: x.client,
+        city: x.city,
+        agent: x.agent,
+        group: questionGroups.find((group) => group.id === groupId)?.label ?? groupId,
+        text: text.trim(),
+      })),
+  );
 
   const snapshot: ReportSnapshot = {
     version: 1,
@@ -591,6 +611,8 @@ export async function buildReportSnapshot(
       gross: q.gross,
     })),
     market: [...byGroup.values()],
+    marketVoices: marketVoices.slice(0, MARKET_VOICE_LIMIT),
+    marketVoicesTotal: marketVoices.length,
     notes: recente
       .flatMap((x) =>
         Object.values(x.notes ?? {})
