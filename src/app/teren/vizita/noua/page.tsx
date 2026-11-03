@@ -8,7 +8,7 @@ import { shortDay, todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { getDomains } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
-import { TRADE_TYPES, lastVisitLabel, type ClientState } from "@/lib/teren";
+import { lastVisitLabel, type ClientState } from "@/lib/teren";
 
 export const metadata = { title: "Vizită nouă" };
 
@@ -69,7 +69,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
           <fieldset>
             <legend className="label">În ce domeniu lucrează</legend>
             <div className="flex flex-wrap gap-2">
-              {domains.map((d, i) => (
+              {domains.map((d) => (
                 <label
                   key={d.id}
                   className="chip has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white"
@@ -78,7 +78,7 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
                     type="radio"
                     name="domain"
                     value={d.id}
-                    defaultChecked={i === 0}
+                    required
                     className="sr-only"
                   />
                   {d.short_label}
@@ -89,18 +89,6 @@ export default async function VizitaNouaPage(props: PageProps<"/teren/vizita/nou
               De aici pornesc întrebările din vizită, unitatea în care se socotește randamentul
               și pompele care i se potrivesc.
             </p>
-          </fieldset>
-
-          <fieldset>
-            <legend className="label">Ce este (la construcții)</legend>
-            <div className="flex flex-wrap gap-2">
-              {TRADE_TYPES.map((t) => (
-                <label key={t.id} className="chip has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white">
-                  <input type="radio" name="trade_type" value={t.id} className="sr-only" />
-                  {t.label}
-                </label>
-              ))}
-            </div>
           </fieldset>
 
           <SubmitButton className="btn btn-primary btn-lg w-full" pendingLabel="Se deschide…">

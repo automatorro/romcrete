@@ -112,8 +112,10 @@ export default async function TerenOfertePage(props: PageProps<"/teren/oferte">)
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-semibold text-brand-700">{q.number}</p>
                     <p className="truncate text-sm">
-                      {q.clients?.name ?? "—"}
-                      {q.clients?.city ? <span className="text-neutral-500"> · {q.clients.city}</span> : null}
+                      {q.clients?.name ?? q.client_snapshot?.name ?? "—"}
+                      {(q.clients?.city ?? q.client_snapshot?.city) ? (
+                        <span className="text-neutral-500"> · {q.clients?.city ?? q.client_snapshot?.city}</span>
+                      ) : null}
                     </p>
                   </div>
                   <StatusBadge status={q.status} />

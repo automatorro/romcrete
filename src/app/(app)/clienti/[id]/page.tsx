@@ -70,7 +70,7 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
         <p className="text-sm text-neutral-500">
-          Un client cu oferte emise nu poate fi șters, ca să nu se piardă istoricul.
+          Ofertele rămân disponibile și păstrează datele clientului din momentul emiterii.
         </p>
         <form action={deleteClientRecord}>
           <input type="hidden" name="id" value={client.id} />
@@ -78,7 +78,7 @@ export default async function ClientPage(props: PageProps<"/clienti/[id]">) {
             className="btn btn-danger"
             pendingLabel="Se șterge…"
             confirmLabel="Da, șterge"
-            confirm={`Ștergi clientul „${client.name}”?`}
+            confirm={`Ștergi clientul „${client.name}”? Ofertele lui rămân păstrate.`}
           >
             Șterge clientul
           </SubmitButton>

@@ -28,6 +28,7 @@ export default async function MaiMultPage() {
     { href: "/rapoarte", label: "Rapoarte (birou)", hint: "Rapoartele echipei, pe perioade" },
     { href: "/raport", label: "Analiza pieței", hint: "Obiecții, blocaje, modele discutate" },
     { href: "/clienti", label: "Clienți", hint: "Toate firmele, cu istoricul lor" },
+    { href: "/setari/incadrare", label: "Încadrarea firmelor", hint: "Domenii și ocupații de verificat" },
     { href: "/setari", label: "Setări firmă", hint: "Date firmă, ținte, praguri" },
   ];
 

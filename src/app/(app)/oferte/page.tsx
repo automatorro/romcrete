@@ -108,7 +108,9 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
           title={(q) => (
             <Link href={`/oferte/${q.id}`} className="text-brand-700 hover:underline">
               {q.number}
-              <span className="block text-sm font-normal text-neutral-900">{q.clients?.name ?? "—"}</span>
+              <span className="block text-sm font-normal text-neutral-900">
+                {q.clients?.name ?? q.client_snapshot?.name ?? "—"}
+              </span>
             </Link>
           )}
           columns={[
@@ -124,7 +126,7 @@ export default async function QuotesPage(props: PageProps<"/oferte">) {
                 </>
               ),
             },
-            { header: "Client", hideOnMobile: true, cell: (q) => q.clients?.name ?? "—" },
+            { header: "Client", hideOnMobile: true, cell: (q) => q.clients?.name ?? q.client_snapshot?.name ?? "—" },
             { header: "Stare", cell: (q) => <StatusBadge status={q.status} /> },
             {
               header: "Valoare ofertată",

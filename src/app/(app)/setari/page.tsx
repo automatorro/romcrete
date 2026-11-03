@@ -97,6 +97,11 @@ export default async function SettingsPage() {
           <a href="/clienti/export" download className="btn btn-secondary">
             Exportă clienții în Excel
           </a>
+          {role !== "agent" ? (
+            <a href="/setari/incadrare" className="btn btn-secondary">
+              Revizuiește încadrarea firmelor
+            </a>
+          ) : null}
         </div>
       </section>
 

@@ -69,6 +69,7 @@ const MANAGEMENT: Group[] = [
     title: "Configurare",
     items: [
       { href: "/catalog", label: "Catalog", also: ["/teren/catalog"] },
+        { href: "/setari/incadrare", label: "Încadrarea firmelor" },
       { href: "/setari", label: "Setări firmă", also: ["/teren/cont"] },
       { href: "/teren/ghid", label: "Ghid" },
     ],

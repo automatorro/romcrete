@@ -81,6 +81,11 @@ export type Client = {
   created_at: string;
 };
 
+export type QuoteClientSnapshot = Pick<
+  Client,
+  "name" | "cui" | "reg_com" | "contact_person" | "email" | "phone" | "address" | "city" | "county"
+>;
+
 export type CatalogItem = {
   id: string;
   org_id: string;
@@ -122,6 +127,7 @@ export type Quote = {
   id: string;
   org_id: string;
   client_id: string | null;
+  client_snapshot: QuoteClientSnapshot | null;
   number: string;
   title: string | null;
   status: QuoteStatus;

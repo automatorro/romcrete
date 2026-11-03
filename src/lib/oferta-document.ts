@@ -2,7 +2,7 @@ import { getEurRate, type EurRate, type Spec } from "@/lib/oferta-print";
 import { loadQuoteSheets } from "@/lib/poze";
 import type { createClient } from "@/lib/supabase/server";
 import { formatDate, lineFinal, sumFinals } from "@/lib/totals";
-import type { Client, Organization, Quote, QuoteItem } from "@/lib/types";
+import type { Client, Organization, Quote, QuoteClientSnapshot, QuoteItem } from "@/lib/types";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
 
@@ -38,7 +38,7 @@ export type OtherCurrency = { currency: string; convert: (value: number) => numb
 /** Tot ce intră în oferta tipărită, citit o dată: îl folosesc la fel PDF-ul și Word-ul. */
 export type OfferDocument = {
   quote: Quote;
-  client: Client | null;
+  client: Pick<Client, keyof QuoteClientSnapshot> | null;
   organization: Organization;
   /** Ștampila firmei, ca data: URI. */
   stamp: string | null;
@@ -98,6 +98,7 @@ export async function loadOfferDocument(db: Db, quoteId: string, organization: O
   if (!quoteData) return null;
 
   const quote = quoteData as Quote & { clients: Client | null };
+  const client = quote.clients ?? quote.client_snapshot;
   const items = (itemsData ?? []) as QuoteItem[];
 
   // Agentul de pe ofertă e cel care a făcut-o, cu datele și semnătura lui.
@@ -167,7 +168,7 @@ export async function loadOfferDocument(db: Db, quoteId: string, organization: O
 
   const document: OfferDocument = {
     quote,
-    client: quote.clients,
+    client,
     organization,
     stamp: dataUri(orgExtra?.stamp_mime ?? null, orgExtra?.stamp_b64 ?? null),
     agent,

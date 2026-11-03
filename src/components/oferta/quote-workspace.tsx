@@ -83,9 +83,7 @@ export async function QuoteWorkspace({ id, zona }: { id: string; zona: Zona }) {
               >
                 {quote.clients.name}
               </Link>
-            ) : (
-              "Fără client"
-            )}
+            ) : quote.client_snapshot?.name ?? "Fără client"}
             {quote.title ? ` · ${quote.title}` : ""}
             <span className="block">
               {items.length} {items.length === 1 ? "produs" : "produse"}

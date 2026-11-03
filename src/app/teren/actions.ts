@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
+import { getDomains } from "@/lib/domenii";
 import { termsForClient } from "@/lib/conditii";
 import { sheetForNewLine } from "@/lib/fisa-magazin";
 import { pickSheet } from "@/lib/fisa-produs";
@@ -52,15 +53,17 @@ export async function startVisit(formData: FormData) {
   if (!clientId) {
     const company = companyFromForm(formData);
     if (!company.name) return;
+    const domainId = String(formData.get("domain") ?? "").trim();
+    const domains = await getDomains(orgId);
+    if (!domains.some((domain) => domain.id === domainId)) return;
 
     const { data: created, error } = await supabase
       .from("clients")
       .insert({
         org_id: orgId,
         ...company,
-        trade_type: String(formData.get("trade_type") ?? "").trim() || null,
         // Domeniul hotărăște întrebările din vizită și unitatea de calcul.
-        domain: String(formData.get("domain") ?? "").trim() || "constructii",
+        domain: domainId,
         owner_agent_id: user.id,
       })
       .select("id")
