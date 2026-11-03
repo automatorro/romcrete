@@ -100,6 +100,43 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       </section>
 
       <section className="card p-4">
+        <h2 className="text-base font-semibold">Contactări și activități comerciale</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Apelurile, emailurile, WhatsApp-ul, newsletterele și activitățile ofertelor din perioada selectată.
+        </p>
+        {r.activities.length ? (
+          <div className="mt-3 max-h-[32rem] overflow-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="sticky top-0 bg-white text-left text-xs text-neutral-500">
+                <tr className="border-b border-neutral-200">
+                  <th className="py-2 pr-2">Data</th>
+                  <th className="py-2 pr-2">Firmă</th>
+                  <th className="py-2 pr-2">Agent</th>
+                  <th className="py-2 pr-2">Mod contactare</th>
+                  <th className="py-2">Detalii</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.activities.map((activity) => (
+                  <tr key={activity.id} className="border-b border-neutral-100 align-top">
+                    <td className="py-2 pr-2 whitespace-nowrap">{formatDate(activity.date)}</td>
+                    <td className="py-2 pr-2">{activity.client}</td>
+                    <td className="py-2 pr-2">
+                      {r.members.find((member) => member.user_id === activity.agentId)?.full_name ?? "—"}
+                    </td>
+                    <td className="py-2 pr-2">{activity.mode}</td>
+                    <td className="py-2 whitespace-pre-wrap">{activity.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-neutral-500">Nu sunt contactări sau activități comerciale în perioada selectată.</p>
+        )}
+      </section>
+
+      <section className="card p-4">
         <h2 className="mb-3 text-base font-semibold">Oferte și acceptări la firme vizitate</h2>
         <Funnel
           steps={[

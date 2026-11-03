@@ -8,7 +8,7 @@ import type { ReportType } from "@/lib/perioade";
 /** Secțiunile unui raport, în ordinea în care se citesc într-o ședință. */
 export type ReportSection =
   | "retine" | "reflectie" | "decizii" | "kpi" | "agenti" | "tendinta" | "evolutie" | "palnie" | "pierderi" | "asteptare" | "fereastra"
-  | "restante" | "uitate" | "owner" | "vizite" | "oferte" | "piata" | "note";
+  | "restante" | "uitate" | "owner" | "vizite" | "activitati" | "oferte" | "piata" | "note";
 
 export const SECTION_LABELS: Record<ReportSection, string> = {
   retine: "De reținut",
@@ -26,6 +26,7 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   uitate: "Firme calde fără contact",
   owner: "Întrebări pentru conducere",
   vizite: "Vizitele perioadei",
+  activitati: "Activitate înregistrată",
   oferte: "Ofertele emise în perioadă",
   piata: "Ce spune piața",
   note: "Ce au spus clienții",
@@ -47,18 +48,18 @@ export const SCOPE_LABELS: Record<ReportScope, string> = {
 
 /** Ce intră implicit în fiecare tip de raport: operativ zilnic, strategic trimestrial. */
 const DEFAULTS: Record<ReportType, ReportSection[]> = {
-  zi: ["kpi", "agenti", "vizite", "oferte", "restante", "note"],
+  zi: ["kpi", "agenti", "vizite", "activitati", "oferte", "restante", "note"],
   saptamana: [
-    "retine", "reflectie", "decizii", "kpi", "agenti", "evolutie", "palnie", "asteptare", "fereastra", "restante",
+    "retine", "reflectie", "decizii", "kpi", "agenti", "evolutie", "palnie", "activitati", "asteptare", "fereastra", "restante",
     "uitate", "owner",
   ],
   luna: [
-    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "evolutie", "palnie", "pierderi", "asteptare",
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "evolutie", "palnie", "activitati", "pierderi", "asteptare",
     "fereastra", "piata",
   ],
   // Pe trimestru, tendința pe luni ține locul evoluției din interior.
   trimestru: [
-    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "palnie", "pierderi", "asteptare", "fereastra", "piata",
+    "retine", "reflectie", "decizii", "kpi", "agenti", "tendinta", "palnie", "activitati", "pierderi", "asteptare", "fereastra", "piata",
   ],
 };
 
@@ -229,6 +230,15 @@ export type ReportSnapshot = {
   marketVoices?: { date: string; client: string; city: string | null; agent: string; group: string; text: string }[];
   /** Numărul total de note înainte de limita de afișare. Lipsesc la rapoartele vechi. */
   marketVoicesTotal?: number;
+  activities?: {
+    id: string;
+    date: string;
+    agent: string;
+    client: string;
+    city: string | null;
+    mode: string;
+    description: string;
+  }[];
   notes: { date: string; client: string; agent: string; text: string }[];
 };
 

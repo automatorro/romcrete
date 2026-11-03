@@ -6,6 +6,7 @@ import { getQuestionCatalogue } from "@/lib/questions";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
 import { scopeOf, type Highlight, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
 import { lossReasonLabel } from "@/lib/pierderi";
+import { getReportActivities } from "@/lib/raport-activitati";
 import { formatMoney } from "@/lib/totals";
 import { createClient } from "@/lib/supabase/server";
 
@@ -264,7 +265,6 @@ export async function buildReportSnapshot(
   domainId: string | null,
 ): Promise<ReportSnapshot> {
   const p = periodFor(type, anchor);
-  const supabase = await createClient();
 
   // Raportul lunar și cel trimestrial se uită și în urmă: ultimele 6 luni, pe luni.
   const lunar = type === "luna" || type === "trimestru";
@@ -274,36 +274,22 @@ export async function buildReportSnapshot(
     return d.toISOString().slice(0, 10);
   })();
 
-  const [ds, domains, { data: activityRows }, trendDs, salesTargets] = await Promise.all([
+  const [ds, domains, activityRows, trendDs, salesTargets] = await Promise.all([
     buildActivity(orgId, p.from, p.to, p.granularity, agentId, domainId, { from: p.prevFrom, to: p.prevTo }),
     getDomains(orgId),
-    supabase
-      .from("client_activities")
-      .select("kind, agent_id, occurred_at, clients(domain)")
-      .eq("org_id", orgId)
-      .in("kind", ["telefon", "email", "whatsapp"])
-      .gte("occurred_at", `${p.prevFrom}T00:00:00Z`)
-      .lt("occurred_at", `${addDays(p.to, 1)}T00:00:00Z`),
+    getReportActivities(orgId, p.prevFrom, p.to, agentId, domainId),
     lunar ? buildActivity(orgId, trendFrom, p.to, "luna", agentId, domainId) : Promise.resolve(null),
     readSalesTargets(orgId),
   ]);
 
-  // Telefoanele și emailurile vin din istoricul firmelor, pe aceleași filtre.
-  const contacts = ((activityRows ?? []) as unknown as {
-    kind: string;
-    agent_id: string | null;
-    occurred_at: string;
-    clients: { domain: string | null } | null;
-  }[]).filter(
-    (a) =>
-      (!agentId || a.agent_id === agentId) &&
-      (!domainId || (a.clients?.domain ?? "constructii") === domainId),
-  );
   const countContacts = (kind: string, from: string, to: string, agent?: string) =>
-    contacts.filter((a) => {
-      const day = todayRo(new Date(a.occurred_at));
-      return a.kind === kind && day >= from && day <= to && (agent === undefined || a.agent_id === agent);
-    }).length;
+    activityRows.filter(
+      (activity) =>
+        activity.channel === kind &&
+        activity.date >= from &&
+        activity.date <= to &&
+        (agent === undefined || activity.agentId === agent),
+    ).length;
 
   const member = (id: string) => ds.members.find((m) => m.user_id === id);
   const dailyTarget = (id: string) => member(id)?.target_visits_per_day ?? ds.orgTargetVisitsPerDay;
@@ -494,6 +480,30 @@ export async function buildReportSnapshot(
         text: text.trim(),
       })),
   );
+  const reportActivities = [
+    ...activityRows
+      .filter((activity) => activity.date >= p.from && activity.date <= p.to)
+      .map((activity) => ({
+        id: activity.id,
+        date: activity.date,
+        sortAt: activity.sortAt,
+        agent: activity.agentId ? member(activity.agentId)?.full_name ?? "Agent fără nume" : "Agent fără nume",
+        client: activity.client,
+        city: activity.city,
+        mode: activity.mode,
+        description: activity.description,
+      })),
+    ...ds.visits.map((visit) => ({
+      id: `vizita:${visit.id}`,
+      date: visit.date,
+      sortAt: `${visit.date}T12:00:00Z`,
+      agent: visit.agent,
+      client: visit.client,
+      city: visit.city,
+      mode: "Vizită",
+      description: visit.reportDiscussion?.trim() ?? "",
+    })),
+  ].sort((a, b) => a.sortAt.localeCompare(b.sortAt));
 
   const snapshot: ReportSnapshot = {
     version: 1,
@@ -598,6 +608,15 @@ export async function buildReportSnapshot(
       city: x.city,
       prima: x.prima,
       nextStepDate: x.nextStepDate,
+    })),
+    activities: reportActivities.map((activity) => ({
+      id: activity.id,
+      date: activity.date,
+      agent: activity.agent,
+      client: activity.client,
+      city: activity.city,
+      mode: activity.mode,
+      description: activity.description,
     })),
     quotes: [...ds.quotes]
       .sort((a, b) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number))

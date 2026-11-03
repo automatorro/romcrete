@@ -1,5 +1,6 @@
 import { type Domain, getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import { getReportActivities, type ReportActivity } from "@/lib/raport-activitati";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/toate-randurile";
 import type { Answers, Focus, Notes, QuestionSection } from "@/lib/teren";
@@ -14,7 +15,8 @@ export type VisitRow = {
   answers: Answers;
   notes: Notes;
   pump_skus: string[];
-  clients: { name: string; domain: string | null } | null;
+  report_discussion: string | null;
+  clients: { name: string; city: string | null; domain: string | null } | null;
 };
 
 export type Report = {
@@ -28,6 +30,7 @@ export type Report = {
   workingDays: number;
   orgTargetVisitsPerDay: number;
   visits: VisitRow[];
+  activities: ReportActivity[];
   clientCount: number;
   quotesForVisitedClients: number;
   acceptedQuotesForVisitedClients: number;
@@ -79,11 +82,11 @@ export async function buildReport(
     domainId ? (domains.find((d) => d.id === domainId) ?? null) : null,
   );
 
-  const [visitRows, { data: memberRows }, quoteRows, { data: itemRows }] = await Promise.all([
+  const [visitRows, { data: memberRows }, quoteRows, { data: itemRows }, activities] = await Promise.all([
     allRows((from, to) => {
       let query = supabase
         .from("visits")
-        .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, clients(name, domain)")
+        .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, report_discussion, clients(name, city, domain)")
         .eq("org_id", orgId)
         .order("visit_date", { ascending: false })
         .order("id");
@@ -106,6 +109,7 @@ export async function buildReport(
         .range(from, to),
     ),
     supabase.from("catalog_items").select("sku, name").eq("org_id", orgId).not("sku", "is", null),
+    getReportActivities(orgId, cut ?? "1900-01-01", azi, agentId || null, domainId || null),
   ]);
 
   // Cadranele se citesc din view, care aplică aceleași reguli ca pe teren.
@@ -218,6 +222,22 @@ export async function buildReport(
     workingDays,
     orgTargetVisitsPerDay: Number(orgRow?.target_visits_per_day ?? 5),
     visits,
+    activities: [
+      ...activities,
+      ...visits.map((visit) => ({
+        id: `vizita:${visit.id}`,
+        kind: "vizita" as const,
+        date: visit.visit_date,
+        sortAt: `${visit.visit_date}T12:00:00Z`,
+        agentId: visit.agent_id,
+        client: visit.clients?.name ?? "—",
+        city: visit.clients?.city ?? null,
+        domainId: visit.clients?.domain ?? "constructii",
+        channel: null,
+        mode: "Vizită",
+        description: visit.report_discussion?.trim() ?? "",
+      })),
+    ].sort((a, b) => a.sortAt.localeCompare(b.sortAt)),
     clientCount: new Set(visits.map((v) => v.client_id)).size,
     quotesForVisitedClients: quotesForVisitedClients.length,
     acceptedQuotesForVisitedClients: quotesForVisitedClients.filter((q) => q.status === "accepted").length,

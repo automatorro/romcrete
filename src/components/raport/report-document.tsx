@@ -450,6 +450,42 @@ export function ReportDocument({
         )}
       </Section>
 
+      <Section {...at("activitati")}>
+        {!data.activities ? (
+          <p className="text-sm text-neutral-500">Raport salvat înainte de înregistrarea centralizată a activităților.</p>
+        ) : data.activities.length === 0 ? (
+          <p className="text-sm text-neutral-500">Nicio contactare sau activitate comercială în perioadă.</p>
+        ) : (
+          <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
+                  <th className="py-1.5 pr-2">Data</th>
+                  <th className="py-1.5 pr-2">Firmă</th>
+                  <th className="py-1.5 pr-2">Agent</th>
+                  <th className="py-1.5 pr-2">Mod contactare</th>
+                  <th className="py-1.5">Detalii</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.activities.map((activity) => (
+                  <tr key={activity.id} className="border-b border-neutral-100 align-top">
+                    <td className="py-1.5 pr-2 whitespace-nowrap">{formatDate(activity.date)}</td>
+                    <td className="py-1.5 pr-2">
+                      {activity.client}
+                      {activity.city ? <span className="text-neutral-500"> · {activity.city}</span> : null}
+                    </td>
+                    <td className="py-1.5 pr-2">{activity.agent}</td>
+                    <td className="py-1.5 pr-2">{activity.mode}</td>
+                    <td className="py-1.5 whitespace-pre-wrap">{activity.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
       <Section {...at("oferte")}>
         {data.quotes.length === 0 ? (
           <p className="text-sm text-neutral-500">Nicio ofertă emisă în perioadă.</p>

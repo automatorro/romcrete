@@ -35,6 +35,7 @@ export function ClientHistory({
   today: string;
 }) {
   const [filter, setFilter] = useState<Filter>("toate");
+  const [activityNotice, setActivityNotice] = useState<{ text: string; error: boolean } | null>(null);
   const kinds = FILTERS.find((f) => f.id === filter)?.kinds ?? [];
   const shown = kinds.length ? items.filter((i) => kinds.includes(i.kind)) : items;
   const count = (f: (typeof FILTERS)[number]) =>
@@ -46,7 +47,17 @@ export function ClientHistory({
         <summary>
           <span className="text-brand-700">＋ Notează telefon, email sau discuție</span>
         </summary>
-        <form action={logActivity} className="space-y-3 pt-3 pb-3.5">
+        <form
+          action={async (formData) => {
+            const result = await logActivity(formData);
+            setActivityNotice(
+              result.ok
+                ? { text: "Activitatea a fost salvată în istoricul firmei.", error: false }
+                : { text: result.error, error: true },
+            );
+          }}
+          className="space-y-3 pt-3 pb-3.5"
+        >
           <input type="hidden" name="client_id" value={clientId} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {MANUAL_KINDS.map((k, i) => (
@@ -82,6 +93,11 @@ export function ClientHistory({
           <SubmitButton className="btn btn-ok btn-lg w-full" pendingLabel="Se salvează…">
             Salvează în istoric
           </SubmitButton>
+          {activityNotice ? (
+            <p role={activityNotice.error ? "alert" : "status"} className={activityNotice.error ? "text-sm text-red-700" : "text-sm text-green-700"}>
+              {activityNotice.text}
+            </p>
+          ) : null}
         </form>
       </details>
 

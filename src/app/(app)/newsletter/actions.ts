@@ -143,6 +143,7 @@ export async function logNewsletterSent(
     revalidatePath(`/clienti/${c}`);
     revalidatePath(`/teren/firma/${c}`);
   }
+  revalidatePath("/teren/vizite");
   return { logged: Number(data ?? 0) };
 }
 

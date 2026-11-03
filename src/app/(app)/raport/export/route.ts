@@ -5,6 +5,7 @@ import { requireOrg } from "@/lib/auth";
 import { buildActivity, type Granularity, type Metrics } from "@/lib/activitate";
 import { getDomains } from "@/lib/domenii";
 import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import { getReportActivities } from "@/lib/raport-activitati";
 import { bareOrizontale, barePeCategorii, linii, type Chart } from "@/lib/raport-grafice";
 
 // exceljs are nevoie de Node, nu de runtime-ul edge.
@@ -188,9 +189,10 @@ export async function GET(request: NextRequest) {
   const agent = sp.get("ag");
   const domeniu = sp.get("dom");
 
-  const [domenii, data] = await Promise.all([
+  const [domenii, data, reportActivities] = await Promise.all([
     getDomains(orgId),
     buildActivity(orgId, from, to, gran, agent, domeniu),
+    getReportActivities(orgId, from, to, agent === "echipa" ? null : agent, domeniu),
   ]);
   // Fără filtru de domeniu, exportul are nevoie de vocabularul întreg, ca
   // fiecare bifă din orice domeniu să-și găsească eticheta.
@@ -364,39 +366,79 @@ export async function GET(request: NextRequest) {
     { header: "Firmă", key: "firma", width: 26 },
     { header: "Localitate", key: "oras", width: 16 },
     { header: "Domeniu", key: "domeniu", width: 18 },
+    { header: "Mod contactare", key: "mod", width: 18 },
     { header: "Tip vizită", key: "tip", width: 13 },
     ...groups.map((g) => ({ header: g.label, key: `g_${g.id}`, width: 22 })),
     { header: "Modele discutate", key: "modele", width: 30 },
     { header: "Pas următor — data", key: "pasdata", width: 16, format: DATA },
     { header: "Pas bifat", key: "pasfacut", width: 11 },
-    { header: "Note libere", key: "note", width: 60 },
+    { header: "Discuție / note libere", key: "note", width: 60 },
   ]);
 
-  for (const v of data.visits) {
-    const row: Record<string, unknown> = {
-      data: new Date(`${v.date}T12:00:00Z`),
-      agent: v.agent,
-      firma: v.client,
-      oras: v.city ?? "",
-      domeniu: v.domain,
-      tip: v.prima ? "Prima vizită" : "Revizită",
-      modele: v.pumpSkus.join(" | "),
-      pasdata: v.nextStepDate ? new Date(`${v.nextStepDate}T12:00:00Z`) : null,
-      pasfacut: v.nextStepDate ? (v.nextStepDone ? "da" : "nu") : "",
-      note: Object.entries(v.notes)
-        .filter(([, t]) => t?.trim())
-        .map(([gid, t]) => `${groups.find((g) => g.id === gid)?.label ?? gid}: ${t}`)
-        .join(" || "),
-    };
-    for (const g of groups) {
-      const raw = v.answers[g.id];
-      row[`g_${g.id}`] = Array.isArray(raw)
-        ? raw.map((x) => optionLabel(sections, g.id, x)).join(", ")
-        : raw
-          ? optionLabel(sections, g.id, String(raw))
-          : "";
+  const visitRows = data.visits.map((v) => ({
+    date: v.date,
+    sortAt: `${v.date}T12:00:00Z`,
+    agent: v.agent,
+    client: v.client,
+    city: v.city ?? "",
+    domain: v.domain,
+    mode: "Vizită",
+    visit: v,
+    discussion: v.reportDiscussion?.trim() ?? "",
+  }));
+  const activityRows = reportActivities.map((activity) => ({
+    date: activity.date,
+    sortAt: activity.sortAt,
+    agent: data.members.find((member) => member.user_id === activity.agentId)?.full_name ?? "—",
+    client: activity.client,
+    city: activity.city ?? "",
+    domain: domenii.find((d) => d.id === activity.domainId)?.label ?? "—",
+    mode: activity.mode,
+    activity,
+    discussion: activity.description,
+  }));
+  const reportRows = [...visitRows, ...activityRows].sort((a, b) => a.sortAt.localeCompare(b.sortAt));
+
+  for (const item of reportRows) {
+    if ("visit" in item) {
+      const v = item.visit;
+      const row: Record<string, unknown> = {
+        data: new Date(`${item.date}T12:00:00Z`),
+        agent: item.agent,
+        firma: item.client,
+        oras: item.city,
+        domeniu: item.domain,
+        mod: item.mode,
+        tip: v.prima ? "Prima vizită" : "Revizită",
+        modele: v.pumpSkus.join(" | "),
+        pasdata: v.nextStepDate ? new Date(`${v.nextStepDate}T12:00:00Z`) : null,
+        pasfacut: v.nextStepDate ? (v.nextStepDone ? "da" : "nu") : "",
+        note: [item.discussion, ...Object.entries(v.notes)
+          .filter(([, t]) => t?.trim())
+          .map(([gid, t]) => `${groups.find((g) => g.id === gid)?.label ?? gid}: ${t}`)]
+          .filter(Boolean)
+          .join(" || "),
+      };
+      for (const g of groups) {
+        const raw = v.answers[g.id];
+        row[`g_${g.id}`] = Array.isArray(raw)
+          ? raw.map((x) => optionLabel(sections, g.id, x)).join(", ")
+          : raw
+            ? optionLabel(sections, g.id, String(raw))
+            : "";
+      }
+      vizite.addRow(row);
+    } else {
+      vizite.addRow({
+        data: new Date(`${item.date}T12:00:00Z`),
+        agent: item.agent,
+        firma: item.client,
+        oras: item.city,
+        domeniu: item.domain,
+        mod: item.mode,
+        note: item.activity.description,
+      });
     }
-    vizite.addRow(row);
   }
   finish(vizite);
 

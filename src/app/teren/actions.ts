@@ -248,37 +248,82 @@ export async function postponeStep(formData: FormData) {
 }
 
 /** Notează în istoricul firmei un telefon, un email, o întâlnire sau o notă. */
-export async function logActivity(formData: FormData) {
+export async function logActivity(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { orgId, user } = await requireOrg();
   const clientId = String(formData.get("client_id") ?? "");
   const kind = String(formData.get("kind") ?? "");
   const body = String(formData.get("body") ?? "").trim();
   const date = String(formData.get("date") ?? "");
-  if (!clientId || !isManualKind(kind)) return;
+  if (!clientId || !isManualKind(kind)) return { ok: false, error: "Alege firma și modul de contactare." };
   // Un contact nu se notează în viitor: ar apărea în raportul unei săptămâni încă netrecute.
-  if (ISO_DAY.test(date) && date > todayRo()) return;
+  if (ISO_DAY.test(date) && date > todayRo()) {
+    return { ok: false, error: "Contactarea nu poate fi înregistrată pentru o zi viitoare." };
+  }
 
   // O zi din trecut se notează la prânz, ca ordinea din istoric să rămână firească.
   const occurred = ISO_DAY.test(date) && date !== todayRo() ? `${date}T12:00:00Z` : new Date().toISOString();
 
   const supabase = await createClient();
-  await supabase.from("client_activities").insert({
-    org_id: orgId,
-    client_id: clientId,
-    agent_id: user.id,
-    kind,
-    body: body || null,
-    occurred_at: occurred,
-  });
+  const { data, error } = await supabase
+    .from("client_activities")
+    .insert({
+      org_id: orgId,
+      client_id: clientId,
+      agent_id: user.id,
+      kind,
+      body: body || null,
+      occurred_at: occurred,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `Activitatea nu s-a putut salva: ${error.message}` };
+  if (!data) return { ok: false, error: "Activitatea nu s-a putut salva în istoricul firmei." };
 
   refreshClient(clientId);
+  return { ok: true };
 }
 
 /** Din „Vizitele mele”: un telefon, email sau WhatsApp trecut din agendă, pe ziua lui. */
-export async function logContactFromList(formData: FormData) {
+export async function logContactFromList(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const kind = String(formData.get("kind") ?? "");
-  if (!["telefon", "email", "whatsapp"].includes(kind)) return;
-  await logActivity(formData);
+  if (!["telefon", "email", "whatsapp"].includes(kind)) {
+    return { ok: false, error: "Alege telefon, email sau WhatsApp." };
+  }
+  return logActivity(formData);
+}
+
+/** Înregistrează apelul/emailul înainte de a deschide aplicația telefonului sau de email. */
+export async function recordContactAction(
+  clientId: string,
+  kind: "telefon" | "email",
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { orgId, user } = await requireOrg();
+  if (!clientId || (kind !== "telefon" && kind !== "email")) {
+    return { ok: false, error: "Contactarea nu a putut fi înregistrată." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("client_activities")
+    .insert({
+      org_id: orgId,
+      client_id: clientId,
+      agent_id: user.id,
+      kind,
+      body: kind === "telefon" ? "Apel inițiat din fișa firmei." : "Email deschis din fișa firmei.",
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `Contactarea nu s-a putut salva: ${error.message}` };
+  if (!data) return { ok: false, error: "Contactarea nu s-a putut salva în istoricul firmei." };
+
+  refreshClient(clientId);
+  revalidatePath("/teren/vizite");
+  return { ok: true };
 }
 
 /** Șterge o notă din istoric. RLS lasă doar autorul sau conducerea. */

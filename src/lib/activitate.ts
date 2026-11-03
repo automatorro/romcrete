@@ -53,6 +53,7 @@ export type VisitDetail = {
   prima: boolean;
   answers: Answers;
   notes: Notes;
+  reportDiscussion: string | null;
   pumpSkus: string[];
   nextStepDate: string | null;
   nextStepDone: boolean;
@@ -214,7 +215,7 @@ const DECISE = ["accepted", "rejected", "expired"];
 
 type RawVisit = {
   id: string; client_id: string; agent_id: string | null; visit_date: string;
-  answers: Answers; notes: Notes; pump_skus: string[];
+  answers: Answers; notes: Notes; report_discussion: string | null; pump_skus: string[];
   next_step_date: string | null; next_step_done_at: string | null;
 };
 
@@ -319,7 +320,7 @@ export async function buildActivity(
     ),
     supabase
       .from("visits")
-      .select("id, client_id, agent_id, visit_date, answers, notes, pump_skus, next_step_date, next_step_done_at")
+      .select("id, client_id, agent_id, visit_date, answers, notes, report_discussion, pump_skus, next_step_date, next_step_done_at")
       .eq("org_id", orgId)
       .gte("visit_date", prevFrom)
       .lte("visit_date", to)
@@ -791,6 +792,7 @@ export async function buildActivity(
         prima: primaVizita.get(v.client_id) === v.visit_date,
         answers: v.answers ?? {},
         notes: v.notes ?? {},
+        reportDiscussion: v.report_discussion,
         pumpSkus: v.pump_skus ?? [],
         nextStepDate: v.next_step_date,
         nextStepDone: Boolean(v.next_step_done_at),

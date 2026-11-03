@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { deleteActivity, deleteVisit, logContactFromList } from "@/app/teren/actions";
+import { deleteActivity, deleteVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
+import { ContactFromListForm } from "@/components/terrain/contact-from-list-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { Segmented } from "@/components/ui/segmented";
 import { addDays, shortDay, todayRo } from "@/lib/agenda";
@@ -262,56 +263,7 @@ export default async function VizitePage(props: PageProps<"/teren/vizite">) {
             ) : null}
 
             {contactDay === day ? (
-              <form action={logContactFromList} className="card mb-2 space-y-3 p-3">
-                <input type="hidden" name="date" value={day} />
-                {(clientRows ?? []).length ? (
-                  <>
-                    <div>
-                      <label htmlFor={`firma-${day}`} className="label">
-                        Firma
-                      </label>
-                      <select id={`firma-${day}`} name="client_id" required className="input" defaultValue="">
-                        <option value="" disabled>
-                          Alege firma
-                        </option>
-                        {(clientRows ?? []).map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.city ? ` · ${c.city}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Felul contactului">
-                      {CONTACT_KINDS.map((k, i) => (
-                        <label
-                          key={k}
-                          className="chip justify-center rounded-xl has-checked:border-brand-600 has-checked:bg-brand-600 has-checked:text-white"
-                        >
-                          <input type="radio" name="kind" value={k} defaultChecked={i === 0} className="sr-only" />
-                          {HISTORY_LABELS[k]}
-                        </label>
-                      ))}
-                    </div>
-                    <textarea
-                      name="body"
-                      rows={2}
-                      placeholder="Ce s-a discutat (opțional)"
-                      className="input"
-                    />
-                    <SubmitButton className="btn btn-ok btn-lg w-full" pendingLabel="Se salvează…">
-                      Salvează pe {shortDay(day)}
-                    </SubmitButton>
-                    <p className="text-xs text-neutral-500">
-                      Firma nouă? Trece întâi o vizită sau adaug-o din „＋ Vizită”, apoi notează contactul.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-neutral-500">
-                    Încă nicio firmă. Adaugă firma din „＋ Vizită”, apoi notează contactul.
-                  </p>
-                )}
-              </form>
+              <ContactFromListForm day={day} clients={clientRows ?? []} />
             ) : null}
 
             {dayVisits.length === 0 && dayContacts.length === 0 ? (

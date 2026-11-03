@@ -104,18 +104,28 @@ export async function updateQuote(
   return { success: "Oferta a fost salvată." };
 }
 
-export async function setQuoteStatus(formData: FormData) {
+export async function setQuoteStatus(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireOrg();
 
   const quoteId = String(formData.get("quote_id") ?? "");
   const status = quoteStatusSchema.safeParse(formData.get("status"));
-  if (!quoteId || !status.success) return;
+  if (!quoteId || !status.success) return { ok: false, error: "Starea ofertei nu este validă." };
 
   const supabase = await createClient();
-  await supabase.from("quotes").update({ status: status.data }).eq("id", quoteId);
+  const { data, error } = await supabase
+    .from("quotes")
+    .update({ status: status.data })
+    .eq("id", quoteId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Oferta nu există sau nu ai dreptul să-i schimbi starea." };
 
   refreshQuote(quoteId);
   revalidatePath("/oferte");
+  return { ok: true };
 }
 
 /** De ce s-a pierdut oferta: motivul din listă și, opțional, ce a spus clientul. */
@@ -206,34 +216,42 @@ export async function markQuoteWhatsApp(quoteId: string) {
   return markQuoteSent(quoteId, "whatsapp");
 }
 
-async function markQuoteSent(quoteId: string, channel: "email" | "whatsapp") {
+async function markQuoteSent(
+  quoteId: string,
+  channel: "email" | "whatsapp",
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { user } = await requireOrg();
   const supabase = await createClient();
-  const { data: quote } = await supabase
+  const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select("id, org_id, client_id, number, status")
     .eq("id", quoteId)
     .maybeSingle();
-  if (!quote) return;
+  if (quoteError) return { ok: false, error: quoteError.message };
+  if (!quote) return { ok: false, error: "Oferta nu există sau nu o poți accesa." };
+  if (!quote.client_id) {
+    return { ok: false, error: "Asociază oferta unei firme ca trimiterea să poată fi înregistrată în istoricul ei." };
+  }
 
   if (quote.status === "draft") {
-    await supabase.from("quotes").update({ status: "sent" }).eq("id", quote.id);
+    const { error } = await supabase.from("quotes").update({ status: "sent" }).eq("id", quote.id);
+    if (error) return { ok: false, error: error.message };
   }
-  if (quote.client_id) {
-    await supabase.from("client_activities").insert({
-      org_id: quote.org_id,
-      client_id: quote.client_id,
-      agent_id: user.id,
-      kind: channel,
-      body: `Oferta ${quote.number} trimisă pe ${channel === "email" ? "email" : "WhatsApp"}.`,
-      quote_id: quote.id,
-    });
-    revalidatePath(`/teren/firma/${quote.client_id}`);
-    revalidatePath(`/clienti/${quote.client_id}`);
-    // Emailul sau WhatsApp-ul se numără în raport și apare în „Vizitele mele”.
-    revalidatePath("/teren/vizite");
-  }
+  const { error: activityError } = await supabase.from("client_activities").insert({
+    org_id: quote.org_id,
+    client_id: quote.client_id,
+    agent_id: user.id,
+    kind: channel,
+    body: `Oferta ${quote.number} trimisă pe ${channel === "email" ? "email" : "WhatsApp"}.`,
+    quote_id: quote.id,
+  });
+  if (activityError) return { ok: false, error: `Trimiterea nu s-a putut salva în istoricul firmei: ${activityError.message}` };
+
+  revalidatePath(`/teren/firma/${quote.client_id}`);
+  revalidatePath(`/clienti/${quote.client_id}`);
+  revalidatePath("/teren/vizite");
   refreshQuote(quote.id);
+  return { ok: true };
 }
 
 /** Copiază o ofertă existentă, cu tot cu linii, sub un număr nou. */

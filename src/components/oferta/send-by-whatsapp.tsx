@@ -30,6 +30,7 @@ export function SendByWhatsApp({
   const [file, setFile] = useState<File | null>(null);
   const [fallback, setFallback] = useState(false);
   const [missing, setMissing] = useState("");
+  const [trackingError, setTrackingError] = useState("");
 
   const text = `Bună ziua, vă trimit oferta ${number}${clientName ? ` pentru ${clientName}` : ""}. Pentru orice întrebare, vă stau la dispoziție.\n${orgName}`;
 
@@ -56,18 +57,40 @@ export function SendByWhatsApp({
     }
   };
 
+  const logSent = async () => {
+    try {
+      const result = await markQuoteWhatsApp(quoteId);
+      if (!result.ok) {
+        setTrackingError(result.error);
+        setState("error");
+        return false;
+      }
+      setState("sent");
+      return true;
+    } catch (e) {
+      setTrackingError(e instanceof Error ? `Trimiterea nu s-a putut salva: ${e.message}` : "Trimiterea nu s-a putut salva.");
+      setState("error");
+      return false;
+    }
+  };
+
   const send = async () => {
     if (!file) return;
+    setTrackingError("");
+    let shared = false;
     if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file], text, title: `Oferta ${number}` });
-        await markQuoteWhatsApp(quoteId);
-        setState("sent");
-        return;
+        shared = true;
       } catch (e) {
         // Agentul a închis meniul de partajare: nu s-a trimis nimic, nu notăm nimic.
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
+    }
+
+    if (shared) {
+      await logSent();
+      return;
     }
 
     // Rezerva: PDF-ul se descarcă, WhatsApp se deschide cu mesajul scris, iar fișierul se atașează de mână.
@@ -79,8 +102,7 @@ export function SendByWhatsApp({
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
     setFallback(true);
-    await markQuoteWhatsApp(quoteId);
-    setState("sent");
+    await logSent();
   };
 
   return (
@@ -104,7 +126,9 @@ export function SendByWhatsApp({
 
       <p className="text-xs text-neutral-500" role={state === "error" ? "alert" : undefined}>
         {state === "error"
-          ? missing
+          ? trackingError
+            ? trackingError
+            : missing
             ? `Oferta nu pleacă fără poze: lipsește poza pentru ${missing}. Pune-o mai sus, la „Poze lipsă”.`
             : "PDF-ul nu s-a putut pregăti. Verifică semnalul (sau reintră în cont) și încearcă din nou."
           : state === "ready"

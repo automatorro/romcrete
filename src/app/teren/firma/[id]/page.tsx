@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { startVisit, updateCompany } from "@/app/teren/actions";
 import { CompanyFields } from "@/app/teren/company-fields";
 import { ClientHistory } from "@/components/client-history";
+import { TrackedContactLink } from "@/components/tracked-contact-link";
 import { NewsletterPrefs } from "@/components/newsletter-prefs";
 import { SubmitButton } from "@/components/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -77,8 +78,8 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
   const adresa = [state.address, state.city, state.county].filter(Boolean).join(", ");
   const dateFirma = [
     { label: "Persoană de contact", value: state.contact_person },
-    { label: "Telefon", value: state.phone, href: state.phone ? `tel:${state.phone}` : null },
-    { label: "Email", value: state.email, href: state.email ? `mailto:${state.email}` : null, wide: true },
+    { label: "Telefon", value: state.phone, href: state.phone ? `tel:${state.phone}` : null, channel: "telefon" as const },
+    { label: "Email", value: state.email, href: state.email ? `mailto:${state.email}` : null, channel: "email" as const, wide: true },
     { label: "CUI", value: state.cui },
     { label: "Nr. Reg. Com.", value: state.reg_com },
     { label: "Adresă", value: adresa || null, wide: true },
@@ -118,21 +119,25 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
           {state.phone || state.email ? (
             <div className="mt-3 grid grid-cols-2 gap-2">
               {state.phone ? (
-                <a
+                <TrackedContactLink
+                  clientId={state.client_id}
+                  channel="telefon"
                   href={`tel:${state.phone}`}
                   className={`btn btn-secondary btn-lg ${state.email ? "" : "col-span-2"}`}
                 >
                   Sună
-                </a>
+                </TrackedContactLink>
               ) : null}
               {state.email ? (
                 // Se deschide programul de email al calculatorului sau al telefonului (Outlook).
-                <a
+                <TrackedContactLink
+                  clientId={state.client_id}
+                  channel="email"
                   href={`mailto:${state.email}`}
                   className={`btn btn-secondary btn-lg ${state.phone ? "" : "col-span-2"}`}
                 >
                   Email
-                </a>
+                </TrackedContactLink>
               ) : null}
             </div>
           ) : null}
@@ -151,10 +156,15 @@ export default async function FirmaPage(props: PageProps<"/teren/firma/[id]">) {
                   <div key={d.label} className={"wide" in d ? "col-span-2" : undefined}>
                     <dt className="text-xs text-neutral-500">{d.label}</dt>
                     <dd className="break-words">
-                      {d.href ? (
-                        <a href={d.href} className="text-brand-700 hover:underline">
+                      {d.href && "channel" in d ? (
+                        <TrackedContactLink
+                          clientId={state.client_id}
+                          channel={d.channel}
+                          href={d.href}
+                          className="text-brand-700 hover:underline"
+                        >
                           {d.value}
-                        </a>
+                        </TrackedContactLink>
                       ) : (
                         d.value
                       )}

@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import type { NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth";
+import { getReportActivities } from "@/lib/raport-activitati";
 import { allRows } from "@/lib/toate-randurile";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,22 +38,29 @@ export async function GET(request: NextRequest) {
   const agentId = sp.get("ag");
   const domainId = sp.get("dom");
   const supabase = await createClient();
-  const visits = await allRows<VisitReportRow>((start, end) => {
-    let query = supabase
-      .from("visits")
-      .select(
-        "visit_date, agent_id, report_contact, report_discussion, report_outcome, report_proposal_made, report_next_visit_date, report_observations, clients!inner(name, domain)",
-      )
-      .eq("org_id", orgId)
-      .gte("visit_date", from)
-      .lte("visit_date", to)
-      .order("visit_date")
-      .order("id")
-      .range(start, end);
-    if (agentId && agentId !== "echipa") query = query.eq("agent_id", agentId);
-    if (domainId) query = query.eq("clients.domain", domainId);
-    return query;
-  });
+  const [visits, reportActivities] = await Promise.all([
+    allRows<VisitReportRow>((start, end) => {
+      let query = supabase
+        .from("visits")
+        .select(
+          "visit_date, agent_id, report_contact, report_discussion, report_outcome, report_proposal_made, report_next_visit_date, report_observations, clients!inner(name, domain)",
+        )
+        .eq("org_id", orgId)
+        .gte("visit_date", from)
+        .lte("visit_date", to)
+        .order("visit_date")
+        .order("id")
+        .range(start, end);
+      if (agentId && agentId !== "echipa") query = query.eq("agent_id", agentId);
+      if (domainId === "constructii") {
+        query = query.or("domain.eq.constructii,domain.is.null", { referencedTable: "clients" });
+      } else if (domainId) {
+        query = query.eq("clients.domain", domainId);
+      }
+      return query;
+    }),
+    getReportActivities(orgId, from, to, agentId === "echipa" ? null : agentId, domainId),
+  ]);
 
   const { data: memberships } = await supabase
     .from("memberships")
@@ -68,6 +76,7 @@ export async function GET(request: NextRequest) {
     { header: "Data", key: "date", width: 14 },
     { header: "Agent", key: "agent", width: 24 },
     { header: "Firmă", key: "company", width: 30 },
+    { header: "Mod contactare", key: "mode", width: 18 },
     { header: "Cu cine s-a discutat", key: "contact", width: 26 },
     { header: "Ce s-a discutat", key: "discussion", width: 44 },
     { header: "Rezultatul discuției", key: "outcome", width: 38 },
@@ -82,20 +91,50 @@ export async function GET(request: NextRequest) {
   header.height = 30;
   sheet.getColumn("date").numFmt = DATE;
   sheet.getColumn("nextVisit").numFmt = DATE;
-  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
+  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
 
-  for (const visit of visits) {
+  const visitRows = visits.map((visit) => {
     const linked = Array.isArray(visit.clients) ? visit.clients[0] : visit.clients;
-    sheet.addRow({
-      date: new Date(`${visit.visit_date}T12:00:00Z`),
+    return {
+      day: visit.visit_date,
+      sortAt: `${visit.visit_date}T12:00:00Z`,
       agent: visit.agent_id ? agents.get(visit.agent_id) ?? "Agent fără nume" : "—",
       company: linked?.name ?? "—",
+      mode: "Vizită",
       contact: visit.report_contact ?? "",
       discussion: visit.report_discussion ?? "",
       outcome: visit.report_outcome ?? "",
       proposal: visit.report_proposal_made === null ? "" : visit.report_proposal_made ? "Da" : "Nu",
-      nextVisit: visit.report_next_visit_date ? new Date(`${visit.report_next_visit_date}T12:00:00Z`) : null,
+      nextVisit: visit.report_next_visit_date,
       observations: visit.report_observations ?? "",
+    };
+  });
+  const activityRows = reportActivities.map((activity) => ({
+    day: activity.date,
+    sortAt: activity.sortAt,
+    agent: activity.agentId ? agents.get(activity.agentId) ?? "Agent fără nume" : "—",
+    company: activity.client,
+    mode: activity.mode,
+    contact: "",
+    discussion: activity.description,
+    outcome: "",
+    proposal: "",
+    nextVisit: null,
+    observations: "",
+  }));
+  const reportRows = [...visitRows, ...activityRows].sort((a, b) => a.sortAt.localeCompare(b.sortAt));
+  for (const row of reportRows) {
+    sheet.addRow({
+      date: new Date(`${row.day}T12:00:00Z`),
+      agent: row.agent,
+      company: row.company,
+      mode: row.mode,
+      contact: row.contact,
+      discussion: row.discussion,
+      outcome: row.outcome,
+      proposal: row.proposal,
+      nextVisit: row.nextVisit ? new Date(`${row.nextVisit}T12:00:00Z`) : null,
+      observations: row.observations,
     });
   }
 

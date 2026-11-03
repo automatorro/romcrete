@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { markQuoteEmailed } from "@/app/(app)/oferte/actions";
 
 /**
@@ -30,9 +32,26 @@ export function SendByEmail({
     "Cu stimă,",
   ].join("\n");
   const mailto = `mailto:${clientEmail ?? ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const markSent = () => {
-    void markQuoteEmailed(quoteId).catch(() => {});
+  const openEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await markQuoteEmailed(quoteId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      window.location.href = mailto;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Emailul nu a putut fi înregistrat.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -44,12 +63,18 @@ export function SendByEmail({
         </span>
         Descarcă PDF-ul
       </a>
-      <a href={mailto} onClick={markSent} className="btn btn-primary btn-lg w-full justify-start">
+      <a
+        href={mailto}
+        onClick={openEmail}
+        aria-disabled={saving}
+        className="btn btn-primary btn-lg w-full justify-start"
+      >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-semibold">
           2
         </span>
-        Deschide Outlook
+        {saving ? "Se înregistrează…" : "Deschide Outlook"}
       </a>
+      {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
       <p className="text-xs text-neutral-500">
         {clientEmail
           ? `Se deschide aplicația de email implicită a dispozitivului. Setează Outlook ca aplicație implicită pentru email ca să se deschidă direct acolo. Emailul către ${clientEmail} are subiectul și textul completate.`

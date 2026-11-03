@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { completeStep, postponeStep, startVisit } from "@/app/teren/actions";
 import { SubmitButton } from "@/components/submit-button";
+import { TrackedContactLink } from "@/components/tracked-contact-link";
 import { quickDates, shortDay } from "@/lib/agenda";
 import type { ManualKind } from "@/lib/istoric";
 
@@ -74,9 +75,14 @@ export function StepActions({
           </form>
         ) : null}
         {phone ? (
-          <a href={`tel:${phone}`} className="btn btn-secondary btn-lg">
+          <TrackedContactLink
+            clientId={clientId}
+            channel="telefon"
+            href={`tel:${phone}`}
+            className="btn btn-secondary btn-lg"
+          >
             Sună
-          </a>
+          </TrackedContactLink>
         ) : null}
         {mapQuery ? (
           <a
