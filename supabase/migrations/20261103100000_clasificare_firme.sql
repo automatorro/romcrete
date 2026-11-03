@@ -111,8 +111,6 @@ begin
       or new.classification_note is distinct from old.classification_note
       or new.classified_at is distinct from old.classified_at
       or new.classified_by is distinct from old.classified_by;
-      or new.classified_at is distinct from old.classified_at
-      or new.classified_by is distinct from old.classified_by;
   else
     v_changed := new.occupation_id is not null
       or new.classification_status <> 'needs_review'
