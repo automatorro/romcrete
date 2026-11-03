@@ -400,6 +400,29 @@ export async function GET(request: NextRequest) {
   }
   finish(vizite);
 
+  const voceaPietei = sheet(wb, "Vocea pieței", [
+    { header: "Data", key: "data", width: 12, format: DATA },
+    { header: "Firmă", key: "firma", width: 28 },
+    { header: "Localitate", key: "oras", width: 18 },
+    { header: "Agent", key: "agent", width: 22 },
+    { header: "Temă", key: "tema", width: 28 },
+    { header: "Ce au spus, cu cuvintele lor", key: "text", width: 80 },
+  ]);
+  for (const v of data.visits) {
+    for (const [groupId, text] of Object.entries(v.notes ?? {})) {
+      if (!text?.trim()) continue;
+      voceaPietei.addRow({
+        data: new Date(`${v.date}T12:00:00Z`),
+        firma: v.client,
+        oras: v.city ?? "",
+        agent: v.agent,
+        tema: groups.find((g) => g.id === groupId)?.label ?? groupId,
+        text: text.trim(),
+      });
+    }
+  }
+  finish(voceaPietei);
+
   // --------------------------------------------------------------- Firme
   const firme = sheet(wb, "Firme", [
     { header: "Firmă", key: "nume", width: 28 },

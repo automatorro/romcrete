@@ -225,6 +225,10 @@ export type ReportSnapshot = {
     prevAnswered?: number;
     prev?: Record<string, number>;
   }[];
+  /** Notele libere din vizitele perioadei, păstrate ca formulări ale clientului. */
+  marketVoices?: { date: string; client: string; city: string | null; agent: string; group: string; text: string }[];
+  /** Numărul total de note înainte de limita de afișare. Lipsesc la rapoartele vechi. */
+  marketVoicesTotal?: number;
   notes: { date: string; client: string; agent: string; text: string }[];
 };
 

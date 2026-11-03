@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import { markQuoteEmailed } from "@/app/(app)/oferte/actions";
 
 /**
@@ -22,8 +20,6 @@ export function SendByEmail({
   clientEmail: string | null;
   orgName: string;
 }) {
-  const [opening, setOpening] = useState(false);
-
   const subject = `Oferta ${number} – ${orgName}`;
   const body = [
     "Bună ziua,",
@@ -35,14 +31,8 @@ export function SendByEmail({
   ].join("\n");
   const mailto = `mailto:${clientEmail ?? ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-  const open = async () => {
-    setOpening(true);
-    try {
-      await markQuoteEmailed(quoteId);
-    } finally {
-      setOpening(false);
-      window.location.href = mailto;
-    }
+  const markSent = () => {
+    void markQuoteEmailed(quoteId).catch(() => {});
   };
 
   return (
@@ -54,16 +44,17 @@ export function SendByEmail({
         </span>
         Descarcă PDF-ul
       </a>
-      <button type="button" onClick={open} disabled={opening} className="btn btn-primary btn-lg w-full justify-start">
+      <a href={mailto} onClick={markSent} className="btn btn-primary btn-lg w-full justify-start">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-semibold">
           2
         </span>
-        {opening ? "Se deschide…" : "Scrie emailul în Outlook"}
-      </button>
+        Deschide Outlook
+      </a>
       <p className="text-xs text-neutral-500">
         {clientEmail
-          ? `Se deschide un email către ${clientEmail}, cu subiectul și textul completate. Atașează PDF-ul de la pasul 1.`
-          : "Firma nu are email în fișă: completează destinatarul în Outlook și atașează PDF-ul de la pasul 1."}{" "}
+          ? `Se deschide aplicația de email implicită a dispozitivului. Setează Outlook ca aplicație implicită pentru email ca să se deschidă direct acolo. Emailul către ${clientEmail} are subiectul și textul completate.`
+          : "Firma nu are email în fișă: completează destinatarul în Outlook după deschidere. Setează Outlook ca aplicație implicită pentru email."}{" "}
+        Atașează PDF-ul descărcat la pasul 1; pe telefon îl găsești în Descărcări și îl alegi din agrafa emailului.{" "}
         Trimiterea se notează în istoricul firmei, iar o ciornă trece în „Trimisă”.
       </p>
     </div>

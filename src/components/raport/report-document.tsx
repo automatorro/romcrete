@@ -483,20 +483,48 @@ export function ReportDocument({
       </Section>
 
       <Section {...at("piata")}>
-        {data.market.length === 0 ? (
+        {data.market.length === 0 && !data.marketVoices?.length ? (
           <p className="text-sm text-neutral-500">Nu s-au notat încă răspunsuri despre piață.</p>
         ) : (
-          <>
-            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              {data.market.map((g) => (
-                <MarketGroup key={g.group} g={g} prevLabel={data.prevLabel} />
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-neutral-500">
-              Procentele sunt din firmele care au răspuns la întrebare. Schimbarea față de {data.prevLabel} apare doar când
-              ambele perioade au cel puțin {MARKET_MIN_BASE} firme care au răspuns; sub atât, e zgomot.
-            </p>
-          </>
+          <div>
+            {data.market.length ? (
+              <>
+                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                  {data.market.map((g) => (
+                    <MarketGroup key={g.group} g={g} prevLabel={data.prevLabel} />
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  Procentele sunt din firmele care au răspuns la întrebare. Schimbarea față de {data.prevLabel} apare doar când
+                  ambele perioade au cel puțin {MARKET_MIN_BASE} firme care au răspuns; sub atât, e zgomot.
+                </p>
+              </>
+            ) : null}
+            {data.marketVoices ? (
+              <div className="mt-5">
+                <h3 className="mb-2 text-sm font-semibold">Ce au spus, cu cuvintele lor</h3>
+                {data.marketVoices.length ? (
+                  <ul className="space-y-2 text-sm">
+                    {data.marketVoices.map((x, i) => (
+                      <li key={`${x.date}-${x.client}-${i}`} className="border-l-2 border-neutral-300 pl-3 break-inside-avoid">
+                        <p className="text-xs text-neutral-500">
+                          {x.client}{x.city ? ` · ${x.city}` : ""} · {formatDate(x.date)} · {x.agent} · {x.group}
+                        </p>
+                        <p>{x.text}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-neutral-500">Nicio notă liberă în perioada raportului.</p>
+                )}
+                {(data.marketVoicesTotal ?? 0) > data.marketVoices.length ? (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    Sunt afișate cele mai recente {data.marketVoices.length} din {data.marketVoicesTotal} note.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         )}
       </Section>
 
