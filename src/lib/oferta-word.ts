@@ -30,7 +30,6 @@ import {
   companyFooter,
   currencyLabel,
   joinAddress,
-  priceRows,
   type OfferDocument,
   type OfferProduct,
 } from "@/lib/oferta-document";
@@ -47,7 +46,6 @@ const PAGE_W = 21 * CM;
 const MARGIN_X = Math.round(1.6 * CM);
 const CONTENT_W = PAGE_W - 2 * MARGIN_X;
 const FONT = "Open Sans";
-const BLUE = "00B0F0";
 const DARK = "262626";
 const GREY = "BFBFBF";
 
@@ -85,7 +83,7 @@ function imageRun(img: Img, maxW: number, maxH: number) {
   });
 }
 
-const asset = (file: string) => readFile(path.join(process.cwd(), "public", "oferta", file)).catch(() => null);
+const asset = (file: string) => readFile(path.join(process.cwd(), "public", "oferta", file));
 
 const text = (value: string, opts: { bold?: boolean; size?: number; color?: string } = {}) =>
   new TextRun({ text: value, bold: opts.bold, size: opts.size, color: opts.color, font: FONT });
@@ -102,34 +100,6 @@ function para(children: ParagraphChild[] | string, opts: { align?: (typeof Align
 /** „Etichetă: valoare”, cu eticheta îngroșată; un rând gol nu se scrie. */
 const labelled = (label: string, value: string | null | undefined) =>
   value ? para([text(`${label}: `, { bold: true }), text(value)], { after: 40 }) : null;
-
-/**
- * Titlul unei părți a ofertei: casetă, scris albastru, ca în oferta model.
- * Caseta e un tabel cu o celulă: chenarul de paragraf al bibliotecii iese în
- * altă ordine decât cere Word și l-ar putea raporta ca deteriorat.
- */
-const banner = (title: string) => [
-  new Paragraph({ children: [], spacing: { before: 200, after: 0 }, keepNext: true }),
-  table([CONTENT_W], [
-    new TableRow({
-      cantSplit: true,
-      children: [
-        cell(
-          [
-            new Paragraph({
-              children: [new TextRun({ text: title, font: "Impact", size: 34, color: BLUE })],
-              alignment: AlignmentType.CENTER,
-              spacing: { before: 60, after: 60 },
-              keepNext: true,
-            }),
-          ],
-          { width: CONTENT_W },
-        ),
-      ],
-    }),
-  ]),
-  new Paragraph({ children: [], spacing: { after: 120 }, keepNext: true }),
-];
 
 const heading = (title: string) => para([text(title, { bold: true, size: 24 })], { before: 200, after: 80, keepNext: true });
 
@@ -210,8 +180,8 @@ function partiesTable(doc: OfferDocument) {
   );
 }
 
-async function productParts(product: OfferProduct, index: number, doc: OfferDocument) {
-  const { item, intro, contents, specs, benefits, recommendations, applications, price } = product;
+async function productParts(product: OfferProduct, index: number) {
+  const { item, intro, contents, specs, benefits, recommendations, applications } = product;
   const parts: (Paragraph | Table)[] = [];
 
   // Imaginea produsului deschide prezentarea, alături de descriere și beneficii.
@@ -222,8 +192,8 @@ async function productParts(product: OfferProduct, index: number, doc: OfferDocu
     ...introLines.map((line, lineIndex) =>
       para([text(line, { bold: introLines.length > 1 && lineIndex === 0 })]),
     ),
-    ...(benefits.length
-      ? [heading("Avantaje și beneficii"), ...benefits.map(bullet)]
+    ...(benefits.length || recommendations.length
+      ? [heading("Avantaje și beneficii"), ...[...benefits, ...recommendations].map(bullet)]
       : []),
   ];
   if (img) {
@@ -260,7 +230,7 @@ async function productParts(product: OfferProduct, index: number, doc: OfferDocu
       ? [Math.round(CONTENT_W * 0.32), Math.round(CONTENT_W * 0.28), CONTENT_W - Math.round(CONTENT_W * 0.32) - Math.round(CONTENT_W * 0.28)]
       : [Math.round(CONTENT_W * 0.45), CONTENT_W - Math.round(CONTENT_W * 0.45)];
     const head = ["Parametru", "Valoare", ...(withNotes ? ["Observații / detalii suplimentare"] : [])];
-    parts.push(heading("Specificații tehnice cheie"));
+    parts.push(heading(`Caracteristici tehnice ${item.name}`));
     parts.push(
       table(widths, [
         new TableRow({
@@ -280,93 +250,73 @@ async function productParts(product: OfferProduct, index: number, doc: OfferDocu
     );
   }
 
-  if (recommendations.length) {
-    parts.push(heading("Recomandări și condiții de utilizare"), ...recommendations.map(bullet));
-  }
-
-  // Prețul produsului, imediat sub el, în lei și în euro.
-  const { base, other } = doc;
-  const widths = other ? [Math.round(CONTENT_W * 0.5), Math.round(CONTENT_W * 0.25), CONTENT_W - Math.round(CONTENT_W * 0.5) - Math.round(CONTENT_W * 0.25)] : [Math.round(CONTENT_W * 0.6), CONTENT_W - Math.round(CONTENT_W * 0.6)];
-  const rows = priceRows(item, price, Number(doc.quote.discount_pct));
-  parts.push(para("", { after: 120 }));
-  parts.push(
-    table(widths, [
-      new TableRow({
-        tableHeader: true,
-        cantSplit: true,
-        children: [
-          cell([cellText(`Preț · ${index + 1}. ${item.name}`, { bold: true, color: "FFFFFF" })], { width: widths[0], shade: DARK }),
-          cell([cellText(currencyLabel(base), { bold: true, color: "FFFFFF", right: true })], { width: widths[1], shade: DARK }),
-          ...(other ? [cell([cellText(currencyLabel(other.currency), { bold: true, color: "FFFFFF", right: true })], { width: widths[2], shade: DARK })] : []),
-        ],
-      }),
-      ...rows.map(
-        (row) =>
-          new TableRow({
-            cantSplit: true,
-            children: [
-              cell([cellText(row.label, { bold: row.strong })], { width: widths[0] }),
-              cell([cellText(formatMoney(row.value, base), { bold: row.strong, right: true })], { width: widths[1] }),
-              ...(other
-                ? [cell([cellText(formatMoney(other.convert(row.value), other.currency), { bold: row.strong, right: true, color: "1D4F91" })], { width: widths[2] })]
-                : []),
-            ],
-          }),
-      ),
-    ]),
-  );
   return parts;
 }
 
 function financialTable(doc: OfferDocument) {
   const { totals, products, base, other } = doc;
-  if (!totals) return [];
+  if (!products.length) return [];
   const cur = currencyLabel(base);
-  const w = [1250, 2900, 750, 1750, 1750];
-  w.push(CONTENT_W - w.reduce((a, b) => a + b, 0));
-  const vatRates = [...new Set(products.map((p) => Number(p.item.vat_rate)))];
-  const head = ["Part N", "Denumire", "Cant.", `Preț unitar ${cur} fără TVA`, `Valoare ${cur} fără TVA`, vatRates.length === 1 ? `TVA (${vatRates[0]}%)` : "TVA"];
-  const sumRow = (label: string, a: string, b: string, opts: { bold?: boolean; shade?: string; color?: string } = {}) =>
+  const widths = [650, 1250, 3700, 950, 1770, CONTENT_W - 650 - 1250 - 3700 - 950 - 1770];
+  const amountCell = (value: number, bold = false, color?: string) => [
+    cellText(formatMoney(value, base), { bold, right: true, color }),
+    ...(other ? [cellText(formatMoney(other.convert(value), other.currency), { right: true, size: 16, color: color ?? "595959" })] : []),
+  ];
+  const totalRow = (label: string, value: number, options: { bold?: boolean; shade?: string; color?: string } = {}) =>
     new TableRow({
       cantSplit: true,
       children: [
-        cell([cellText(label, { bold: opts.bold, right: true, color: opts.color })], { width: w[0] + w[1] + w[2] + w[3], span: 4, shade: opts.shade }),
-        ...(b === "__span__"
-          ? [cell([cellText(a, { bold: opts.bold, right: true, color: opts.color })], { width: w[4] + w[5], span: 2, shade: opts.shade })]
-          : [
-              cell([cellText(a, { bold: opts.bold, right: true })], { width: w[4] }),
-              cell([cellText(b, { bold: opts.bold, right: true })], { width: w[5] }),
-            ]),
+        cell([cellText(label, { bold: options.bold, right: true, color: options.color })], {
+          width: CONTENT_W - widths[5],
+          span: 5,
+          shade: options.shade,
+        }),
+        cell(amountCell(value, options.bold, options.color), { width: widths[5], shade: options.shade }),
       ],
     });
 
   return [
-    ...banner("OFERTĂ FINANCIARĂ"),
-    table(w, [
-      new TableRow({ tableHeader: true, children: head.map((h, i) => cell([cellText(h, { bold: true, right: i >= 2 })], { width: w[i], shade: "F2F2F2" })) }),
-      ...products.map(
-        ({ item, sku, price }) =>
+    para("", { before: 200, after: 0 }),
+    table(widths, [
+      new TableRow({
+        tableHeader: true,
+        cantSplit: true,
+        children: ["Nr.crt", "Cod", "Produs", "Buc", `Preț ${cur}/buc`, `Total ${cur}`]
+          .map((label, index) =>
+            cell([cellText(label, { bold: true, right: index >= 3 })], { width: widths[index], shade: "F2F2F2" }),
+          ),
+      }),
+      ...products.map(({ item, sku, price }, index) => {
+        const quantity = Number(item.quantity);
+        const unitPrice = quantity ? price.net / quantity : price.net;
+        return (
           new TableRow({
             cantSplit: true,
             children: [
+              String(index + 1),
               sku ?? "",
               item.name,
               `${formatQuantity(item.quantity)} ${item.unit}`,
-              formatMoney(item.unit_price, base),
-              formatMoney(price.net, base),
-              formatMoney(price.vat, base),
-            ].map((v, i) => cell([cellText(v, { right: i >= 2 })], { width: w[i] })),
-          }),
-      ),
-      ...(totals.quoteDiscount > 0
-        ? [sumRow(`din care discount ofertă ${Number(doc.quote.discount_pct)}%`, `−${formatMoney(totals.quoteDiscount, base)}`, "")]
-        : []),
-      sumRow("Total fără TVA / TVA", formatMoney(totals.net, base), formatMoney(totals.vat, base), { bold: true }),
-      sumRow(`TOTAL ${cur.toUpperCase()} TVA INCLUS`, formatMoney(totals.gross, base), "__span__", { bold: true, shade: DARK, color: "FFFFFF" }),
-      ...(other
-        ? [sumRow(`Echivalent în ${other.currency === "EUR" ? "euro" : "lei"}, TVA inclus`, formatMoney(other.convert(totals.gross), other.currency), "__span__", { bold: true })]
+              "",
+              "",
+            ].map((value, cellIndex) =>
+              cell(
+                cellIndex === 4 ? amountCell(unitPrice) : cellIndex === 5 ? amountCell(price.net) : [cellText(value, { right: cellIndex === 0 || cellIndex === 3 })],
+                { width: widths[cellIndex] },
+              ),
+            ),
+          })
+        );
+      }),
+      ...(totals
+        ? [
+            totalRow("Total fără TVA", totals.net, { bold: true }),
+            totalRow("TVA", totals.vat),
+            totalRow(`TOTAL ${cur.toUpperCase()} TVA INCLUS`, totals.gross, { bold: true, shade: DARK, color: "FFFFFF" }),
+          ]
         : []),
     ]),
+    para("Prețurile unitare și totalurile pe produs nu includ TVA.", { before: 40, after: 100 }),
   ];
 }
 
@@ -413,7 +363,7 @@ export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
   if (quote.title) body.push(para([text(quote.title, { bold: true })], { align: AlignmentType.CENTER }));
   if (doc.rateText) body.push(para([text(doc.rateText, { size: 18, color: "595959" })], { align: AlignmentType.RIGHT }));
 
-  for (const [index, product] of doc.products.entries()) body.push(...(await productParts(product, index, doc)));
+  for (const [index, product] of doc.products.entries()) body.push(...(await productParts(product, index)));
 
   if (doc.other && doc.products.length) {
     body.push(
@@ -432,10 +382,9 @@ export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
   body.push(...financialTable(doc));
 
   if (quote.notes) {
-    body.push(heading("Observații"), ...quote.notes.split(/\r?\n/).map((l) => para(l)));
+    body.push(...quote.notes.split(/\r?\n/).map((l) => para(l)));
   }
   if (doc.terms.length) {
-    body.push(...banner("CONDIȚII ȘI TERMENE DE PLATĂ"));
     for (const term of doc.terms) {
       body.push(
         new Paragraph({
@@ -450,6 +399,10 @@ export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
   body.push(await signatureBlock(doc));
 
   const small = (value: string, bold = false) => text(value, { size: 15, bold, color: bold ? "111111" : "404040" });
+  const logoHeader = () =>
+    new Header({
+      children: logoImg ? [new Paragraph({ children: [imageRun(logoImg, 170, 45)], alignment: AlignmentType.RIGHT })] : [],
+    });
   const pageFooter = () =>
     new Footer({
     children: [
@@ -494,15 +447,12 @@ export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
           titlePage: true,
           page: {
             size: { width: PAGE_W, height: Math.round(29.7 * CM) },
-            margin: { top: Math.round(1.2 * CM), bottom: Math.round(2.6 * CM), left: MARGIN_X, right: MARGIN_X, header: 400, footer: 300 },
+            margin: { top: Math.round(2.2 * CM), bottom: Math.round(2.6 * CM), left: MARGIN_X, right: MARGIN_X, header: 400, footer: 300 },
           },
         },
-        // Prima pagină are antetul mare în pagină; următoarele, doar sigla sus.
         headers: {
-          first: new Header({ children: [] }),
-          default: new Header({
-            children: logoImg ? [new Paragraph({ children: [imageRun(logoImg, 170, 45)], alignment: AlignmentType.RIGHT })] : [],
-          }),
+          first: logoHeader(),
+          default: logoHeader(),
         },
         footers: { first: pageFooter(), default: pageFooter() },
         children: body,

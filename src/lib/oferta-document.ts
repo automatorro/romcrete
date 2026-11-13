@@ -188,30 +188,6 @@ export async function loadOfferDocument(db: Db, quoteId: string, organization: O
 /** Numele monedei așa cum se scrie pe ofertă. */
 export const currencyLabel = (currency: string) => (currency === "RON" ? "lei" : "EUR");
 
-/** Rândurile de preț de sub un produs, aceleași pe PDF și în Word. */
-export function priceRows(item: QuoteItem, price: OfferProduct["price"], quoteDiscountPct: number) {
-  const lineDiscount = Number(item.discount_pct) > 0;
-  const qty = Number(item.quantity);
-  return [
-    { label: "Preț unitar fără TVA", value: Number(item.unit_price), strong: false },
-    ...(lineDiscount || qty !== 1
-      ? [
-          {
-            label: `Valoare pentru ${new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 3 }).format(qty)} ${item.unit}${lineDiscount ? `, cu discount ${item.discount_pct}%` : ""}`,
-            value: price.beforeQuoteDiscount,
-            strong: false,
-          },
-        ]
-      : []),
-    ...(price.quoteDiscount > 0
-      ? [{ label: `Discount ofertă ${quoteDiscountPct}%`, value: -price.quoteDiscount, strong: false }]
-      : []),
-    { label: "Valoare fără TVA", value: price.net, strong: false },
-    { label: `TVA ${item.vat_rate}%`, value: price.vat, strong: false },
-    { label: "Preț total cu TVA", value: price.gross, strong: true },
-  ];
-}
-
 /** Adresa firmei, pe un rând. */
 export const joinAddress = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ");
 

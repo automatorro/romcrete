@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import type { NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth";
@@ -33,7 +35,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/print/oferta
   const { missing } = await loadQuoteSheets(supabase, (items ?? []) as QuoteItem[]);
   if (missing.length) return missingPhotos(quote.number as string, id, missing);
 
+  const logo = await readFile(path.join(process.cwd(), "public", "oferta", "sigla.png"));
   const pdf = await renderPdf(`${request.nextUrl.origin}/print/oferta/${id}?pdf=1`, request.cookies.getAll(), {
+    headerHtml: headerTemplate(logo.toString("base64")),
     footerHtml: footerTemplate(companyFooter(organization)),
   });
   const file = offerFileName(quote.number as string, "pdf");
@@ -47,6 +51,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/print/oferta
   });
 }
 
+function headerTemplate(logoBase64: string) {
+  return (
+    `<div style="width:100%;margin:0 12mm;box-sizing:border-box;text-align:right;font-size:0">` +
+    `<img src="data:image/png;base64,${logoBase64}" style="height:9mm;width:auto;object-fit:contain">` +
+    `</div>`
+  );
+}
 
 /**
  * Subsolul fiecărei pagini, ca în oferta model: datele firmei și numărul

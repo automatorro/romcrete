@@ -1,4 +1,4 @@
-import { Anton, Open_Sans } from "next/font/google";
+import { Open_Sans } from "next/font/google";
 import Link from "next/link";
 
 import { FinancialOffer } from "@/components/oferta/financial-offer";
@@ -7,22 +7,19 @@ import { PrintButton } from "@/components/print-button";
 import { companyFooter, joinAddress, type OfferDocument } from "@/lib/oferta-document";
 import { formatDate } from "@/lib/totals";
 
-// Fonturile ofertei Romcrete: Open Sans pentru text, titlurile părților în
-// stilul Impact (Anton e echivalentul lui, disponibil și pe server).
+// Fontul documentului de ofertă.
 const openSans = Open_Sans({ subsets: ["latin", "latin-ext"], variable: "--font-oferta" });
-const anton = Anton({ weight: "400", subsets: ["latin", "latin-ext"], variable: "--font-oferta-titlu" });
 
 /** Oferta desenată din datele ei; pagina de tipărire și PDF-ul o folosesc la fel. */
 export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
   const { organization } = doc;
   const { quote, client, agent, products, missing, base, other, eur, rateText } = doc;
-  const discount = Number(quote.discount_pct);
   const footer = companyFooter(organization);
 
   return (
     <div className="min-h-screen bg-neutral-200 py-6 print:min-h-0 print:bg-white print:py-0">
       {/* În PDF marginea de jos lasă loc subsolului cu datele firmei, pus de Chrome pe fiecare pagină. */}
-      {pdf ? <style>{"@page { size: A4; margin: 12mm 12mm 32mm 12mm; }"}</style> : null}
+      {pdf ? <style>{"@page { size: A4; margin: 20mm 12mm 32mm 12mm; }"}</style> : null}
       <div className="no-print mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4">
         <Link href={`/oferte/${quote.id}`} className="text-sm text-brand-700 hover:underline">
           ← Înapoi la ofertă
@@ -52,7 +49,14 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
       ) : null}
 
       <div className={`overflow-x-auto print:overflow-visible ${missing.length ? "print:hidden" : ""}`}>
-        <article className={`${openSans.variable} ${anton.variable} oferta a4-sheet mx-auto bg-white text-[13px] leading-normal text-neutral-900 shadow-lg`}>
+        <article className={`${openSans.variable} oferta a4-sheet mx-auto bg-white text-[13px] leading-normal text-neutral-900 shadow-lg`}>
+          {pdf ? null : (
+            <header className="mb-4 flex justify-end">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/oferta/sigla.png" alt={organization.name} className="h-[11mm] w-auto object-contain" />
+            </header>
+          )}
+
           {/* ------------------------------------------------ cine face oferta și pentru cine */}
           <section className="mt-6 grid grid-cols-2 gap-5 break-inside-avoid">
             <div className="oferta-caseta space-y-0.5 p-4">
@@ -82,17 +86,10 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
           {quote.title ? <p className="mt-2 text-center font-semibold">{quote.title}</p> : null}
           {rateText ? <p className="mt-1 text-right text-[11px] text-neutral-600">{rateText}</p> : null}
 
-          {/* ------------------------------------------------ produsele, fiecare cu fișa și prețul lui */}
+          {/* ------------------------------------------------ prezentarea produselor */}
           {products.length === 0 ? <p className="mt-4 text-neutral-500">Oferta nu conține produse.</p> : null}
           {products.map((product, index) => (
-            <ProductBlock
-              key={product.item.id}
-              product={product}
-              index={index}
-              quoteDiscountPct={discount}
-              base={base}
-              other={other}
-            />
+            <ProductBlock key={product.item.id} product={product} index={index} />
           ))}
 
           {other && products.length ? (
@@ -102,28 +99,21 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
             </p>
           ) : null}
 
-          {/* ------------------------------------------------ totalul, doar la cerere */}
-          {doc.totals ? (
-            <section className="break-inside-avoid">
-              <Banner>OFERTĂ FINANCIARĂ</Banner>
-              <div className="mt-4">
-                <FinancialOffer doc={doc} />
-              </div>
-            </section>
-          ) : null}
+          {/* ------------------------------------------------ tabelul de preț și totalul opțional */}
+          <section className="mt-6">
+            <FinancialOffer doc={doc} />
+          </section>
 
           {quote.notes ? (
             <section className="mt-6 break-inside-avoid">
-              <p className="font-bold">Observații</p>
-              <p className="mt-1 whitespace-pre-line">{quote.notes}</p>
+              <p className="whitespace-pre-line">{quote.notes}</p>
             </section>
           ) : null}
 
           {/* ------------------------------------------------ condițiile și semnătura */}
           {doc.terms.length ? (
-            <section className="break-inside-avoid">
-              <Banner>CONDIȚII ȘI TERMENE DE PLATĂ</Banner>
-              <ul className="mt-4 list-disc space-y-1 pl-5">
+            <section className="mt-6 break-inside-avoid">
+              <ul className="list-disc space-y-1 pl-5">
                 {doc.terms.map((term, i) => (
                   <li key={i}>
                     {term.label ? <b>{term.label}: </b> : null}
@@ -176,12 +166,5 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <p>
       <b>{label}:</b> {children}
     </p>
-  );
-}
-
-/** Titlul unei părți a ofertei, ca în oferta model: caseta albă cu umbră și scris albastru. */
-function Banner({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="oferta-caseta oferta-titlu mt-8 px-4 py-2 text-center text-[20px] break-after-avoid">{children}</h2>
   );
 }

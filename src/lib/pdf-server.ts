@@ -12,8 +12,8 @@ import puppeteer from "puppeteer-core";
 export async function renderPdf(
   url: string,
   cookies: { name: string; value: string }[],
-  /** Subsolul repetat pe fiecare pagină (HTML cu stiluri inline); are nevoie de loc în marginea de jos. */
-  options: { footerHtml?: string; marginBottom?: string } = {},
+  /** Antetul și subsolul repetate pe fiecare pagină; folosesc marginile definite de pagină. */
+  options: { headerHtml?: string; footerHtml?: string; marginBottom?: string } = {},
 ): Promise<Uint8Array> {
   const local = process.env.CHROMIUM_PATH;
   const browser = await puppeteer.launch({
@@ -45,15 +45,15 @@ export async function renderPdf(
       );
     });
 
-    if (options.footerHtml) {
-      // Marginile vin din @page-ul paginii; Chrome desenează subsolul în marginea de jos.
+    if (options.headerHtml || options.footerHtml) {
+      // Marginile vin din @page-ul paginii; Chrome desenează antetul și subsolul în afara conținutului.
       return await page.pdf({
         format: "A4",
         printBackground: true,
         preferCSSPageSize: true,
         displayHeaderFooter: true,
-        headerTemplate: "<span></span>",
-        footerTemplate: options.footerHtml,
+        headerTemplate: options.headerHtml ?? "<span></span>",
+        footerTemplate: options.footerHtml ?? "<span></span>",
       });
     }
     return await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });

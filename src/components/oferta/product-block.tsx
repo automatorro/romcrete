@@ -1,5 +1,4 @@
-import { currencyLabel, priceRows, type OfferProduct, type OtherCurrency } from "@/lib/oferta-document";
-import { formatMoney } from "@/lib/totals";
+import { type OfferProduct } from "@/lib/oferta-document";
 
 /**
  * Un produs pe oferta tipărită: imaginea, descrierea și avantajele deschid
@@ -8,19 +7,12 @@ import { formatMoney } from "@/lib/totals";
 export function ProductBlock({
   product,
   index,
-  quoteDiscountPct,
-  base,
-  other,
 }: {
   product: OfferProduct;
   index: number;
-  quoteDiscountPct: number;
-  base: string;
-  other: OtherCurrency | null;
 }) {
-  const { item, image, intro, contents, specs, benefits, recommendations, applications, price } = product;
+  const { item, image, intro, contents, specs, benefits, recommendations, applications } = product;
   const withNotes = specs.some((s) => s.note);
-  const rows = priceRows(item, price, quoteDiscountPct);
   const introLines = (intro ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
   return (
@@ -46,10 +38,10 @@ export function ProductBlock({
               ))}
             </div>
           ) : null}
-          {benefits.length ? (
+          {benefits.length || recommendations.length ? (
             <div className="break-inside-avoid">
               <h3 className="mb-1 text-[14px] font-bold break-after-avoid">Avantaje și beneficii</h3>
-              <List items={benefits} />
+              <List items={[...benefits, ...recommendations]} />
             </div>
           ) : null}
         </div>
@@ -63,7 +55,7 @@ export function ProductBlock({
       {specs.length ? (
         // Titlul tabelului nu rămâne singur la capăt de pagină; un tabel scurt stă întreg.
         <div className={`mt-5 ${specs.length <= 14 ? "break-inside-avoid" : ""}`}>
-          <h3 className="mb-2 text-[14px] font-bold break-after-avoid">Specificații tehnice cheie</h3>
+          <h3 className="mb-2 text-[14px] font-bold break-after-avoid">Caracteristici tehnice {item.name}</h3>
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="bg-neutral-100">
@@ -89,36 +81,6 @@ export function ProductBlock({
         </div>
       ) : null}
 
-      <Section title="Recomandări și condiții de utilizare" items={recommendations} />
-
-      {/* Prețul produsului, imediat sub el, în lei și în euro. */}
-      <table className="mt-5 ml-auto w-[125mm] border-collapse text-[12px] tabular-nums break-inside-avoid">
-        <thead>
-          <tr className="bg-neutral-800 text-white">
-            <th className="px-2 py-1 text-left font-semibold">
-              Preț · {index + 1}. {item.name}
-            </th>
-            <th className="px-2 py-1 text-right font-semibold">{currencyLabel(base)}</th>
-            {other ? <th className="px-2 py-1 text-right font-semibold">{currencyLabel(other.currency)}</th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.label}
-              className={row.strong ? "border-t-2 border-neutral-900 text-[14px] font-bold" : "border-b border-neutral-200"}
-            >
-              <td className="px-2 py-1">{row.label}</td>
-              <td className="px-2 py-1 text-right whitespace-nowrap">{formatMoney(row.value, base)}</td>
-              {other ? (
-                <td className="px-2 py-1 text-right whitespace-nowrap text-brand-700">
-                  {formatMoney(other.convert(row.value), other.currency)}
-                </td>
-              ) : null}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </section>
   );
 }

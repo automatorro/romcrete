@@ -8,9 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata = { title: "Ofertă — tipărire" };
 
 /**
- * Oferta tipărită: datele ofertei, produsele unul sub altul cu fișa și prețul
- * fiecăruia, totalul
- * doar la cerere, condițiile, semnătura agentului și ștampila.
+ * Oferta tipărită: datele ofertei, produsele cu fișa, tabelul de prețuri,
+ * condițiile și blocul de semnare.
  */
 export default async function QuotePrintPage(props: PageProps<"/print/oferta/[id]">) {
   const { id } = await props.params;
