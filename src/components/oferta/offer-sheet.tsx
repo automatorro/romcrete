@@ -53,10 +53,6 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
 
       <div className={`overflow-x-auto print:overflow-visible ${missing.length ? "print:hidden" : ""}`}>
         <article className={`${openSans.variable} ${anton.variable} oferta a4-sheet mx-auto bg-white text-[13px] leading-normal text-neutral-900 shadow-lg`}>
-          {/* ------------------------------------------------ antetul firmei */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/oferta/antet.jpg" alt={organization.name} className="mx-auto block w-full max-w-[170mm]" />
-
           {/* ------------------------------------------------ cine face oferta și pentru cine */}
           <section className="mt-6 grid grid-cols-2 gap-5 break-inside-avoid">
             <div className="oferta-caseta space-y-0.5 p-4">
@@ -83,7 +79,6 @@ export function OfferSheet({ doc, pdf }: { doc: OfferDocument; pdf: boolean }) {
             </div>
           </section>
 
-          <Banner>OFERTĂ TEHNICO – FINANCIARĂ</Banner>
           {quote.title ? <p className="mt-2 text-center font-semibold">{quote.title}</p> : null}
           {rateText ? <p className="mt-1 text-right text-[11px] text-neutral-600">{rateText}</p> : null}
 

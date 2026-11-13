@@ -211,15 +211,20 @@ function partiesTable(doc: OfferDocument) {
 }
 
 async function productParts(product: OfferProduct, index: number, doc: OfferDocument) {
-  const { item, contents, specs, benefits, recommendations, applications, price } = product;
+  const { item, intro, contents, specs, benefits, recommendations, applications, price } = product;
   const parts: (Paragraph | Table)[] = [];
 
-  parts.push(para([text(`${index + 1}. ${item.name}`, { bold: true, size: 28 })], { before: index ? 480 : 240, after: 120, keepNext: true }));
-
-  // Poza în stânga, ce conține în dreapta. Prezentarea nu se pune: repetă specificațiile.
+  // Imaginea produsului deschide prezentarea, alături de descriere și beneficii.
   const img = await toImage(product.image);
+  const introLines = (intro ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const textSide = [
-    ...(contents.length ? [para([text("CONȚINE:", { bold: true })], { before: 80, after: 40 }), ...contents.map(bullet)] : []),
+    para([text(`${index + 1}. ${item.name}`, { bold: true, size: 30 })], { before: index ? 480 : 240, after: 120, keepNext: true }),
+    ...introLines.map((line, lineIndex) =>
+      para([text(line, { bold: introLines.length > 1 && lineIndex === 0 })]),
+    ),
+    ...(benefits.length
+      ? [heading("Avantaje și beneficii"), ...benefits.map(bullet)]
+      : []),
   ];
   if (img) {
     const imgW = Math.round(6.4 * CM);
@@ -245,6 +250,9 @@ async function productParts(product: OfferProduct, index: number, doc: OfferDocu
   } else {
     parts.push(...textSide);
   }
+
+  if (applications.length) parts.push(heading("Compatibilitate materiale"), ...applications.map(bullet));
+  if (contents.length) parts.push(heading("Unitățile complete includ"), ...contents.map(bullet));
 
   if (specs.length) {
     const withNotes = specs.some((s) => s.note);
@@ -272,12 +280,8 @@ async function productParts(product: OfferProduct, index: number, doc: OfferDocu
     );
   }
 
-  for (const [title, items] of [
-    ["Avantaje și beneficii", benefits],
-    ["Recomandări și condiții de utilizare", recommendations],
-    ["Aplicații recomandate", applications],
-  ] as const) {
-    if (items.length) parts.push(heading(title), ...items.map(bullet));
+  if (recommendations.length) {
+    parts.push(heading("Recomandări și condiții de utilizare"), ...recommendations.map(bullet));
   }
 
   // Prețul produsului, imediat sub el, în lei și în euro.
@@ -399,15 +403,13 @@ async function signatureBlock(doc: OfferDocument) {
 // ------------------------------------------------------------------ documentul
 
 export async function buildOfferDocx(doc: OfferDocument): Promise<Buffer> {
-  const [bannerBuf, logoBuf] = await Promise.all([asset("antet.jpg"), asset("sigla.png")]);
-  const [bannerImg, logoImg] = await Promise.all([toImage(bannerBuf), toImage(logoBuf)]);
+  const logoBuf = await asset("sigla.png");
+  const logoImg = await toImage(logoBuf);
   const footer = companyFooter(doc.organization);
   const { quote } = doc;
 
   const body: (Paragraph | Table)[] = [];
-  if (bannerImg) body.push(new Paragraph({ children: [imageRun(bannerImg, 640, 290)], alignment: AlignmentType.CENTER, spacing: { after: 240 } }));
   body.push(partiesTable(doc));
-  body.push(...banner("OFERTĂ TEHNICO – FINANCIARĂ"));
   if (quote.title) body.push(para([text(quote.title, { bold: true })], { align: AlignmentType.CENTER }));
   if (doc.rateText) body.push(para([text(doc.rateText, { size: 18, color: "595959" })], { align: AlignmentType.RIGHT }));
 

@@ -2,11 +2,8 @@ import { currencyLabel, priceRows, type OfferProduct, type OtherCurrency } from 
 import { formatMoney } from "@/lib/totals";
 
 /**
- * Un produs pe oferta tipărită, ca în oferta model Romcrete: titlul, poza cu
- * ce conține, specificațiile tehnice, avantajele, recomandările și aplicațiile,
- * apoi prețul lui în lei și în euro. Textul de prezentare nu se tipărește: din
- * magazin vine de regulă cu aceleași date ca tabelul de specificații. Produsele
- * stau unul sub altul, fiecare cu prețul propriu, pe oricâte pagini e nevoie.
+ * Un produs pe oferta tipărită: imaginea, descrierea și avantajele deschid
+ * prezentarea, urmate de compatibilitate, conținut, specificații și preț.
  */
 export function ProductBlock({
   product,
@@ -21,33 +18,47 @@ export function ProductBlock({
   base: string;
   other: OtherCurrency | null;
 }) {
-  const { item, image, contents, specs, benefits, recommendations, applications, price } = product;
+  const { item, image, intro, contents, specs, benefits, recommendations, applications, price } = product;
   const withNotes = specs.some((s) => s.note);
   const rows = priceRows(item, price, quoteDiscountPct);
+  const introLines = (intro ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
   return (
     <section className={index ? "mt-10 border-t border-neutral-300 pt-8" : "mt-6"}>
-      {/* Poza plutește în stânga, cu „Conține” lângă ea. */}
-      <div className="flow-root">
-        <h2 className="text-[17px] leading-tight font-bold break-after-avoid">
-          {index + 1}. {item.name}
-        </h2>
+      <div className="grid grid-cols-[minmax(0,62mm)_minmax(0,1fr)] items-start gap-5">
         {image ? (
-          <div className="float-left mt-3 mr-5 mb-2 flex h-[62mm] w-[62mm] items-center justify-center break-inside-avoid">
+          <div className="flex h-[62mm] w-[62mm] items-center justify-center break-inside-avoid">
             {/* Poza e deja în pagină (data: URI), ca PDF-ul să nu depindă de magazin. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image} alt={item.name} className="max-h-full max-w-full object-contain" />
           </div>
         ) : null}
-        <div className="mt-3 space-y-3">
-          {contents.length ? (
+        <div className={`min-w-0 space-y-3 ${image ? "" : "col-span-2"}`}>
+          <h2 className="text-[20px] leading-tight font-bold break-after-avoid">
+            {index + 1}. {item.name}
+          </h2>
+          {introLines.length ? (
+            <div className="space-y-2">
+              {introLines.map((line, i) => (
+                <p key={i} className={introLines.length > 1 && i === 0 ? "font-semibold" : ""}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {benefits.length ? (
             <div className="break-inside-avoid">
-              <p className="font-bold">CONȚINE:</p>
-              <List items={contents} />
+              <h3 className="mb-1 text-[14px] font-bold break-after-avoid">Avantaje și beneficii</h3>
+              <List items={benefits} />
             </div>
           ) : null}
         </div>
       </div>
+
+      <Section title="Compatibilitate materiale" items={applications} />
+      {contents.length ? (
+        <Section title="Unitățile complete includ" items={contents} />
+      ) : null}
 
       {specs.length ? (
         // Titlul tabelului nu rămâne singur la capăt de pagină; un tabel scurt stă întreg.
@@ -78,9 +89,7 @@ export function ProductBlock({
         </div>
       ) : null}
 
-      <Section title="Avantaje și beneficii" items={benefits} />
       <Section title="Recomandări și condiții de utilizare" items={recommendations} />
-      <Section title="Aplicații recomandate" items={applications} />
 
       {/* Prețul produsului, imediat sub el, în lei și în euro. */}
       <table className="mt-5 ml-auto w-[125mm] border-collapse text-[12px] tabular-nums break-inside-avoid">
