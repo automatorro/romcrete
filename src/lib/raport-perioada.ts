@@ -2,7 +2,7 @@ import { buildActivity } from "@/lib/activitate";
 import { addDays, todayRo } from "@/lib/agenda";
 import { overdueDecisions } from "@/lib/decizii";
 import { getDomains } from "@/lib/domenii";
-import { getQuestionCatalogue } from "@/lib/questions";
+import { getQuestionCatalogue, REMOVED_VISIT_QUESTION_IDS } from "@/lib/questions";
 import { periodFor, previousLabel, REPORT_TYPES, type ReportType } from "@/lib/perioade";
 import { scopeOf, type Highlight, type Kpi, type ReportSnapshot } from "@/lib/raport-sectiuni";
 import { lossReasonLabel } from "@/lib/pierderi";
@@ -20,7 +20,7 @@ export type {
 } from "@/lib/raport-sectiuni";
 
 /** Întrebările din vizită care spun ceva despre piață, nu despre o firmă anume. */
-const MARKET_GROUPS = ["obiectii", "atragere", "dece", "plata", "santier", "alimentare", "capacitate", "utilaj", "oameni"];
+const MARKET_GROUPS = ["obiectii", "dece", "santier", "alimentare", "utilaj"];
 
 /** Sub atâtea firme care au răspuns, o schimbare de procent e zgomot, nu semnal. */
 export const MARKET_MIN_BASE = 5;
@@ -470,7 +470,7 @@ export async function buildReportSnapshot(
   const questionGroups = questionSections.flatMap((section) => section.groups);
   const marketVoices = recente.flatMap((x) =>
     Object.entries(x.notes ?? {})
-      .filter(([, text]) => text?.trim())
+      .filter(([groupId, text]) => !REMOVED_VISIT_QUESTION_IDS.has(groupId) && text?.trim())
       .map(([groupId, text]) => ({
         date: x.date,
         client: x.client,

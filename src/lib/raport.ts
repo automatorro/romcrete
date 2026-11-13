@@ -1,5 +1,9 @@
 import { type Domain, getDomains } from "@/lib/domenii";
-import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import {
+  getQuestionCatalogue,
+  optionLabel,
+  REMOVED_VISIT_QUESTION_IDS,
+} from "@/lib/questions";
 import { getReportActivities, type ReportActivity } from "@/lib/raport-activitati";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/toate-randurile";
@@ -43,8 +47,6 @@ export type Report = {
   escalations: { id: string; firma: string; date: string; items: string[] }[];
   /** Câte firme sunt în fiecare cadran — ce e de făcut cu ele, nu doar cât sunt de calde. */
   focusCounts: Record<Focus, number>;
-  /** Ce anume oprește firmele care vor, dar nu pot. */
-  blockers: [string, number][];
   freeNotes: { firma: string; date: string; group: string; text: string }[];
 };
 
@@ -183,20 +185,9 @@ export async function buildReport(
   const focusCounts: Record<Focus, number> = {
     urmareste: 0, deblocheaza: 0, educa: 0, lasa: 0, necunoscut: 0,
   };
-  const blocaje = new Map<string, number>();
   for (const row of stateRows ?? []) {
     const f = (row.focus as Focus) ?? "necunoscut";
     focusCounts[f] = (focusCounts[f] ?? 0) + 1;
-    if (f !== "deblocheaza") continue;
-
-    // Numim blocajul cu numele lui: altfel „deblochează” rămâne o etichetă fără acțiune.
-    const a = (row.answers ?? {}) as Answers;
-    if (a.plata === "nupoate") blocaje.set("Nu are cu ce plăti acum", (blocaje.get("Nu are cu ce plăti acum") ?? 0) + 1);
-    if (!a.plata || a.plata === "nustie") blocaje.set("Nu se știe cum ar plăti", (blocaje.get("Nu se știe cum ar plăti") ?? 0) + 1);
-    if (a.capacitate === "nu") {
-      const motiv = "Nu are cerere neacoperită pentru capacitate suplimentară";
-      blocaje.set(motiv, (blocaje.get(motiv) ?? 0) + 1);
-    }
   }
 
   const { data: orgRow } = await supabase
@@ -254,7 +245,6 @@ export async function buildReport(
       .map(([agentId, r]) => ({ agentId, visits: r.visits, clients: r.clients.size, last: r.last }))
       .sort((a, b) => b.visits - a.visits),
     focusCounts,
-    blockers: [...blocaje.entries()].sort((a, b) => b[1] - a[1]),
     escalations: visits
       .filter((v) => Array.isArray(v.answers?.esc) && (v.answers.esc as string[]).length > 0)
       .map((v) => ({
@@ -266,7 +256,7 @@ export async function buildReport(
     freeNotes: visits
       .flatMap((v) =>
         Object.entries(v.notes ?? {})
-          .filter(([, t]) => t?.trim())
+          .filter(([gid, t]) => !REMOVED_VISIT_QUESTION_IDS.has(gid) && t?.trim())
           .map(([gid, t]) => ({
             firma: v.clients?.name ?? "—",
             date: v.visit_date,

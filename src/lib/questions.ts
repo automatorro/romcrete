@@ -4,6 +4,21 @@ import { type Domain, matchesDomain } from "@/lib/domenii";
 import { createClient } from "@/lib/supabase/server";
 import type { QuestionGroup, QuestionSection } from "@/lib/teren";
 
+// Keep catalog entries so saved answers stay readable; do not collect or report these groups.
+export const REMOVED_VISIT_QUESTION_IDS = new Set([
+  "echipa",
+  "volum",
+  "refuzat",
+  "oameni",
+  "capacitate",
+  "pretMod",
+  "calcul",
+  "atragere",
+  "manopera",
+  "accCat",
+  "plata",
+]);
+
 /**
  * Catalogul de întrebări din vizită. Stă în baza de date, nu în cod, deci
  * adăugarea unei întrebări noi nu cere deploy. `cache` îl încarcă o dată per cerere.

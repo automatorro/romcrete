@@ -10,7 +10,7 @@ import { todayRo } from "@/lib/agenda";
 import { requireOrg } from "@/lib/auth";
 import { findDomain, getAllDomains, matchesDomain } from "@/lib/domenii";
 import { buildMaterialSuggestions } from "@/lib/materiale";
-import { getQuestionCatalogue } from "@/lib/questions";
+import { getQuestionCatalogue, REMOVED_VISIT_QUESTION_IDS } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/toate-randurile";
 import type { Visit } from "@/lib/teren";
@@ -57,7 +57,7 @@ function QuoteBridge({
 
 export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">) {
   const { id } = await props.params;
-  const { orgId, organization } = await requireOrg();
+  const { orgId } = await requireOrg();
 
   const supabase = await createClient();
   const [{ data: visitRow }, domains, { data: pumpRows }, { data: quoteRow }] = await Promise.all([
@@ -98,7 +98,12 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
   // Domeniul firmei hotărăște ce se întreabă, în ce unitate se socotește și ce
   // pompe au rost să fie discutate.
   const domain = findDomain(domains, visit.clients?.domain ?? null);
-  const sections = await getQuestionCatalogue(orgId, domain);
+  const sections = (await getQuestionCatalogue(orgId, domain))
+    .map((section) => ({
+      ...section,
+      groups: section.groups.filter((group) => !REMOVED_VISIT_QUESTION_IDS.has(group.id)),
+    }))
+    .filter((section) => section.groups.length > 0);
 
   const allPumps = (pumpRows ?? []) as (PumpOption & {
     tech_type: string | null;
@@ -170,14 +175,6 @@ export default async function VizitaPage(props: PageProps<"/teren/vizita/[id]">)
         sections={sections}
         pumps={pumps}
         suggestions={suggestions}
-        assumptions={{
-          // Randamentul e al domeniului: la marcaje mecanizarea schimbă ordinul
-          // de mărime, la atelierul auto abia dublează.
-          productivityFactor: domain?.productivity_factor ?? Number(organization.productivity_factor ?? 2.5),
-          workingDaysPerMonth: Number(organization.working_days_per_month ?? 21),
-          unitShort: domain?.unit_short ?? "mp",
-          unitLabel: domain?.unit_label ?? "metri pătrați",
-        }}
         today={todayRo()}
         initial={{
           answers: visit.answers ?? {},

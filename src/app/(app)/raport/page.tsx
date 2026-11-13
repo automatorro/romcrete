@@ -150,8 +150,7 @@ export default async function RaportPage(props: PageProps<"/raport">) {
       <section className="card p-4">
         <h2 className="text-base font-semibold">Ce e de făcut cu firmele</h2>
         <p className="mt-0.5 mb-3 text-sm text-neutral-500">
-          Două axe: cât vrea și cât poate. O firmă entuziasmată fără bani și fără curent pe
-          șantier nu e o vânzare aproape de finalizare, e un blocaj de rezolvat.
+          O firmă interesată, dar cu un blocaj nerezolvat, nu e încă o vânzare aproape de finalizare.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {(["urmareste", "deblocheaza", "educa", "lasa"] as Focus[]).map((f) => (
@@ -178,17 +177,6 @@ export default async function RaportPage(props: PageProps<"/raport">) {
         ) : null}
       </section>
 
-      {r.blockers.length ? (
-        <section className="card p-4">
-          <h2 className="mb-1 text-base font-semibold">Ce le stă în cale</h2>
-          <p className="mb-3 text-sm text-neutral-500">
-            Firmele care vor, dar nu pot încă. Fiecare blocaj are o soluție comercială:
-            leasing, generator, sau un argument care nu depinde de volum.
-          </p>
-          <BarList rows={r.blockers} />
-        </section>
-      ) : null}
-
       {r.domainCounts.length > 1 ? (
         <section className="card p-4">
           <h2 className="mb-1 text-base font-semibold">Unde sunt firmele</h2>
@@ -214,10 +202,6 @@ export default async function RaportPage(props: PageProps<"/raport">) {
           <BarList rows={r.countBy("obiectii")} />
         </section>
         <section className="card p-4">
-          <h2 className="mb-3 text-base font-semibold">Ce beneficiu i-ar convinge</h2>
-          <BarList rows={r.countBy("atragere")} />
-        </section>
-        <section className="card p-4">
           <h2 className="mb-3 text-base font-semibold">Ce îl împiedică să folosească un utilaj</h2>
           <BarList rows={r.countBy("dece")} />
         </section>
@@ -233,17 +217,6 @@ export default async function RaportPage(props: PageProps<"/raport">) {
           <BarList rows={r.countBy("utilaj")} />
         </section>
         <section className="card p-4">
-          <h2 className="mb-1 text-base font-semibold">Găsesc oameni?</h2>
-          <p className="mb-3 text-xs text-neutral-500">
-            Criza de personal e argumentul de mecanizare care nu depinde de volumul de lucrări.
-          </p>
-          <BarList rows={r.countBy("oameni")} />
-        </section>
-        <section className="card p-4">
-          <h2 className="mb-3 text-base font-semibold">Cum ar plăti</h2>
-          <BarList rows={r.countBy("plata")} />
-        </section>
-        <section className="card p-4">
           <h2 className="mb-1 text-base font-semibold">Condiții întâlnite pe șantiere</h2>
           <BarList rows={r.countBy("santier")} />
         </section>
@@ -253,10 +226,6 @@ export default async function RaportPage(props: PageProps<"/raport">) {
             Context tehnic pentru alegerea unui model potrivit; lipsa curentului nu exclude vânzarea.
           </p>
           <BarList rows={r.countBy("alimentare")} />
-        </section>
-        <section className="card p-4">
-          <h2 className="mb-3 text-base font-semibold">Lucrări pierdute din lipsă de capacitate</h2>
-          <BarList rows={r.countBy("capacitate")} />
         </section>
       </div>
 

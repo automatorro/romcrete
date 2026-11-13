@@ -1,5 +1,6 @@
 import { todayRo } from "@/lib/agenda";
 import { getDomains } from "@/lib/domenii";
+import { REMOVED_VISIT_QUESTION_IDS } from "@/lib/questions";
 import { createClient } from "@/lib/supabase/server";
 import type { Answers, Notes } from "@/lib/teren";
 import { allRows } from "@/lib/toate-randurile";
@@ -21,8 +22,6 @@ export type Metrics = {
   pasiRestanti: number;
   /** Vizite în care s-a aflat destul cât să se poată califica meseriașul. */
   calificareCompleta: number;
-  /** Vizite în care s-au aflat ambele cifre necesare calculului de amortizare. */
-  cuCalculAmortizare: number;
   modeleDiscutate: number;
   intrebariOwner: number;
   /** Oferte emise în perioadă, fără ciorne. */
@@ -225,8 +224,7 @@ const calificat = (a: Answers) =>
   Array.isArray(a?.materiale) && a.materiale.length > 0 &&
   Boolean(a?.interes) &&
   Boolean(a?.decide) &&
-  ((Array.isArray(a?.obiectii) && a.obiectii.length > 0) ||
-    (Array.isArray(a?.atragere) && a.atragere.length > 0));
+  Array.isArray(a?.obiectii) && a.obiectii.length > 0;
 
 function computeMetrics(
   visits: RawVisit[],
@@ -255,7 +253,6 @@ function computeMetrics(
     cuPasUrmator: visits.filter((v) => v.next_step_date || v.answers?.urmator).length,
     pasiRestanti: restante,
     calificareCompleta: visits.filter((v) => calificat(v.answers)).length,
-    cuCalculAmortizare: visits.filter((v) => v.answers?.supr && v.answers?.manopera).length,
     modeleDiscutate: visits.reduce((n, v) => n + (v.pump_skus?.length ?? 0), 0),
     intrebariOwner: visits.filter(
       (v) => Array.isArray(v.answers?.esc) && (v.answers.esc as string[]).length > 0,
@@ -697,6 +694,7 @@ export async function buildActivity(
     const perGrup = new Map<string, Map<string, Set<string>>>();
     for (const v of vizite) {
       for (const [gid, raw] of Object.entries(v.answers ?? {})) {
+        if (REMOVED_VISIT_QUESTION_IDS.has(gid)) continue;
         const values = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
         if (!values.length) continue;
         const g = perGrup.get(gid) ?? new Map<string, Set<string>>();

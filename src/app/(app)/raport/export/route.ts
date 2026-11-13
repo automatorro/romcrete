@@ -4,7 +4,11 @@ import type { NextRequest } from "next/server";
 import { requireOrg } from "@/lib/auth";
 import { buildActivity, type Granularity, type Metrics } from "@/lib/activitate";
 import { getDomains } from "@/lib/domenii";
-import { getQuestionCatalogue, optionLabel } from "@/lib/questions";
+import {
+  getQuestionCatalogue,
+  optionLabel,
+  REMOVED_VISIT_QUESTION_IDS,
+} from "@/lib/questions";
 import { getReportActivities } from "@/lib/raport-activitati";
 import { bareOrizontale, barePeCategorii, linii, type Chart } from "@/lib/raport-grafice";
 
@@ -157,8 +161,6 @@ const INDICATORI: { label: string; get: (m: Metrics) => number | null; format?: 
   { label: "Pași restanți la sfârșitul perioadei", get: (m) => m.pasiRestanti },
   { label: "Vizite cu calificare completă", get: (m) => m.calificareCompleta },
   { label: "Pondere calificare completă", get: (m) => PROCENT(m.calificareCompleta, m.vizite), format: "0%" },
-  { label: "Vizite cu calcul de amortizare", get: (m) => m.cuCalculAmortizare },
-  { label: "Pondere cu calcul de amortizare", get: (m) => PROCENT(m.cuCalculAmortizare, m.vizite), format: "0%" },
   { label: "Modele discutate", get: (m) => m.modeleDiscutate },
   { label: "Întrebări escaladate către echipă", get: (m) => m.intrebariOwner },
   { label: "Oferte emise (fără ciorne)", get: (m) => m.oferteEmise },
@@ -359,7 +361,13 @@ export async function GET(request: NextRequest) {
   }
 
   // -------------------------------------------------------------- Vizite
-  const groups = sections.flatMap((s) => s.groups).filter((g) => g.kind === "single" || g.kind === "multi");
+  const groups = sections
+    .flatMap((s) => s.groups)
+    .filter(
+      (g) =>
+        !REMOVED_VISIT_QUESTION_IDS.has(g.id) &&
+        (g.kind === "single" || g.kind === "multi"),
+    );
   const vizite = sheet(wb, "Vizite", [
     { header: "Data", key: "data", width: 12, format: DATA },
     { header: "Agent", key: "agent", width: 20 },
@@ -414,7 +422,7 @@ export async function GET(request: NextRequest) {
         pasdata: v.nextStepDate ? new Date(`${v.nextStepDate}T12:00:00Z`) : null,
         pasfacut: v.nextStepDate ? (v.nextStepDone ? "da" : "nu") : "",
         note: [item.discussion, ...Object.entries(v.notes)
-          .filter(([, t]) => t?.trim())
+          .filter(([gid, t]) => !REMOVED_VISIT_QUESTION_IDS.has(gid) && t?.trim())
           .map(([gid, t]) => `${groups.find((g) => g.id === gid)?.label ?? gid}: ${t}`)]
           .filter(Boolean)
           .join(" || "),
@@ -452,6 +460,7 @@ export async function GET(request: NextRequest) {
   ]);
   for (const v of data.visits) {
     for (const [groupId, text] of Object.entries(v.notes ?? {})) {
+      if (REMOVED_VISIT_QUESTION_IDS.has(groupId)) continue;
       if (!text?.trim()) continue;
       voceaPietei.addRow({
         data: new Date(`${v.date}T12:00:00Z`),
